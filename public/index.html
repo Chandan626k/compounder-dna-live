@@ -168,16 +168,16 @@ canvas{display:block;width:100%;background:#07111d;border:1px solid var(--line);
 
     <div class="inputRow">
       <input id="symbol" class="input" placeholder="Enter stock: TITAN, INFY, TCS, HDFCBANK..." autocomplete="off">
-      <button id="analyse" class="btn" type="button" onclick="analyze(document.getElementById('symbol')?.value || '')">ANALYSE STOCK →</button>
+      <button id="analyse" class="btn" type="button">ANALYSE STOCK →</button>
     </div>
 
     <div class="quick">
-      <button class="chip" data-q="TITAN" type="button" onclick="analyze('TITAN')">TITAN</button>
-      <button class="chip" data-q="INFY" type="button" onclick="analyze('INFY')">INFY</button>
-      <button class="chip" data-q="TCS" type="button" onclick="analyze('TCS')">TCS</button>
-      <button class="chip" data-q="HDFCBANK" type="button" onclick="analyze('HDFCBANK')">HDFCBANK</button>
-      <button class="chip" data-q="BAJFINANCE" type="button" onclick="analyze('BAJFINANCE')">BAJFINANCE</button>
-      <button class="chip" data-q="ASIANPNT" type="button" onclick="analyze('ASIANPNT')">ASIANPNT</button>
+      <button class="chip" data-q="TITAN" type="button">TITAN</button>
+      <button class="chip" data-q="INFY" type="button">INFY</button>
+      <button class="chip" data-q="TCS" type="button">TCS</button>
+      <button class="chip" data-q="HDFCBANK" type="button">HDFCBANK</button>
+      <button class="chip" data-q="BAJFINANCE" type="button">BAJFINANCE</button>
+      <button class="chip" data-q="ASIANPNT" type="button">ASIANPNT</button>
     </div>
 
     <div class="liveNote">
@@ -338,6 +338,8 @@ canvas{display:block;width:100%;background:#07111d;border:1px solid var(--line);
 
 <script>
 let state={stock:null,sc:null,prices:[],tech:null,valuation:null,fundamentals:null,dataQuality:null,decision:null,live:false};
+let analysisController=null;
+let analysisRequestSeq=0;
 const num=(v,d=1)=>Number.isFinite(Number(v))?Number(v).toFixed(d):"N/A";
 const $=id=>document.getElementById(id);
 const clamp=n=>Math.max(0,Math.min(100,Math.round(Number(n)||0)));
@@ -396,16 +398,22 @@ async function analyze(raw){
   const input=String(raw||"").trim();
   if(!input)return;
 
+  if(analysisController) analysisController.abort();
+  const controller=new AbortController();
+  analysisController=controller;
+  const requestSeq=++analysisRequestSeq;
+
   $("load").classList.add("show");
   $("empty").classList.add("hidden");
   $("result").classList.add("hidden");
 
   try{
-    const r=await fetch("/api/analyze?symbol="+encodeURIComponent(input),{cache:"no-store"});
+    const r=await fetch("/api/analyze?symbol="+encodeURIComponent(input),{cache:"no-store",signal:controller.signal});
     let body=null;
     try{ body=await r.json(); }catch(_){}
     if(!r.ok) throw new Error(body?.detail || body?.error || `API error ${r.status}`);
     const live=body;
+    if(requestSeq!==analysisRequestSeq || controller.signal.aborted) return;
 
     state.stock=live.stock;
     state.sc=live.score;
@@ -425,6 +433,7 @@ async function analyze(raw){
     $("result").classList.remove("hidden");
     window.scrollTo({top:0,behavior:"smooth"});
   }catch(e){
+    if(e?.name==="AbortError") return;
     const msg=esc(e?.message||"Backend unavailable");
     $("empty").innerHTML=`<div style="text-align:center;padding:35px 10px"><div style="font-size:36px">⚠️</div><h2 style="margin:10px 0 6px">Live analysis failed</h2><div class="alert amber" style="margin-top:12px;text-align:left"><b>Backend response:</b><br>${msg}</div><div class="sub" style="margin-top:10px">The frontend is working. This message is the real API error.</div></div>`;
     $("empty").classList.remove("hidden");
@@ -450,6 +459,8 @@ function setupNavigation(){
 }
 
 function setupCoreEvents(){
+  const symbolInput=$("symbol");
+  if(symbolInput && !symbolInput.dataset.enterBound){symbolInput.dataset.enterBound="1";symbolInput.addEventListener("keydown",e=>{if(e.key==="Enter")analyze(symbolInput.value||"");});}
   const analyseBtn=$("analyse");
   if(analyseBtn && !analyseBtn.dataset.bound){
     analyseBtn.dataset.bound="1";
@@ -476,11 +487,14 @@ let autoTimer=null,pfAutoTimer=null,radarAutoTimer=null,swingAutoTimer=null;
 
 function decisionClass(a){a=String(a||"WAIT");return a.includes("BUY")||a.includes("ADD")?"buy":a.includes("SELL")||a.includes("AVOID")?"sell":"wait"}
 
-function techExplain(d,t){
-  const a=t.last>t.s20,b=t.last>t.s50,c=t.last>t.s200;
-  const momentum=t.rsi>=55&&t.rsi<=68?"healthy":t.rsi>68?"hot":t.rsi<35?"weak":"neutral";
+function techExplain(d,t={}){
+  const last=Number(t.last),s20=Number(t.s20),s50=Number(t.s50),s200=Number(t.s200),rsi=Number(t.rsi);
+  const a=Number.isFinite(last)&&Number.isFinite(s20)&&last>s20;
+  const b=Number.isFinite(last)&&Number.isFinite(s50)&&last>s50;
+  const c=Number.isFinite(last)&&Number.isFinite(s200)&&last>s200;
+  const momentum=!Number.isFinite(rsi)?"unavailable":rsi>=55&&rsi<=68?"healthy":rsi>68?"hot":rsi<35?"weak":"neutral";
   const verdict=a&&b&&c&&momentum==="healthy"?"TECHNICAL CONFIRMATION POSITIVE":(!c||momentum==="weak")?"TECHNICAL CAUTION":"MIXED / WAIT";
-  return {a,b,c,momentum,verdict};
+  return {a,b,c,momentum,verdict,last,s20,s50,s200,rsi};
 }
 
 function enhancedRender(){
@@ -581,7 +595,7 @@ function enhancedRender(){
     ['EPS 5Y CAGR',fmtPct(g.eps5yCagr),'Long-term per-share earnings growth','GROWTH'],
     ['FCF Margin',fmtPct(der.fcfMargin),'Free cash flow as % of revenue','CASH FLOW'],
     ['FCF Conversion',fmtPct(der.fcfConversion),'Free cash flow / net income','CASH FLOW'],
-    ['RSI',fmtPct(t.rsi),'Momentum indicator','TECHNICAL'],
+    ['RSI',Number.isFinite(Number(t.rsi))?Number(t.rsi).toFixed(1):'N/A','Momentum indicator','TECHNICAL'],
     ['200 DMA',fmtMoney(t.s200),'Long-term trend reference','TECHNICAL']
   ].map(r=>`<tr><td>${r[0]}</td><td><b>${r[1]}</b></td><td>${r[2]}</td><td><span class="${r[3]==='RISK'?'amber':r[3]==='VALUATION'?'violet':r[3]==='QUALITY'?'green':'cyan'}">${r[3]}</span></td></tr>`).join('');
 
@@ -595,9 +609,10 @@ function enhancedRender(){
     ['Overall risk',s.risk]
   ].map(x=>`<div style="margin:11px 0"><div class="kv"><span>${x[0]}</span><b>${num(x[1],0)}</b></div><div class="scorebar"><i style="width:${Math.max(0,Math.min(100,x[1]))}%;background:var(--red)"></i></div></div>`).join('')+`<div class="alert ${s.risk<45?'green':s.risk<65?'amber':'red'}">${s.risk<45?'Risk profile looks manageable in this framework.':s.risk<65?'Risk is mixed — valuation and downside need attention.':'Risk is elevated — capital protection comes first.'}</div>`;
   const riskReasons=[];
-  if(d.pe>=50)riskReasons.push(["Valuation","The multiple is high. Earnings growth must justify the price.","amber"]);
-  if(d.eg<0)riskReasons.push(["Earnings","Earnings growth is negative. A turnaround must be demonstrated rather than assumed.","red"]);
-  if(d.de!=null&&d.de>=1)riskReasons.push(["Leverage","Leverage increases downside if earnings weaken.","red"]);
+  const pe=Number(v.trailingPE), earningsGrowth=Number(q.earningsGrowth), debtToEquity=Number(q.debtToEquity);
+  if(Number.isFinite(pe)&&pe>=50)riskReasons.push(["Valuation","The multiple is high. Earnings growth must justify the price.","amber"]);
+  if(Number.isFinite(earningsGrowth)&&earningsGrowth<0)riskReasons.push(["Earnings","Earnings growth is negative. A turnaround must be demonstrated rather than assumed.","red"]);
+  if(Number.isFinite(debtToEquity)&&debtToEquity>=1)riskReasons.push(["Leverage","Leverage increases downside if earnings weaken.","red"]);
   if(s.risk>=55)riskReasons.push(["Overall risk","Risk is elevated, so the framework does not support aggressive buying now.","red"]);
   if(!riskReasons.length)riskReasons.push(["Current framework","No automatic blocker is detected, but live filings and current valuation must still be verified.","green"]);
   $('riskExplain').innerHTML=riskReasons.map(x=>`<div class="alert ${x[2]}"><b>${x[0]}:</b> ${x[1]}</div>`).join('');
@@ -606,14 +621,14 @@ function enhancedRender(){
 
 
   $("taBody").innerHTML=`<div class="grid4">
-    <div class="card"><div class="label">Trend</div><div class="big ${t.trend.includes("UP")?"green":t.trend==="DOWNTREND"?"red":"amber"}">${t.trend}</div></div>
+    <div class="card"><div class="label">Trend</div><div class="big ${String(t.trend||"UNAVAILABLE").includes("UP")?"green":t.trend==="DOWNTREND"?"red":"amber"}">${esc(t.trend||"UNAVAILABLE")}</div></div>
     <div class="card"><div class="label">RSI 14</div><div class="big ${t.rsi>70?"amber":t.rsi<30?"red":"green"}">${num(t.rsi,1)}</div><div class="sub">${tx.momentum}</div></div>
     <div class="card"><div class="label">SMA 50</div><div class="big cyan">₹${num(t.s50,0)}</div><div class="sub">${tx.b?"price above":"price below"}</div></div>
     <div class="card"><div class="label">SMA 200</div><div class="big violet">₹${num(t.s200,0)}</div><div class="sub">${tx.c?"price above":"price below"}</div></div>
   </div>
   <div class="explainBox"><div class="title">${tx.verdict}</div>
     <p><b>Trend:</b> ${tx.b&&tx.c?"Price is above medium/long-term trend references, which supports the setup.":"Trend confirmation is incomplete, so buying should not rely on price momentum alone."}</p>
-    <p><b>Momentum:</b> RSI ${t.rsi}. ${tx.momentum==="healthy"?"Momentum is constructive without an obvious extreme.":tx.momentum==="hot"?"Momentum is hot; chasing can increase entry risk.":tx.momentum==="weak"?"Momentum is weak; wait for repair.":"Momentum is neutral."}</p>
+    <p><b>Momentum:</b> RSI ${Number.isFinite(Number(t.rsi))?Number(t.rsi).toFixed(1):'N/A'}. ${tx.momentum==="healthy"?"Momentum is constructive without an obvious extreme.":tx.momentum==="hot"?"Momentum is hot; chasing can increase entry risk.":tx.momentum==="weak"?"Momentum is weak; wait for repair.":"Momentum is neutral."}</p>
     <p><b>20/50/200-day logic:</b> ${tx.a?"20D supportive":"20D weak"} · ${tx.b?"50D supportive":"50D weak"} · ${tx.c?"200D supportive":"200D weak"}.</p>
   </div>`;
 
@@ -640,8 +655,8 @@ function enhancedRender(){
   drawChart();
 
   $("riskTriggers").innerHTML=[
-    d.pe>=50?"Valuation improves OR earnings growth accelerates.":"Do not pay a much higher multiple without stronger growth.",
-    d.eg<0?"Earnings turn positive with stable/improving margins.":"Growth remains positive and cash conversion stays healthy.",
+    Number.isFinite(pe)&&pe>=50?"Valuation improves OR earnings growth accelerates.":"Do not pay a much higher multiple without stronger growth.",
+    Number.isFinite(earningsGrowth)&&earningsGrowth<0?"Earnings turn positive with stable/improving margins.":"Growth remains positive and cash conversion stays healthy.",
     s.risk>=55?"Risk score falls into the acceptable zone.":"Risk remains controlled.",
     "Fresh filings show no new governance, debt or accounting red flag.",
     "Technical trend confirms rather than contradicts the fundamental thesis."
@@ -687,10 +702,14 @@ function enhancedRender(){
     <div class="timelineItem"><b>IF THESIS BREAKS:</b> Follow the specific thesis-killer rather than emotion.</div>
   </div>`;
 
-  const entry=t.last,sl=Math.min(t.low,entry*.94),r=Math.max(1,entry-sl),t1=entry+r*2,t2=entry+r*3;
-  const swing=t.trend.includes("UP")&&t.rsi>=45&&t.rsi<70?"SWING SETUP POSSIBLE":t.trend==="DOWNTREND"||t.rsi<35?"AVOID / WAIT":"WAIT FOR CONFIRMATION";
-  $("swingBody").innerHTML=`<div class="grid4"><div class="card"><div class="label">Auto Entry</div><div class="big cyan">₹${fmt(entry)}</div></div><div class="card"><div class="label">Auto Stop</div><div class="big red">₹${fmt(sl)}</div></div><div class="card"><div class="label">Target 1</div><div class="big green">₹${fmt(t1)}</div><div class="sub">R/R 2:1</div></div><div class="card"><div class="label">Target 2</div><div class="big green">₹${fmt(t2)}</div><div class="sub">R/R 3:1</div></div></div>
-  <div class="explainBox"><div class="title">${swing}</div><p><b>Why:</b> Trend ${t.trend}; RSI ${t.rsi}; DNA ${s.overall}/100.</p><p><b>Real swing requirement:</b> price structure + volume + market regime + stop + minimum reward/risk. Live data will be required for a real signal.</p></div>`;
+  const entry=Number(t.last),low=Number(t.low);
+  const sl=Number.isFinite(entry)&&Number.isFinite(low)?Math.min(low,entry*.94):NaN;
+  const r=Number.isFinite(entry)&&Number.isFinite(sl)?Math.max(1,entry-sl):NaN;
+  const t1=Number.isFinite(r)?entry+r*2:NaN,t2=Number.isFinite(r)?entry+r*3:NaN;
+  const trend=String(t.trend||"UNAVAILABLE"),rsi=Number(t.rsi);
+  const swing=trend.includes("UP")&&Number.isFinite(rsi)&&rsi>=45&&rsi<70?"SWING SETUP POSSIBLE":t.trend==="DOWNTREND"||t.rsi<35?"AVOID / WAIT":"WAIT FOR CONFIRMATION";
+  $("swingBody").innerHTML=`<div class="grid4"><div class="card"><div class="label">Auto Entry</div><div class="big cyan">${Number.isFinite(entry)?`₹${fmt(entry)}`:`N/A`}</div></div><div class="card"><div class="label">Auto Stop</div><div class="big red">${Number.isFinite(sl)?`₹${fmt(sl)}`:`N/A`}</div></div><div class="card"><div class="label">Target 1</div><div class="big green">${Number.isFinite(t1)?`₹${fmt(t1)}`:`N/A`}</div><div class="sub">R/R 2:1</div></div><div class="card"><div class="label">Target 2</div><div class="big green">${Number.isFinite(t2)?`₹${fmt(t2)}`:`N/A`}</div><div class="sub">R/R 3:1</div></div></div>
+  <div class="explainBox"><div class="title">${swing}</div><p><b>Why:</b> Trend ${esc(trend)}; RSI ${Number.isFinite(rsi)?rsi.toFixed(1):'N/A'}; DNA ${s.overall}/100.</p><p><b>Real swing requirement:</b> price structure + volume + market regime + stop + minimum reward/risk. Live data will be required for a real signal.</p></div>`;
 }
 
 function fmt(n){return Number(n).toLocaleString("en-IN",{maximumFractionDigits:0})}
@@ -700,8 +719,9 @@ function drawChart(){
   const W=c.clientWidth||700,H=240;c.width=W;c.height=H;
   const ctx=c.getContext("2d");ctx.clearRect(0,0,W,H);
   const a=t.prices.filter(Number.isFinite);if(!a.length)return;
-  const mn=Math.min(...a)*.97,mx=Math.max(...a)*1.03;
-  const X=i=>20+i/(a.length-1)*(W-35),Y=v=>H-20-(v-mn)/(mx-mn)*(H-35);
+  const rawMin=Math.min(...a),rawMax=Math.max(...a),span=Math.max(rawMax-rawMin,1);
+  const mn=rawMin-span*.03,mx=rawMax+span*.03;
+  const X=i=>20+(a.length===1?0:i/(a.length-1)*(W-35)),Y=v=>H-20-(v-mn)/(mx-mn)*(H-35);
   ctx.strokeStyle="#17314a";ctx.lineWidth=1;
   for(let i=1;i<5;i++){const y=H*i/5;ctx.beginPath();ctx.moveTo(10,y);ctx.lineTo(W-10,y);ctx.stroke();}
   ctx.beginPath();a.forEach((v,i)=>i?ctx.lineTo(X(i),Y(v)):ctx.moveTo(X(i),Y(v)));ctx.strokeStyle="#00e5ff";ctx.lineWidth=2;ctx.stroke();
@@ -744,7 +764,7 @@ async function runRadarEnhanced(){
     catch(e){out.push({stock:{symbol:input.toUpperCase()},score:{overall:0,quality:0,wealth:0,risk:100},technical:{trend:"UNAVAILABLE"},decision:{action:"DATA UNAVAILABLE",reason:["Live analysis failed for this symbol."]}});}
   }
   out.sort((a,b)=>b.score.overall-a.score.overall);
-  $("radarTable").innerHTML=out.map((x,i)=>{const dec=x.decision||{action:"DATA UNAVAILABLE",reason:["Live analysis unavailable."]},a=dec.action||dec.a,why=x.score.risk>=60?"Risk is pulling the rank down.":x.score.overall>=78?"Quality + growth support the rank.":"Mixed evidence needs monitoring.";return `<tr><td>${i+1}</td><td><b>${x.stock.symbol}</b></td><td class="cyan">${x.score.overall.toFixed(0)}</td><td>${x.score.quality.toFixed(0)}</td><td class="violet">${x.score.wealth.toFixed(0)}</td><td class="${x.score.risk>60?"red":"green"}">${x.score.risk.toFixed(0)}</td><td>${x.technical.trend}</td><td><span class="signal ${decisionClass(a)}">${a}</span><div class="why">${why}</div><button class="btn secondary" style="margin-top:6px" onclick="analyze('${x.stock.symbol}')">VIEW</button></td></tr>`}).join("");
+  $("radarTable").innerHTML=out.map((x,i)=>{const dec=x.decision||{action:"DATA UNAVAILABLE",reason:["Live analysis unavailable."]},a=dec.action||dec.a,why=x.score.risk>=60?"Risk is pulling the rank down.":x.score.overall>=78?"Quality + growth support the rank.":"Mixed evidence needs monitoring.";return `<tr><td>${i+1}</td><td><b>${x.stock.symbol}</b></td><td class="cyan">${x.score.overall.toFixed(0)}</td><td>${x.score.quality.toFixed(0)}</td><td class="violet">${x.score.wealth.toFixed(0)}</td><td class="${x.score.risk>60?"red":"green"}">${x.score.risk.toFixed(0)}</td><td>${x.technical.trend}</td><td><span class="signal ${decisionClass(a)}">${a}</span><div class="why">${why}</div><button class="btn secondary" style="margin-top:6px">VIEW</button></td></tr>`}).join("");
   $("radarMsg").textContent=out.length+" stocks ranked · live refresh "+new Date().toLocaleTimeString("en-IN");
 }
 function setRadarAuto(on){
