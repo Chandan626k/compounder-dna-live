@@ -68,7 +68,10 @@ async function handleAI(req, res, id) {
   catch { return errorResponse(res, 400, 'Invalid JSON body', id); }
 
   const { valid, errors } = validateAnalyzeRequest(body);
-  if (!valid) Object.entries(CORS).forEach(([k,v]) => res.setHeader(k,v)); return res.status(400).json({ success: false, error: 'Validation failed', details: errors, requestId: id });
+  if (!valid) {
+    Object.entries(CORS).forEach(([k,v]) => res.setHeader(k,v));
+    return res.status(400).json({ success: false, error: 'Validation failed', details: errors, requestId: id });
+  }
 
   const { stockName, sector, industry = '', metrics, scores, horizon = 20 } = body;
   const cacheKey = `analyze:${String(stockName).toLowerCase().replace(/[^a-z0-9]/g, '_')}:${horizon}`;
@@ -101,7 +104,10 @@ async function handleAI(req, res, id) {
 
 export default async function handler(req, res) {
   const id = requestId(req);
-  if (req.method === 'OPTIONS') Object.entries(CORS).forEach(([k,v]) => res.setHeader(k,v)); return res.status(204).end();
+  if (req.method === 'OPTIONS') {
+    Object.entries(CORS).forEach(([k,v]) => res.setHeader(k,v));
+    return res.status(204).end();
+  }
 
   // Live StockSamjho analysis: GET /api/analyze?symbol=TCS
   if (req.method === 'GET') {
