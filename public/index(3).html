@@ -566,9 +566,9 @@ async function analyze(raw){
   const input=String(raw||"").trim();
   if(!input)return;
 
-  $("#load").classList.add("show");
-  $("#empty").classList.add("hidden");
-  $("#result").classList.add("hidden");
+  $("load").classList.add("show");
+  $("empty").classList.add("hidden");
+  $("result").classList.add("hidden");
 
   try{
     const r=await fetch("/api/analyze?symbol="+encodeURIComponent(input),{cache:"no-store"});
@@ -577,27 +577,18 @@ async function analyze(raw){
     if(!r.ok) throw new Error(body?.detail || body?.error || `API error ${r.status}`);
     const live=body;
 
-    // Support both API response shapes:
-    // 1) { stock, score, technical, ... }
-    // 2) { stock: { ..., score: { ..., technical: {...} } } }
-    const apiStock=live?.stock || {};
-    const apiScore=live?.score || apiStock?.score || {};
-    const apiTechnical=live?.technical || apiScore?.technical || apiStock?.technical || {};
-
-    state.stock=apiStock;
-    state.sc=apiScore;
-    state.tech=apiTechnical;
+    state.stock=live.stock;
+    state.sc=live.score;
+    state.tech=live.technical;
     state.live=true;
 
     window.__lastLive=live;
 
-    const apiSource=live?.source || apiStock?.source || "Yahoo Finance";
-    const apiAsOf=live?.asOf || apiStock?.asOf || new Date().toISOString();
-    $("#liveStatus").textContent="● LIVE DATA • "+apiSource+" • "+new Date(apiAsOf).toLocaleTimeString("en-IN");
-    $("#liveStatus").className="liveStatus live";
+    $("liveStatus").textContent="● LIVE DATA • "+live.source+" • "+new Date(live.asOf).toLocaleTimeString("en-IN");
+    $("liveStatus").className="liveStatus live";
 
     render();
-    $("#result").classList.remove("hidden");
+    $("result").classList.remove("hidden");
     window.scrollTo({top:0,behavior:"smooth"});
   }catch(e){
     const msg=esc(e?.message||"Backend unavailable");
@@ -608,7 +599,7 @@ async function analyze(raw){
     $("liveStatus").className="liveStatus err";
     console.error("Analysis error:",e);
   }finally{
-    $("#load").classList.remove("show");
+    $("load").classList.remove("show");
   }
 }
 
@@ -832,3 +823,5 @@ $("swingAutoToggle")?.addEventListener("click",()=>setSwingAuto(!$("swingDot")?.
 <script src="/auto-mode.js"></script>
 </body>
 </html>
+
+
