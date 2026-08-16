@@ -490,6 +490,115 @@ function enhancedRender(){
   const decAction=dec.action||dec.a||"DATA INSUFFICIENT";
   const decReasons=dec.reason||dec.why||[];
 
+  // ===== OVERVIEW / FUNDAMENTAL / VALUATION RENDER =====
+  const q=f?.ratios||{}, g=f?.growth||{}, der=f?.derived||{};
+  const qualityLabel=s.quality>=80?'EXCELLENT':s.quality>=65?'STRONG':s.quality>=50?'AVERAGE':'WEAK';
+  const growthLabel=s.wealth>=80?'HIGH GROWTH':s.wealth>=65?'HEALTHY GROWTH':s.wealth>=50?'MODERATE':'WEAK GROWTH';
+  const riskLabel=s.risk<35?'LOW':s.risk<55?'MODERATE':s.risk<70?'HIGH':'VERY HIGH';
+  const confidenceLabel=s.confidence>=85?'HIGH':s.confidence>=65?'MEDIUM':'LOW';
+  const fmtMoney=v=>Number.isFinite(Number(v))?`₹${Number(v).toLocaleString('en-IN',{maximumFractionDigits:0})}`:'N/A';
+  const fmtPct=v=>Number.isFinite(Number(v))?`${Number(v).toFixed(1)}%`:'N/A';
+  const fmtX=v=>Number.isFinite(Number(v))?`${Number(v).toFixed(2)}x`:'N/A';
+  const statusClass=(ok,kind='green')=>ok?kind:'amber';
+
+  $('stockName').textContent=d.name||d.symbol||'—';
+  $('stockMeta').textContent=`${d.symbol||'—'} · ${d.sector||'N/A'}${d.industry?' · '+d.industry:''}`;
+  $('type').textContent=s.overall>=80?'ELITE COMPOUNDER':s.overall>=68?'STRONG COMPOUNDER':s.overall>=50?'SELECTIVE / AVERAGE':'WEAK / HIGH RISK';
+  $('type').className='badge '+(s.overall>=80?'bcyan':s.overall>=68?'bgreen':s.overall>=50?'bamber':'bred');
+  $('stamp').textContent=`${state.live?'LIVE DATA':'DATA UNAVAILABLE'} · ${state.dataQuality?.status||'QUALITY CHECKED'} · ${new Date().toLocaleTimeString('en-IN')}`;
+
+  $('topScores').innerHTML=[
+    ['DNA',s.overall,'cyan'],['QUALITY',s.quality,'cyan'],['WEALTH',s.wealth,'violet'],['RISK',s.risk,'red']
+  ].map(x=>`<div class="card"><div class="label">${x[0]}</div><div class="big ${x[2]}">${num(x[1],0)}</div><div class="scorebar"><i style="width:${Math.max(0,Math.min(100,Number(x[1])||0))}%;background:${x[2]==='red'?'var(--red)':x[2]==='violet'?'var(--violet)':'var(--cyan)'}"></i></div></div>`).join('');
+
+  $('scoreRows').innerHTML=[
+    ['Business quality',s.quality,'Moat, profitability, returns and balance-sheet quality.'],
+    ['Wealth creation',s.wealth,'Growth, earnings trajectory and reinvestment runway.'],
+    ['Risk',s.risk,'Lower is safer; valuation, leverage and business risks are included.'],
+    ['Confidence',s.confidence,'Completeness and consistency of the live dataset.']
+  ].map(x=>`<div style="margin:12px 0"><div class="kv"><span>${x[0]}</span><b>${num(x[1],0)}/100</b></div><div class="scorebar"><i style="width:${Math.max(0,Math.min(100,Number(x[1])||0))}%;background:${x[0]==='Risk'?'var(--red)':'var(--cyan)'}"></i></div><div class="why">${x[2]}</div></div>`).join('');
+
+  const cross=[];
+  if(q.roe!=null && q.debtToEquity!=null && q.debtToEquity>1) cross.push(['RED FLAG','High ROE with meaningful leverage. Check whether leverage is driving returns.']);
+  if(q.revenueGrowth!=null && q.earningsGrowth!=null && q.revenueGrowth>10 && q.earningsGrowth<0) cross.push(['RED FLAG','Revenue is growing while earnings are falling. Investigate margins, costs and one-offs.']);
+  if(der.fcfConversion!=null && der.fcfConversion<60) cross.push(['CASH FLOW','Profit-to-cash conversion is below 60%; inspect working capital and capex.']);
+  if(v.trailingPE!=null && q.earningsGrowth!=null && v.trailingPE>40 && q.earningsGrowth<15) cross.push(['VALUATION','High multiple with modest earnings growth leaves less margin of safety.']);
+  if(q.debtToEquity!=null && q.debtToEquity<0.3) cross.push(['POSITIVE','Low reported leverage supports balance-sheet resilience.']);
+  if(der.fcfConversion!=null && der.fcfConversion>=80) cross.push(['POSITIVE','Strong profit-to-cash conversion supports earnings quality.']);
+  $('cross').innerHTML=(cross.length?cross:[['CHECK','No automatic contradiction detected. Primary filings and business-specific due diligence are still required.']]).map(x=>`<div class="alert ${x[0]==='POSITIVE'?'green':x[0]==='VALUATION'?'amber':x[0]==='RED FLAG'?'red':'blue'}"><b>${x[0]}</b><br>${esc(x[1])}</div>`).join('');
+
+  $('fundamentalBody').innerHTML=`<div class="grid4">
+    <div class="card"><div class="label">QUALITY</div><div class="big cyan">${qualityLabel}</div><div class="sub">Score ${num(s.quality,0)}/100</div></div>
+    <div class="card"><div class="label">GROWTH</div><div class="big violet">${growthLabel}</div><div class="sub">Score ${num(s.wealth,0)}/100</div></div>
+    <div class="card"><div class="label">CASH FLOW</div><div class="big ${der.fcfConversion!=null&&der.fcfConversion>=80?'green':'amber'}">${der.fcfConversion!=null?fmtPct(der.fcfConversion):'VERIFY'}</div><div class="sub">FCF conversion</div></div>
+    <div class="card"><div class="label">CAPITAL DISCIPLINE</div><div class="big ${q.debtToEquity!=null&&q.debtToEquity<0.6?'cyan':'amber'}">${q.debtToEquity!=null?fmtX(q.debtToEquity):'VERIFY'}</div><div class="sub">Debt / equity</div></div>
+  </div>`;
+  $('bizChecks').innerHTML=checks([
+    ['Is the business understandable?','Can the business model and revenue drivers be explained clearly?'],
+    ['Is there a durable moat?','Check brand, network, switching costs, distribution, cost advantage or scale.'],
+    ['Are returns strong?','ROE/ROA should be evaluated alongside leverage and business model.'],
+    ['Can it reinvest at attractive returns?','Long runway matters for a compounder.'],
+    ['Is growth creating per-share value?','Check dilution, acquisitions and capital allocation.']
+  ]);
+  $('earnChecks').innerHTML=checks([
+    ['Do revenue and earnings move together?','Divergence needs investigation.'],
+    ['Do profits convert into cash?','Use FCF conversion and cash-flow statements.'],
+    ['Are margins stable?','Persistent deterioration can break the thesis.'],
+    ['Is working capital controlled?','Receivables and inventory can consume reported profits.'],
+    ['Is EPS growth durable?','Separate recurring operating growth from one-offs.']
+  ]);
+
+  const peg=v.pegRatio??(v.trailingPE!=null&&q.earningsGrowth>0?v.trailingPE/q.earningsGrowth:null);
+  $('valuationSnapshot').innerHTML=`<div class="valuationHero"><div class="valuationMain"><div class="label">BASE FAIR VALUE</div><div class="fair ${Number(v.upsideToFairValue)>=0?'positive':'negative'}">${fmtMoney(v.fairValue)}</div><div class="sub">${esc(v.verdict||'DATA INSUFFICIENT')} · Current ${fmtMoney(v.currentPrice??d.price)} · Upside ${fmtPct(v.upsideToFairValue)}</div><div class="scorebar" style="margin-top:10px"><i style="width:${Math.max(0,Math.min(100,50+(Number(v.upsideToFairValue)||0)))}%;background:${Number(v.upsideToFairValue)>=0?'var(--green)':'var(--red)'}"></i></div><div class="why" style="margin-top:8px">${esc(v.warning||v.method||'Growth-adjusted valuation framework. Fair value is an estimate, not a target or guarantee.')}</div></div><div class="card"><div class="label">VALUATION SIGNALS</div><div class="kv"><span>Trailing P/E</span><b>${fmtX(v.trailingPE)}</b></div><div class="kv"><span>Forward P/E</span><b>${fmtX(v.forwardPE)}</b></div><div class="kv"><span>PEG</span><b>${Number.isFinite(Number(peg))?Number(peg).toFixed(2):'N/A'}</b></div><div class="kv"><span>Margin of safety</span><b class="${Number(v.marginOfSafety)>=0?'positive':'negative'}">${fmtPct(v.marginOfSafety)}</b></div></div></div>`;
+  $('valuationBody').innerHTML=`<div class="valuationHero"><div class="valuationMain"><div class="label">VALUATION VERDICT</div><div class="action">${esc(v.verdict||'DATA INSUFFICIENT')}</div><div class="reason">Current price ${fmtMoney(v.currentPrice??d.price)} vs base fair value ${fmtMoney(v.fairValue)}. Framework upside/downside: <b>${fmtPct(v.upsideToFairValue)}</b>.</div></div><div class="card"><div class="label">REFERENCE DATA</div><div class="kv"><span>Market P/E</span><b>${fmtX(v.trailingPE)}</b></div><div class="kv"><span>Justified P/E</span><b>${fmtX(v.basePE)}</b></div><div class="kv"><span>Forward EPS</span><b>${fmtMoney(v.forwardEPS)}</b></div><div class="why">P/B is shown separately; it is not blindly blended into fair value.</div></div></div>`;
+  $('valuationCards').innerHTML=[
+    ['Growth quality',`5Y revenue CAGR ${fmtPct(g.revenue5yCagr)} · 5Y EPS CAGR ${fmtPct(g.eps5yCagr)}.`],
+    ['Earnings power',`Trailing EPS ${fmtMoney(v.trailingEPS)} · Forward EPS ${fmtMoney(v.forwardEPS)}.`],
+    ['Cash economics',`FCF conversion ${fmtPct(der.fcfConversion)} · FCF margin ${fmtPct(der.fcfMargin)}.`],
+    ['Risk-adjusted price',`${esc(v.verdict||'N/A')} with ${fmtPct(v.marginOfSafety)} margin of safety.`],
+    ['Market expectation',`Forward P/E ${fmtX(v.forwardPE)} vs justified ${fmtX(v.basePE)}.`],
+    ['Method',esc(v.method||'Growth-adjusted justified multiple.')]
+  ].map(x=>`<div class="card"><b>${x[0]}</b><p class="sub">${x[1]}</p></div>`).join('');
+
+  $('metrics').innerHTML=[
+    ['Current Price',fmtMoney(d.price),'Latest live market price','INPUT'],
+    ['Market Cap',fmtMoney(v.marketCap),'Equity value at current price','INPUT'],
+    ['P/E',fmtX(v.trailingPE),'Current earnings multiple','VALUATION'],
+    ['Forward P/E',fmtX(v.forwardPE),'Next-period earnings multiple','VALUATION'],
+    ['PEG',Number.isFinite(Number(peg))?Number(peg).toFixed(2):'N/A','P/E relative to growth; screening metric','VALUATION'],
+    ['P/B',fmtX(v.priceToBook),'Price versus book value','VALUATION'],
+    ['Fair Value',fmtMoney(v.fairValue),'Base growth-adjusted fair-value estimate','VALUATION'],
+    ['Upside / Downside',fmtPct(v.upsideToFairValue),'Current price versus fair value','VALUATION'],
+    ['ROE',fmtPct(q.roe),'Return on equity','QUALITY'],
+    ['ROA',fmtPct(q.roa),'Asset efficiency','QUALITY'],
+    ['Debt / Equity',fmtX(q.debtToEquity),'Balance-sheet leverage','RISK'],
+    ['Net Debt / EBITDA',fmtX(der.netDebtToEbitda),'Debt burden after cash','RISK'],
+    ['Net Margin',fmtPct(q.netMargin),'Profit retained from revenue','QUALITY'],
+    ['Operating Margin',fmtPct(q.operatingMargin),'Core operating profitability','QUALITY'],
+    ['Revenue Growth',fmtPct(q.revenueGrowth),'Latest top-line growth','GROWTH'],
+    ['Earnings Growth',fmtPct(q.earningsGrowth),'Latest bottom-line growth','GROWTH'],
+    ['Revenue 5Y CAGR',fmtPct(g.revenue5yCagr),'Long-term top-line compounding','GROWTH'],
+    ['EPS 5Y CAGR',fmtPct(g.eps5yCagr),'Long-term per-share earnings growth','GROWTH'],
+    ['FCF Margin',fmtPct(der.fcfMargin),'Free cash flow as % of revenue','CASH FLOW'],
+    ['FCF Conversion',fmtPct(der.fcfConversion),'Free cash flow / net income','CASH FLOW'],
+    ['RSI',fmtPct(t.rsi),'Momentum indicator','TECHNICAL'],
+    ['200 DMA',fmtMoney(t.s200),'Long-term trend reference','TECHNICAL']
+  ].map(r=>`<tr><td>${r[0]}</td><td><b>${r[1]}</b></td><td>${r[2]}</td><td><span class="${r[3]==='RISK'?'amber':r[3]==='VALUATION'?'violet':r[3]==='QUALITY'?'green':'cyan'}">${r[3]}</span></td></tr>`).join('');
+
+  $('thesis').innerHTML=`<div class="reason"><b>Business quality:</b> ${num(s.quality,0)}/100 (${qualityLabel}).<br><b>Wealth creation:</b> ${num(s.wealth,0)}/100 (${growthLabel}).<br><b>Risk:</b> ${num(s.risk,0)}/100 (${riskLabel}; lower is safer).<br><b>Confidence:</b> ${num(s.confidence,0)}/100 (${confidenceLabel}).<br><br><b>Decision:</b> ${esc(decAction)}.<br>${decReasons.length?decReasons.map(x=>`• ${esc(x)}`).join('<br>'):'The backend did not provide a detailed reason.'}</div>`;
+  $('final').innerHTML=`<div class="verdict"><span class="signal ${decisionClass(decAction)}">${esc(decAction)}</span><div class="action">${esc(decAction)}</div><div class="reason">${decReasons.length?decReasons.map(x=>`• ${esc(x)}`).join('<br>'):'Decision evidence is insufficient.'}</div><div class="why" style="margin-top:10px">Framework output only. Verify primary filings, current market conditions and your own risk tolerance before acting.</div></div>`;
+
+  $('riskBody').innerHTML=[
+    ['Debt risk',q.debtToEquity==null?48:q.debtToEquity<.3?18:q.debtToEquity<1?40:q.debtToEquity<2?62:85],
+    ['Valuation risk',v.trailingPE==null?50:v.trailingPE<20?20:v.trailingPE<30?35:v.trailingPE<40?50:v.trailingPE<60?68:85],
+    ['Business risk',d.sector?.includes('Technology')?30:d.sector?.includes('Consumer')?35:d.sector?.includes('Financial')?45:50],
+    ['Overall risk',s.risk]
+  ].map(x=>`<div style="margin:11px 0"><div class="kv"><span>${x[0]}</span><b>${num(x[1],0)}</b></div><div class="scorebar"><i style="width:${Math.max(0,Math.min(100,x[1]))}%;background:var(--red)"></i></div></div>`).join('')+`<div class="alert ${s.risk<45?'green':s.risk<65?'amber':'red'}">${s.risk<45?'Risk profile looks manageable in this framework.':s.risk<65?'Risk is mixed — valuation and downside need attention.':'Risk is elevated — capital protection comes first.'}</div>`;
+  $('riskExplain').innerHTML=riskReasons.map(x=>`<div class="alert ${x[2]}"><b>${x[0]}:</b> ${x[1]}</div>`).join('');
+
+  $('mgmtBody').innerHTML=`<div class="alert amber"><b>VERIFY:</b> Promoter holding, pledge, related-party transactions, auditor qualifications, regulatory issues and management execution require primary-source verification.</div><div class="grid3"><div class="card"><div class="label">Promoter holding</div><div class="big amber">VERIFY</div></div><div class="card"><div class="label">Promoter pledge</div><div class="big amber">VERIFY</div></div><div class="card"><div class="label">Governance</div><div class="big amber">VERIFY</div></div></div>`;
+
+
   $("taBody").innerHTML=`<div class="grid4">
     <div class="card"><div class="label">Trend</div><div class="big ${t.trend.includes("UP")?"green":t.trend==="DOWNTREND"?"red":"amber"}">${t.trend}</div></div>
     <div class="card"><div class="label">RSI 14</div><div class="big ${t.rsi>70?"amber":t.rsi<30?"red":"green"}">${num(t.rsi,1)}</div><div class="sub">${tx.momentum}</div></div>
@@ -521,6 +630,8 @@ function enhancedRender(){
     <p><b>4. Recent range:</b> ₹${fmt(t.low)}–₹${fmt(t.high)}; midpoint reference ₹${fmt(mid)}.</p>
     <p><b>5. Invalidation:</b> A breakdown of important support plus weak volume/earnings/news evidence would weaken the setup.</p>
     <p><b>Data note:</b> All chart values above come from the live API response.</p>`;
+
+  drawChart();
 
   const riskReasons=[];
   if(d.pe>=50)riskReasons.push(["Valuation","The multiple is high. Earnings growth must justify the price.","amber"]);
@@ -585,7 +696,20 @@ function enhancedRender(){
 
 function fmt(n){return Number(n).toLocaleString("en-IN",{maximumFractionDigits:0})}
 
+function drawChart(){
+  const c=$("chart"),t=state.tech;if(!c||!t||!Array.isArray(t.prices)||!t.prices.length)return;
+  const W=c.clientWidth||700,H=240;c.width=W;c.height=H;
+  const ctx=c.getContext("2d");ctx.clearRect(0,0,W,H);
+  const a=t.prices.filter(Number.isFinite);if(!a.length)return;
+  const mn=Math.min(...a)*.97,mx=Math.max(...a)*1.03;
+  const X=i=>20+i/(a.length-1)*(W-35),Y=v=>H-20-(v-mn)/(mx-mn)*(H-35);
+  ctx.strokeStyle="#17314a";ctx.lineWidth=1;
+  for(let i=1;i<5;i++){const y=H*i/5;ctx.beginPath();ctx.moveTo(10,y);ctx.lineTo(W-10,y);ctx.stroke();}
+  ctx.beginPath();a.forEach((v,i)=>i?ctx.lineTo(X(i),Y(v)):ctx.moveTo(X(i),Y(v)));ctx.strokeStyle="#00e5ff";ctx.lineWidth=2;ctx.stroke();
+}
+
 function render(){ enhancedRender(); }
+
 
 async function refreshLiveCurrent(){
   if(!state.stock)return;
