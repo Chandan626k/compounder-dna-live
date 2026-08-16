@@ -1,1 +1,15 @@
-{"name":"compounder-dna-live","version":"1.0.0","private":true,"type":"module","scripts":{"start":"node server.js"},"engines":{"node":">=20"},"dependencies":{"express":"^5.1.0","yahoo-finance2":"^4.0.0"}}
+{
+  "name": "compounder-dna-backend",
+  "version": "2.0.0",
+  "type": "module",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "openai": "^4.47.1",
+    "yahoo-finance2": "4.0.2"
+  },
+  "devDependencies": {
+    "vercel": "^34.0.0"
+  }
+}
