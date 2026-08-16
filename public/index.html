@@ -47,7 +47,7 @@ h3{font-size:14px;margin:0}
 .btn.secondary{background:#091726;color:var(--cyan);border:1px solid #24506a}
 .quick{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
 .chip{border:1px solid #20405b;background:#081321;color:var(--cyan);border-radius:6px;padding:6px 9px;font:10px var(--mono)}
-.demoNote{margin-top:10px;padding:9px 11px;border:1px solid #314764;background:#091522;border-radius:7px;color:#8fa5bf;font:10px var(--mono);line-height:1.6}
+.liveNote{margin-top:10px;padding:9px 11px;border:1px solid #314764;background:#091522;border-radius:7px;color:#8fa5bf;font:10px var(--mono);line-height:1.6}
 .spinner{display:none;text-align:center;padding:30px;color:var(--muted);font:11px var(--mono);letter-spacing:1.5px}
 .spinner.show{display:block}
 .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
@@ -180,8 +180,8 @@ canvas{display:block;width:100%;background:#07111d;border:1px solid var(--line);
       <button class="chip" data-q="ASIANPNT" type="button" onclick="analyze('ASIANPNT')">ASIANPNT</button>
     </div>
 
-    <div class="demoNote">
-      LIVE MODE: Analysis uses the local backend and Yahoo Finance data. If live data fails, the page shows the actual backend error instead of silently replacing it with demo numbers.
+    <div class="liveNote">
+      LIVE MODE: Analysis uses the deployed backend and Yahoo Finance data. Missing or unavailable fields remain unavailable; no fabricated market numbers are used.
     </div>
   </div>
 
@@ -337,103 +337,11 @@ canvas{display:block;width:100%;background:#07111d;border:1px solid var(--line);
 </main>
 
 <script>
-const DATA={
-TITAN:{name:"Titan Company Ltd",sector:"Consumer Discretionary",price:3405,pe:78, fpe:64,pb:25.4,roe:32.4,roa:13.6,de:.22,npm:9.8,opm:12.4,rg:20.1,eg:22.8,revenue:55000,profit:5400,debt:1800,cash:4100,fcf:3200,div:0.32,payout:25,high:3860,low:3050,trend:"UPTREND",rsi:61},
-INFY:{name:"Infosys Ltd",sector:"Information Technology",price:1510,pe:24.5,fpe:22.2,pb:7.1,roe:31.2,roa:18.4,de:.10,npm:16.5,opm:24.2,rg:7.2,eg:9.4,revenue:168000,profit:27000,debt:9000,cash:30000,fcf:24000,div:2.8,payout:68,high:1975,low:1350,trend:"RECOVERING",rsi:52},
-TCS:{name:"Tata Consultancy Services Ltd",sector:"Information Technology",price:3110,pe:26.8,fpe:25.2,pb:13.1,roe:52.0,roa:25.1,de:.05,npm:19.2,opm:26.0,rg:5.6,eg:8.1,revenue:260000,profit:49000,debt:0,cash:45000,fcf:43000,div:1.5,payout:41,high:4590,low:3050,trend:"SIDEWAYS",rsi:47},
-HDFCBANK:{name:"HDFC Bank Ltd",sector:"Financial Services",price:1960,pe:21.2,fpe:19.4,pb:2.7,roe:15.4,roa:1.9,de:null,npm:18.1,opm:null,rg:11.8,eg:14.5,revenue:0,profit:70000,debt:null,cash:null,fcf:null,div:1.2,payout:19,high:2020,low:1360,trend:"STRONG UPTREND",rsi:59},
-BAJFINANCE:{name:"Bajaj Finance Ltd",sector:"Financial Services",price:9800,pe:34.2,fpe:29.5,pb:6.1,roe:21.5,roa:4.6,de:4.8,npm:24.5,opm:null,rg:27.2,eg:22.0,revenue:0,profit:16000,debt:null,cash:null,fcf:null,div:.4,payout:13,high:10200,low:6200,trend:"STRONG UPTREND",rsi:64},
-ASIANPNT:{name:"Asian Paints Ltd",sector:"Consumer Discretionary",price:2440,pe:52.5,fpe:47.0,pb:13.5,roe:24.8,roa:13.9,de:.18,npm:10.2,opm:14.0,rg:2.8,eg:-4.1,revenue:35000,profit:3600,debt:2800,cash:1700,fcf:2200,div:.95,payout:49,high:3423,low:2120,trend:"DOWNTREND",rsi:39}
-};
-
 let state={stock:null,sc:null,prices:[],tech:null,valuation:null,fundamentals:null,dataQuality:null,decision:null,live:false};
 const num=(v,d=1)=>Number.isFinite(Number(v))?Number(v).toFixed(d):"N/A";
-
 const $=id=>document.getElementById(id);
-const clamp=n=>Math.max(0,Math.min(100,Math.round(n)));
-const esc=x=>String(x??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
-
-function normalise(raw){
-  const u=String(raw||"").trim().toUpperCase().replace(/\s+/g,"");
-  if(DATA[u]) return {symbol:u,...DATA[u]};
-  const key=Object.keys(DATA).find(k=>DATA[k].name.toUpperCase().includes(String(raw||"").trim().toUpperCase()));
-  if(key) return {symbol:key,...DATA[key]};
-  return null;
-}
-
-function score(d){
-  const quality=clamp(
-    (d.roe==null?50:d.roe>=30?92:d.roe>=25?82:d.roe>=20?72:d.roe>=15?58:40)*.30+
-    (d.npm==null?50:d.npm>=20?88:d.npm>=15?78:d.npm>=10?66:48)*.25+
-    (d.de==null?50:d.de<.3?88:d.de<1?65:d.de<2?48:25)*.25+
-    (d.opm==null?55:d.opm>=20?88:d.opm>=12?70:48)*.20
-  );
-  const wealth=clamp(
-    (d.rg==null?50:d.rg>=20?90:d.rg>=12?76:d.rg>=7?62:d.rg>0?48:25)*.40+
-    (d.eg==null?50:d.eg>=20?88:d.eg>=10?72:d.eg>0?55:28)*.25+
-    (d.revenue?72:60)*.20+
-    (d.payout==null?55:clamp(100-d.payout))*.15
-  );
-  const debtRisk=d.de==null?48:d.de<.3?18:d.de<1?40:d.de<2?62:85;
-  const valRisk=d.pe==null?50:d.pe<20?20:d.pe<30?35:d.pe<40?50:d.pe<60?68:85;
-  const businessRisk=d.sector.includes("Technology")?30:d.sector.includes("Consumer")?35:d.sector.includes("Financial")?45:50;
-  const risk=clamp(debtRisk*.35+valRisk*.30+businessRisk*.20+35*.15);
-  const confidence=clamp(
-    (Object.values(d).filter(v=>v!==null&&v!==undefined&&v!=="").length/22)*100*.45+
-    (d.eg!=null&&d.rg!=null?78:55)*.25+
-    (d.roe!=null&&d.pe!=null?78:55)*.30
-  );
-  const overall=clamp(quality*.34+wealth*.30+(100-risk)*.20+confidence*.16);
-  return {quality,wealth,risk,confidence,overall};
-}
-
-function decision(s,t){
-  if(s.overall>=78&&s.risk<40) return {a:"BUY / ACCUMULATE",cls:"bcyan",why:["Business quality is strong.","Growth and cash economics support compounding.","Risk is within the framework's acceptable zone."]};
-  if(s.overall>=68&&s.risk<55) return {a:"BUY ON WEAKNESS / HOLD",cls:"bgreen",why:["Business profile is attractive.","Valuation or evidence does not justify aggressive buying.","Prefer a better entry price and continued monitoring."]};
-  if(s.overall<48||s.risk>=70) return {a:"AVOID / REVIEW",cls:"bred",why:["Risk/reward is not attractive enough.","Re-underwrite the thesis before adding capital."]};
-  return {a:"WAIT / WATCH",cls:"bamber",why:["Signals are mixed.","Wait for better valuation, stronger evidence or technical confirmation."]};
-}
-
-function makePrices(d){
-  const arr=[]; let p=d.price*0.78;
-  const seed=(d.name.length*13)%17;
-  for(let i=0;i<220;i++){
-    const wave=Math.sin((i+seed)/11)*.012+Math.cos(i/23)*.008;
-    const drift=d.trend==="DOWNTREND"?-.0003:d.trend==="STRONG UPTREND"?.0012:d.trend==="UPTREND"?.0008:d.trend==="RECOVERING"?.0005:.00015;
-    p=p*(1+drift+wave+(Math.random()-.5)*.012);
-    arr.push(p);
-  }
-  arr[arr.length-1]=d.price;
-  return arr;
-}
-
-function techFor(d){
-  const p=makePrices(d);
-  const sma=n=>p.map((_,i)=>i<n-1?null:p.slice(i-n+1,i+1).reduce((a,b)=>a+b,0)/n);
-  const s20=sma(20),s50=sma(50),s200=sma(200);
-  return {prices:p,s20:s20.at(-1),s50:s50.at(-1),s200:s200.at(-1),rsi:d.rsi,trend:d.trend,last:p.at(-1),high:Math.max(...p.slice(-60)),low:Math.min(...p.slice(-60))};
-}
-
-function metricRows(d){
-  const rows=[
-    ["Current Price","₹"+d.price.toLocaleString("en-IN"),"Latest market price","INPUT"],
-    ["P/E",d.pe?.toFixed(1)+"x","Price paid for current earnings","VALUATION"],
-    ["Forward P/E",d.fpe?.toFixed(1)+"x","Market expectation","VALUATION"],
-    ["P/B",d.pb?.toFixed(1)+"x","Price versus book value","VALUATION"],
-    ["ROE",d.roe==null?"N/A":d.roe.toFixed(1)+"%","Return on equity","QUALITY"],
-    ["ROA",d.roa==null?"N/A":d.roa.toFixed(1)+"%","Asset efficiency","QUALITY"],
-    ["Debt / Equity",d.de==null?"N/A":d.de.toFixed(2)+"x","Balance-sheet leverage","RISK"],
-    ["Net Margin",d.npm==null?"N/A":d.npm.toFixed(1)+"%","Profit retained from revenue","QUALITY"],
-    ["Operating Margin",d.opm==null?"N/A":d.opm.toFixed(1)+"%","Core operating profitability","QUALITY"],
-    ["Revenue Growth",d.rg==null?"N/A":d.rg.toFixed(1)+"%","Top-line growth","GROWTH"],
-    ["Earnings Growth",d.eg==null?"N/A":d.eg.toFixed(1)+"%","Bottom-line growth","GROWTH"],
-    ["Free Cash Flow",d.fcf==null?"N/A":"₹"+d.fcf.toLocaleString("en-IN")+" Cr","Owner-earnings proxy","CASH FLOW"],
-    ["Dividend Yield",d.div==null?"N/A":d.div.toFixed(2)+"%","Cash distribution","CAPITAL"],
-    ["Payout Ratio",d.payout==null?"N/A":d.payout.toFixed(0)+"%","Profit distributed","CAPITAL"],
-    ["52W Range",(d.low==null||d.high==null?"N/A":"₹"+d.low.toLocaleString("en-IN")+" — ₹"+d.high.toLocaleString("en-IN")),"Price context","TECHNICAL"]
-  ];
-  return rows.map(r=>`<tr><td>${r[0]}</td><td><b>${r[1]}</b></td><td>${r[2]}</td><td><span class="${r[3]==="RISK"?"amber":r[3]==="VALUATION"?"violet":r[3]==="QUALITY"?"green":"cyan"}">${r[3]}</span></td></tr>`).join("");
-}
+const clamp=n=>Math.max(0,Math.min(100,Math.round(Number(n)||0)));
+const esc=x=>String(x??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
 
 function checks(items){
   return items.map((x,i)=>`<label class="check"><input type="checkbox"><span><b>${i+1}. ${x[0]}</b><div class="why">${x[1]}</div></span></label>`).join("");
@@ -482,194 +390,6 @@ function enhancedMetricRows(d,v,f,t){
     ["200 DMA",t?.s200!=null?priceText(t.s200):"N/A","Long-term trend reference","TECHNICAL"]
   ];
   return rows.map(r=>`<tr><td>${r[0]}</td><td><b>${r[1]}</b></td><td>${r[2]}</td><td><span class="${r[3]==="RISK"?"amber":r[3]==="VALUATION"?"violet":r[3]==="QUALITY"?"green":r[3]==="GROWTH"||r[3]==="CASH FLOW"?"cyan":"cyan"}">${r[3]}</span></td></tr>`).join("");
-}
-
-function render(){
-  const d=state.stock,s=state.sc,t=state.tech;
-  $("stockName").textContent=d.name;
-  $("stockMeta").textContent=`${d.symbol} · ${d.sector}`;
-  $("type").textContent=s.overall>=78?"ELITE COMPOUNDER":s.overall>=68?"STRONG COMPOUNDER":s.overall>=50?"SELECTIVE / AVERAGE":"WEAK / HIGH RISK";
-  $("type").className="badge "+(s.overall>=78?"bcyan":s.overall>=68?"bgreen":s.overall>=50?"bamber":"bred");
-
-  $("topScores").innerHTML=[
-    ["DNA",s.overall,"cyan"],["QUALITY",s.quality,"cyan"],["WEALTH",s.wealth,"violet"],["RISK",s.risk,"red"]
-  ].map(x=>`<div class="card"><div class="label">${x[0]}</div><div class="big ${x[2]}">${x[1]}</div><div class="scorebar"><i style="width:${x[1]}%;background:${x[2]==="red"?"var(--red)":x[2]==="violet"?"var(--violet)":"var(--cyan)"}"></i></div></div>`).join("");
-
-  $("scoreRows").innerHTML=[
-    ["Business quality",s.quality,"Moat + earnings + management + capital efficiency"],
-    ["Wealth creation",s.wealth,"Growth + reinvestment + runway"],
-    ["Risk",s.risk,"Debt + valuation + business risk; lower is safer"],
-    ["Confidence",s.confidence,"Data completeness + consistency"]
-  ].map(x=>`<div style="margin:12px 0"><div class="kv"><span>${x[0]}</span><b>${x[1]}/100</b></div><div class="scorebar"><i style="width:${x[1]}%;background:${x[0]==="Risk"?"var(--red)":"var(--cyan)"}"></i></div><div class="why">${x[2]}</div></div>`).join("");
-
-  const cross=[];
-  if(d.roe>25&&d.de!=null&&d.de>1) cross.push(["RED FLAG","High ROE + high leverage. Check whether debt is manufacturing the return."]);
-  if(d.rg>10&&d.eg<0) cross.push(["RED FLAG","Revenue is growing while earnings are falling. Investigate margins and costs."]);
-  if(d.fcf!=null&&d.profit!=null&&d.profit>0&&d.fcf<0) cross.push(["RED FLAG","Reported profit but negative free cash flow. Check working capital and capex."]);
-  if(d.pe>50&&d.rg<15) cross.push(["VALUATION","High multiple with modest growth. Margin of safety may be thin."]);
-  if(d.de!=null&&d.de<.3) cross.push(["POSITIVE","Low leverage supports balance-sheet resilience."]);
-  if(d.fcf!=null&&d.fcf>0) cross.push(["POSITIVE","Positive free cash flow supports owner economics."]);
-  $("cross").innerHTML=(cross.length?cross:[["CHECK","No automatic contradiction detected. Manual due diligence is still required."]]).map(x=>`<div class="alert ${x[0]==="POSITIVE"?"green":x[0]==="VALUATION"?"amber":x[0]==="RED FLAG"?"red":"blue"}"><b>${x[0]}</b><br>${x[1]}</div>`).join("");
-
-  $("metrics").innerHTML=metricRows(d);
-  $("stamp").textContent=(state.live?"LIVE DATA":"DEMO DATA")+" · "+new Date().toLocaleTimeString("en-IN");
-
-  const dec=decision(s,t);
-  $("final").innerHTML=`<div class="verdict"><span class="badge ${dec.cls}">${dec.a}</span><div class="action">${dec.a}</div><div class="reason">${dec.why.map(x=>"• "+x).join("<br>")}</div><div class="why" style="margin-top:10px">This is a framework output, not certainty. Real filings, current price and live data must be verified before acting.</div></div>`;
-
-  $("thesis").innerHTML=`<div class="reason"><b>Business quality:</b> ${s.quality}/100.<br><b>Wealth creation:</b> ${s.wealth}/100.<br><b>Risk:</b> ${s.risk}/100, where lower is safer.<br><b>Confidence:</b> ${s.confidence}/100.<br><br><b>Expert question:</b> If the market closed for five years, would you still be comfortable owning this business? If not, the thesis needs more work.</div>`;
-
-  $("fundamentalBody").innerHTML=`<div class="grid4">
-    <div class="card"><div class="label">Moat / Quality</div><div class="big cyan">${s.quality}</div><div class="sub">Durability + earnings economics</div></div>
-    <div class="card"><div class="label">Growth</div><div class="big violet">${s.wealth}</div><div class="sub">Growth + reinvestment runway</div></div>
-    <div class="card"><div class="label">Cash Flow</div><div class="big ${d.fcf>0?"green":"amber"}">${d.fcf==null?"VERIFY":"OK"}</div><div class="sub">Free cash flow check</div></div>
-    <div class="card"><div class="label">Capital Discipline</div><div class="big cyan">${d.de==null?"VERIFY":d.de<.6?"GOOD":"CHECK"}</div><div class="sub">Leverage and returns</div></div>
-  </div>`;
-
-  $("bizChecks").innerHTML=checks([
-    ["Is the business understandable?","Can you explain how it makes money in one minute?"],
-    ["Is there a durable moat?","Brand, cost, network, switching cost or distribution advantage."],
-    ["Can it raise prices?","Pricing power protects margins."],
-    ["Are returns strong without excessive debt?","High ROE created mainly by leverage is lower quality."],
-    ["Can it reinvest at high returns?","Reinvestment runway is central to compounding."],
-    ["Does growth create per-share value?","Check dilution and low-return expansion."]
-  ]);
-  $("earnChecks").innerHTML=checks([
-    ["Do revenue and earnings move together?","Divergence needs investigation."],
-    ["Do profits convert into cash?","Profit without cash is a warning."],
-    ["Are margins stable?","Persistent deterioration can break the thesis."],
-    ["Is working capital controlled?","Receivables/inventory can consume cash."],
-    ["Is growth organic?","Separate operating growth from acquisitions."],
-    ["Is EPS growth real?","Check buybacks, dilution and one-offs."]
-  ]);
-
-  const peg=d.eg>0?d.pe/d.eg:null;
-  $("valuationBody").innerHTML=`<div class="grid3">
-    <div class="card"><div class="label">P/E</div><div class="big amber">${num(d.pe,1)}x</div><div class="sub">Must be compared with growth and quality.</div></div>
-    <div class="card"><div class="label">PEG-style screen</div><div class="big violet">${peg?peg.toFixed(2):"N/A"}</div><div class="sub">P/E ÷ earnings growth; screening only.</div></div>
-    <div class="card"><div class="label">Margin of Safety</div><div class="big ${d.pe<30?"green":"red"}">${d.pe<30?"BETTER":"THIN / LOW"}</div><div class="sub">Not a DCF; live valuation model comes later.</div></div>
-  </div>`;
-  $("valuationCards").innerHTML=[
-    ["Buffett lens","Durable economics first, price second."],
-    ["Munger lens","Look for obvious business-quality and incentive traps."],
-    ["Fisher lens","Study long runway, management and competitive position."],
-    ["Lynch lens","Growth must justify the multiple."],
-    ["Graham lens","Demand a margin of safety."],
-    ["Marks lens","Ask what can go wrong and what is already priced in."]
-  ].map(x=>`<div class="card"><b>${x[0]}</b><p class="sub">${x[1]}</p></div>`).join("");
-
-  $("riskBody").innerHTML=[
-    ["Debt risk",s.risk===0?0:Math.round((d.de==null?48:d.de<.3?18:d.de<1?40:d.de<2?62:85))],
-    ["Valuation risk",Math.round(d.pe<20?20:d.pe<30?35:d.pe<40?50:d.pe<60?68:85)],
-    ["Business risk",d.sector.includes("Technology")?30:d.sector.includes("Consumer")?35:d.sector.includes("Financial")?45:50],
-    ["Overall risk",s.risk]
-  ].map(x=>`<div style="margin:11px 0"><div class="kv"><span>${x[0]}</span><b>${x[1]}</b></div><div class="scorebar"><i style="width:${x[1]}%;background:var(--red)"></i></div></div>`).join("");
-  $("riskBody").innerHTML+=`<div class="alert ${s.risk<45?"green":s.risk<65?"amber":"red"}">${s.risk<45?"Risk profile looks manageable in this framework.":s.risk<65?"Risk is mixed — valuation and downside need attention.":"Risk is elevated — capital protection comes first."}</div>`;
-  $("killers").innerHTML=checks([
-    ["Permanent margin deterioration","Re-underwrite the business if margins structurally weaken."],
-    ["Debt rises without cash generation","Balance-sheet risk can destroy compounding."],
-    ["Promoter/governance red flags","Verify filings before adding capital."],
-    ["Growth thesis breaks","Two or more weak periods deserve investigation."],
-    ["Valuation detaches from reality","A great business can still be a bad purchase."],
-    ["Better risk/reward appears elsewhere","Capital has an opportunity cost."]
-  ]).replaceAll('type="checkbox"','type="checkbox"');
-
-  $("mgmtBody").innerHTML=`<div class="alert amber"><b>VERIFY:</b> Promoter holding, pledge, related-party transactions, auditor qualifications and governance history require primary-source verification. The frontend will never invent these values.</div><div class="grid3">
-    <div class="card"><div class="label">Promoter holding</div><div class="big amber">VERIFY</div></div>
-    <div class="card"><div class="label">Promoter pledge</div><div class="big amber">VERIFY</div></div>
-    <div class="card"><div class="label">Governance</div><div class="big amber">VERIFY</div></div>
-  </div>`;
-  $("mgmtChecks").innerHTML=checks([
-    ["Promoter ownership stable?","Check latest shareholding pattern."],
-    ["Promoter pledge low/zero?","Check latest exchange filing."],
-    ["Related-party transactions normal?","Read annual report notes."],
-    ["Auditor qualifications?","Read audit report."],
-    ["Capital allocation history good?","Check acquisitions, debt, buybacks and dividends."],
-    ["Executive incentives aligned?","Check remuneration and dilution."],
-    ["Any regulatory/legal issue?","Verify current disclosures."],
-    ["Management candid during bad periods?","Read annual letters and calls."]
-  ]);
-
-  $("valuationSnapshot").innerHTML=`
-    <div class="valuationHero">
-      <div class="valuationMain">
-        <div class="label">BASE FAIR VALUE</div>
-        <div class="fair ${v.verdict==="ATTRACTIVE"||v.verdict==="DEEPLY UNDERVALUED"?"positive":v.verdict==="VERY EXPENSIVE"||v.verdict==="EXPENSIVE"?"negative":"neutral"}">${priceText(v.fairValue)}</div>
-        <div class="sub">${v.verdict||"DATA INSUFFICIENT"} · Current ${priceText(v.currentPrice)} · Upside ${signedPct(v.upsideToFairValue)}</div>
-        <div class="scorebar" style="margin-top:10px"><i style="width:${Math.max(0,Math.min(100,50+(v.upsideToFairValue||0)))}%;background:${v.upsideToFairValue>=0?"var(--green)":"var(--red)"}"></i></div>
-        <div class="why" style="margin-top:8px">${v.method||"Growth-adjusted valuation framework."}</div>
-      </div>
-      <div class="card">
-        <div class="label">VALUATION SIGNALS</div>
-        <div class="kv"><span>Growth signal</span><b>${pctText(v.growthSignal)}</b></div>
-        <div class="kv"><span>Base justified P/E</span><b>${v.basePE!=null?v.basePE.toFixed(1)+"x":"N/A"}</b></div>
-        <div class="kv"><span>Margin of safety</span><b class="${valueClass(v.marginOfSafety,0)}">${signedPct(v.marginOfSafety)}</b></div>
-        <div class="kv"><span>PEG</span><b>${v.pegRatio!=null?v.pegRatio.toFixed(2):"N/A"}</b></div>
-      </div>
-    </div>
-    <div class="scenarioGrid" style="margin-top:10px">
-      <div class="scenario"><div class="title">CONSERVATIVE</div><div class="price">${priceText(v.conservativeFairValue)}</div><div class="sub">Growth ${pctText(v.conservativeGrowth)} · P/E ${v.conservativePE!=null?v.conservativePE.toFixed(1)+"x":"N/A"}</div></div>
-      <div class="scenario"><div class="title">BASE CASE</div><div class="price cyan">${priceText(v.baseFairValue)}</div><div class="sub">Growth ${pctText(v.baseGrowth)} · P/E ${v.basePE!=null?v.basePE.toFixed(1)+"x":"N/A"}</div></div>
-      <div class="scenario"><div class="title">OPTIMISTIC</div><div class="price">${priceText(v.optimisticFairValue)}</div><div class="sub">Growth ${pctText(v.optimisticGrowth)} · P/E ${v.optimisticPE!=null?v.optimisticPE.toFixed(1)+"x":"N/A"}</div></div>
-    </div>
-    <div class="committeeGrid" style="margin-top:10px">
-      <div class="committeeItem"><div class="label">EARNINGS</div><div class="v">${v.forwardEPS!=null?priceText(v.forwardEPS):"N/A"}</div><div class="why">Forward EPS</div></div>
-      <div class="committeeItem"><div class="label">5Y EPS CAGR</div><div class="v">${pctText(v.eps5yCagr)}</div><div class="why">Historical compounding</div></div>
-      <div class="committeeItem"><div class="label">FCF CONVERSION</div><div class="v">${pctText(f?.derived?.fcfConversion)}</div><div class="why">Profit → cash</div></div>
-      <div class="committeeItem"><div class="label">CONFIDENCE</div><div class="v">${s.confidence}/100</div><div class="why">${state.dataQuality?.status||"DATA QUALITY"}</div></div>
-    </div>`;
-
-  $("valuationBody").innerHTML=`
-    <div class="valuationHero">
-      <div class="valuationMain"><div class="label">VALUATION VERDICT</div><div class="action">${v.verdict||"DATA INSUFFICIENT"}</div><div class="reason">Current price ${priceText(v.currentPrice)} vs base fair value ${priceText(v.fairValue)}. Framework upside/downside: <b>${signedPct(v.upsideToFairValue)}</b>.</div></div>
-      <div class="card"><div class="label">REFERENCE ONLY</div><div class="kv"><span>Market P/E</span><b>${v.trailingPE!=null?v.trailingPE.toFixed(1)+"x":"N/A"}</b></div><div class="kv"><span>Justified P/E</span><b>${v.basePE!=null?v.basePE.toFixed(1)+"x":"N/A"}</b></div><div class="kv"><span>P/B reference</span><b>${v.pbReference!=null?priceText(v.pbReference):"N/A"}</b></div><div class="why">P/B is shown separately and is not blindly blended into the primary fair value.</div></div>
-    </div>`;
-  $("valuationCards").innerHTML=[
-    ["Growth quality",`5Y revenue CAGR ${pctText(v.revenue5yCagr)} · 5Y EPS CAGR ${pctText(v.eps5yCagr)}.`],
-    ["Earnings power",`Trailing EPS ${v.trailingEPS!=null?priceText(v.trailingEPS):"N/A"} · Forward EPS ${v.forwardEPS!=null?priceText(v.forwardEPS):"N/A"}.`],
-    ["Cash economics",`FCF conversion ${pctText(f?.derived?.fcfConversion)} · FCF margin ${pctText(f?.derived?.fcfMargin)}.`],
-    ["Risk-adjusted price",`${v.verdict||"N/A"} with ${signedPct(v.marginOfSafety)} margin of safety.`],
-    ["Market expectation",`Forward P/E ${v.forwardPE!=null?v.forwardPE.toFixed(1)+"x":"N/A"} vs justified ${v.basePE!=null?v.basePE.toFixed(1)+"x":"N/A"}.`],
-    ["Method",v.method||"Growth-adjusted justified multiple."]
-  ].map(x=>`<div class="card"><b>${x[0]}</b><p class="sub">${x[1]}</p></div>`).join("");
-
-  $("metrics").innerHTML=enhancedMetricRows(d,v,f,t);
-  $("final").innerHTML=`<div class="verdict"><span class="signal ${decisionClass(dec.action||dec.a)}">${dec.action||dec.a}</span><div class="action">${dec.action||dec.a}</div><div class="reason">${(dec.reason||dec.why||[]).map(x=>"• "+x).join("<br>")}</div><div class="why" style="margin-top:10px">Decision uses live fundamentals, valuation, risk and technical evidence. Verify filings and market conditions before acting.</div></div>`;
-
-  $("taBody").innerHTML=`<div class="grid4">
-    <div class="card"><div class="label">Trend</div><div class="big ${t.trend.includes("UP")?"green":t.trend==="DOWNTREND"?"red":"amber"}">${t.trend}</div></div>
-    <div class="card"><div class="label">RSI 14</div><div class="big ${t.rsi>70?"amber":t.rsi<30?"cyan":"green"}">${num(t.rsi,1)}</div><div class="sub">${t.rsi>70?"Overbought":t.rsi<30?"Oversold":"Neutral"}</div></div>
-    <div class="card"><div class="label">SMA 50</div><div class="big cyan">₹${num(t.s50,0)}</div></div>
-    <div class="card"><div class="label">SMA 200</div><div class="big violet">₹${num(t.s200,0)}</div></div>
-  </div><div class="alert blue">Technical confirmation is secondary for a long-term compounder. For swing trades, trend + volume + risk/reward become much more important.</div>`;
-  drawChart();
-
-  $("decisionBody").innerHTML=`<div class="decisionGrid"><div class="verdict"><span class="badge ${dec.cls}">${dec.a}</span><div class="bigDecision">${dec.a}</div><div class="reason">${dec.why.map(x=>"• "+x).join("<br>")}</div></div>
-  <div class="card"><div class="label">Decision checklist</div>
-    <div class="check"><span>✓</span><span><b>Quality</b><div class="why">${s.quality}/100</div></span></div>
-    <div class="check"><span>✓</span><span><b>Growth</b><div class="why">${s.wealth}/100</div></span></div>
-    <div class="check"><span>✓</span><span><b>Risk</b><div class="why">${s.risk}/100 — lower is safer</div></span></div>
-    <div class="check"><span>✓</span><span><b>Technical</b><div class="why">${t.trend}, RSI ${t.rsi}</div></span></div>
-  </div></div>`;
-
-  const entry=t.last,sl=Math.min(t.low,entry*.94),risk=Math.max(1,entry-sl),t1=entry+risk*2,t2=entry+risk*3;
-  $("swingBody").innerHTML=`<div class="grid4">
-    <div class="card"><div class="label">Entry zone</div><div class="big cyan">₹${entry.toFixed(0)}</div></div>
-    <div class="card"><div class="label">Stop loss</div><div class="big red">₹${sl.toFixed(0)}</div></div>
-    <div class="card"><div class="label">Target 1</div><div class="big green">₹${t1.toFixed(0)}</div></div>
-    <div class="card"><div class="label">Target 2</div><div class="big green">₹${t2.toFixed(0)}</div></div>
-  </div><div class="alert amber">Illustrative frontend levels only. Live support, resistance, volume and market regime will be connected later.</div>`;
-}
-
-function drawChart(){
-  const c=$("chart"),t=state.tech;if(!t)return;
-  const W=c.clientWidth||700,H=240;c.width=W;c.height=H;
-  const ctx=c.getContext("2d");ctx.clearRect(0,0,W,H);
-  const a=t.prices,mn=Math.min(...a)*.97,mx=Math.max(...a)*1.03;
-  const X=i=>20+i/(a.length-1)*(W-35),Y=v=>H-20-(v-mn)/(mx-mn)*(H-35);
-  ctx.strokeStyle="#17314a";ctx.lineWidth=1;
-  for(let i=1;i<5;i++){const y=H*i/5;ctx.beginPath();ctx.moveTo(10,y);ctx.lineTo(W-10,y);ctx.stroke()}
-  ctx.beginPath();a.forEach((v,i)=>i?ctx.lineTo(X(i),Y(v)):ctx.moveTo(X(i),Y(v)));ctx.strokeStyle="#00e5ff";ctx.lineWidth=2;ctx.stroke();
 }
 
 async function analyze(raw){
@@ -764,8 +484,11 @@ function techExplain(d,t){
 }
 
 function enhancedRender(){
-  if(!state.stock)return;
-  const d=state.stock,s=state.sc,t=state.tech,v=state.valuation||{},f=state.fundamentals||{},tx=techExplain(d,t),dec=state.decision||decision(s,t);
+  if(!state.stock || !state.sc || !state.tech)return;
+  const d=state.stock,s=state.sc,t=state.tech,v=state.valuation||{},f=state.fundamentals||{},tx=techExplain(d,t);
+  const dec=state.decision||{action:"DATA INSUFFICIENT",reason:["Decision data is unavailable."]};
+  const decAction=dec.action||dec.a||"DATA INSUFFICIENT";
+  const decReasons=dec.reason||dec.why||[];
 
   $("taBody").innerHTML=`<div class="grid4">
     <div class="card"><div class="label">Trend</div><div class="big ${t.trend.includes("UP")?"green":t.trend==="DOWNTREND"?"red":"amber"}">${t.trend}</div></div>
@@ -797,7 +520,7 @@ function enhancedRender(){
     <p><b>3. Momentum:</b> RSI ${t.rsi}. High RSI can mean strength, but also higher chase risk.</p>
     <p><b>4. Recent range:</b> ₹${fmt(t.low)}–₹${fmt(t.high)}; midpoint reference ₹${fmt(mid)}.</p>
     <p><b>5. Invalidation:</b> A breakdown of important support plus weak volume/earnings/news evidence would weaken the setup.</p>
-    <p><b>Data note:</b> This frontend currently uses test price series. Live OHLCV is required before claiming a real trading signal.</p>`;
+    <p><b>Data note:</b> All chart values above come from the live API response.</p>`;
 
   const riskReasons=[];
   if(d.pe>=50)riskReasons.push(["Valuation","The multiple is high. Earnings growth must justify the price.","amber"]);
@@ -840,15 +563,15 @@ function enhancedRender(){
   $("decisionParams").innerHTML=params.map(x=>`<div class="factor"><span><b>${x[0]}</b></span><div class="bar"><i style="width:${x[1]}%"></i></div><b>${x[1]}</b></div><div class="why">${x[3]} Weight: ${x[2]}%.</div>`).join("");
 
   let buyReason,avoidReason;
-  if(dec.a.includes("BUY")){buyReason="Quality, growth and risk-adjusted evidence clear the framework threshold.";avoidReason=d.pe>=50?"Valuation is the biggest reason not to chase aggressively.":"Price can still change the margin of safety; verify live valuation before acting.";}
-  else if(dec.a.includes("WAIT")){buyReason="There are positive elements, but the evidence is not strong enough for an aggressive entry.";avoidReason="Buying now would depend too much on assumptions. Better price, stronger trend or cleaner evidence is needed.";}
+  if(decAction.includes("BUY")){buyReason="Quality, growth and risk-adjusted evidence clear the framework threshold.";avoidReason=d.pe>=50?"Valuation is the biggest reason not to chase aggressively.":"Price can still change the margin of safety; verify live valuation before acting.";}
+  else if(decAction.includes("WAIT")){buyReason="There are positive elements, but the evidence is not strong enough for an aggressive entry.";avoidReason="Buying now would depend too much on assumptions. Better price, stronger trend or cleaner evidence is needed.";}
   else{buyReason="The business may have good qualities, but the current risk/reward does not compensate enough.";avoidReason="Risk, valuation or weak evidence makes fresh capital unattractive until the thesis improves.";}
 
-  $("decisionBody").innerHTML=`<div class="decisionGrid"><div class="verdict"><span class="signal ${decisionClass(dec.a)}">${dec.a}</span><div class="bigDecision">${dec.a}</div><div class="reason"><b>Why buying can make sense:</b><br>${buyReason}<br><br><b>Why buying may be wrong now:</b><br>${avoidReason}</div></div>
+  $("decisionBody").innerHTML=`<div class="decisionGrid"><div class="verdict"><span class="signal ${decisionClass(decAction)}">${decAction}</span><div class="bigDecision">${decAction}</div><div class="reason"><b>Why buying can make sense:</b><br>${buyReason}<br><br><b>Why buying may be wrong now:</b><br>${avoidReason}</div></div>
   <div class="card"><div class="label">Final DNA Score</div><div class="big cyan">${s.overall}/100</div><div class="kv"><span>Quality</span><b>${s.quality}</b></div><div class="kv"><span>Growth</span><b>${s.wealth}</b></div><div class="kv"><span>Risk</span><b>${s.risk}</b></div><div class="kv"><span>Technical</span><b>${tx.verdict}</b></div></div></div>`;
 
   $("decisionTimeline").innerHTML=`<div class="timeline">
-    <div class="timelineItem"><b>NOW:</b> ${dec.a}. Verify live price, filings and market regime before acting.</div>
+    <div class="timelineItem"><b>NOW:</b> ${decAction}. Verify live price, filings and market regime before acting.</div>
     <div class="timelineItem"><b>IF PRICE FALLS:</b> Recalculate valuation and ask whether the business changed or only the price changed.</div>
     <div class="timelineItem"><b>IF EARNINGS IMPROVE:</b> Increase confidence only if margins and cash flow confirm it.</div>
     <div class="timelineItem"><b>IF THESIS BREAKS:</b> Follow the specific thesis-killer rather than emotion.</div>
@@ -862,9 +585,7 @@ function enhancedRender(){
 
 function fmt(n){return Number(n).toLocaleString("en-IN",{maximumFractionDigits:0})}
 
-/* Replace render with a wrapper after original render exists */
-const _renderBase=render;
-render=function(){_renderBase();enhancedRender();};
+function render(){ enhancedRender(); }
 
 async function refreshLiveCurrent(){
   if(!state.stock)return;
@@ -896,11 +617,11 @@ function setPfAuto(on){
 async function runRadarEnhanced(){
   const list=$("radarInput").value.split(",").map(x=>x.trim()).filter(Boolean),out=[];
   for(const input of list){
-    try{const r=await fetch("/api/analyze?symbol="+encodeURIComponent(input));if(!r.ok)throw new Error();out.push(await r.json());}
-    catch(e){const d=normalise(input);if(d){const s=score(d),t=techFor(d);out.push({stock:d,score:s,technical:t,decision:decision(s,t)});}}
+    try{const r=await fetch("/api/analyze?symbol="+encodeURIComponent(input),{cache:"no-store"});if(!r.ok)throw new Error("Live data unavailable");out.push(await r.json());}
+    catch(e){out.push({stock:{symbol:input.toUpperCase()},score:{overall:0,quality:0,wealth:0,risk:100},technical:{trend:"UNAVAILABLE"},decision:{action:"DATA UNAVAILABLE",reason:["Live analysis failed for this symbol."]}});}
   }
   out.sort((a,b)=>b.score.overall-a.score.overall);
-  $("radarTable").innerHTML=out.map((x,i)=>{const dec=x.decision||decision(x.score,x.technical),a=dec.action||dec.a,why=x.score.risk>=60?"Risk is pulling the rank down.":x.score.overall>=78?"Quality + growth support the rank.":"Mixed evidence needs monitoring.";return `<tr><td>${i+1}</td><td><b>${x.stock.symbol}</b></td><td class="cyan">${x.score.overall.toFixed(0)}</td><td>${x.score.quality.toFixed(0)}</td><td class="violet">${x.score.wealth.toFixed(0)}</td><td class="${x.score.risk>60?"red":"green"}">${x.score.risk.toFixed(0)}</td><td>${x.technical.trend}</td><td><span class="signal ${decisionClass(a)}">${a}</span><div class="why">${why}</div><button class="btn secondary" style="margin-top:6px" onclick="analyze('${x.stock.symbol}')">VIEW</button></td></tr>`}).join("");
+  $("radarTable").innerHTML=out.map((x,i)=>{const dec=x.decision||{action:"DATA UNAVAILABLE",reason:["Live analysis unavailable."]},a=dec.action||dec.a,why=x.score.risk>=60?"Risk is pulling the rank down.":x.score.overall>=78?"Quality + growth support the rank.":"Mixed evidence needs monitoring.";return `<tr><td>${i+1}</td><td><b>${x.stock.symbol}</b></td><td class="cyan">${x.score.overall.toFixed(0)}</td><td>${x.score.quality.toFixed(0)}</td><td class="violet">${x.score.wealth.toFixed(0)}</td><td class="${x.score.risk>60?"red":"green"}">${x.score.risk.toFixed(0)}</td><td>${x.technical.trend}</td><td><span class="signal ${decisionClass(a)}">${a}</span><div class="why">${why}</div><button class="btn secondary" style="margin-top:6px" onclick="analyze('${x.stock.symbol}')">VIEW</button></td></tr>`}).join("");
   $("radarMsg").textContent=out.length+" stocks ranked · live refresh "+new Date().toLocaleTimeString("en-IN");
 }
 function setRadarAuto(on){
@@ -934,7 +655,7 @@ $("radarAutoToggle")?.addEventListener("click",()=>setRadarAuto(!$("radarDot")?.
 $("swingAutoToggle")?.addEventListener("click",()=>setSwingAuto(!$("swingDot")?.classList.contains("on")));
 
 </script>
-<script src="/auto-mode.js"></script>
+
 </body>
 </html>
 
