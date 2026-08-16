@@ -594,6 +594,12 @@ function enhancedRender(){
     ['Business risk',d.sector?.includes('Technology')?30:d.sector?.includes('Consumer')?35:d.sector?.includes('Financial')?45:50],
     ['Overall risk',s.risk]
   ].map(x=>`<div style="margin:11px 0"><div class="kv"><span>${x[0]}</span><b>${num(x[1],0)}</b></div><div class="scorebar"><i style="width:${Math.max(0,Math.min(100,x[1]))}%;background:var(--red)"></i></div></div>`).join('')+`<div class="alert ${s.risk<45?'green':s.risk<65?'amber':'red'}">${s.risk<45?'Risk profile looks manageable in this framework.':s.risk<65?'Risk is mixed — valuation and downside need attention.':'Risk is elevated — capital protection comes first.'}</div>`;
+  const riskReasons=[];
+  if(d.pe>=50)riskReasons.push(["Valuation","The multiple is high. Earnings growth must justify the price.","amber"]);
+  if(d.eg<0)riskReasons.push(["Earnings","Earnings growth is negative. A turnaround must be demonstrated rather than assumed.","red"]);
+  if(d.de!=null&&d.de>=1)riskReasons.push(["Leverage","Leverage increases downside if earnings weaken.","red"]);
+  if(s.risk>=55)riskReasons.push(["Overall risk","Risk is elevated, so the framework does not support aggressive buying now.","red"]);
+  if(!riskReasons.length)riskReasons.push(["Current framework","No automatic blocker is detected, but live filings and current valuation must still be verified.","green"]);
   $('riskExplain').innerHTML=riskReasons.map(x=>`<div class="alert ${x[2]}"><b>${x[0]}:</b> ${x[1]}</div>`).join('');
 
   $('mgmtBody').innerHTML=`<div class="alert amber"><b>VERIFY:</b> Promoter holding, pledge, related-party transactions, auditor qualifications, regulatory issues and management execution require primary-source verification.</div><div class="grid3"><div class="card"><div class="label">Promoter holding</div><div class="big amber">VERIFY</div></div><div class="card"><div class="label">Promoter pledge</div><div class="big amber">VERIFY</div></div><div class="card"><div class="label">Governance</div><div class="big amber">VERIFY</div></div></div>`;
@@ -633,13 +639,6 @@ function enhancedRender(){
 
   drawChart();
 
-  const riskReasons=[];
-  if(d.pe>=50)riskReasons.push(["Valuation","The multiple is high. Earnings growth must justify the price.","amber"]);
-  if(d.eg<0)riskReasons.push(["Earnings","Earnings growth is negative. A turnaround must be demonstrated rather than assumed.","red"]);
-  if(d.de!=null&&d.de>=1)riskReasons.push(["Leverage","Leverage increases downside if earnings weaken.","red"]);
-  if(s.risk>=55)riskReasons.push(["Overall risk","Risk is elevated, so the framework does not support aggressive buying now.","red"]);
-  if(!riskReasons.length)riskReasons.push(["Current framework","No automatic blocker is detected, but live filings and current valuation must still be verified.","green"]);
-  $("riskExplain").innerHTML=riskReasons.map(x=>`<div class="alert ${x[2]}"><b>${x[0]}:</b> ${x[1]}</div>`).join("");
   $("riskTriggers").innerHTML=[
     d.pe>=50?"Valuation improves OR earnings growth accelerates.":"Do not pay a much higher multiple without stronger growth.",
     d.eg<0?"Earnings turn positive with stable/improving margins.":"Growth remains positive and cash conversion stays healthy.",
