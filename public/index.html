@@ -154,20 +154,20 @@ canvas{display:block;width:100%;background:#07111d;border:1px solid var(--line);
 
     <div class="inputRow">
       <input id="symbol" class="input" placeholder="Enter stock: TITAN, INFY, TCS, HDFCBANK..." autocomplete="off">
-      <button id="analyse" class="btn" type="button">ANALYSE STOCK →</button>
+      <button id="analyse" class="btn" type="button" onclick="analyze(document.getElementById('symbol')?.value || '')">ANALYSE STOCK →</button>
     </div>
 
     <div class="quick">
-      <button class="chip" data-q="TITAN" type="button">TITAN</button>
-      <button class="chip" data-q="INFY" type="button">INFY</button>
-      <button class="chip" data-q="TCS" type="button">TCS</button>
-      <button class="chip" data-q="HDFCBANK" type="button">HDFCBANK</button>
-      <button class="chip" data-q="BAJFINANCE" type="button">BAJFINANCE</button>
-      <button class="chip" data-q="ASIANPAINT" type="button">ASIANPAINT</button>
+      <button class="chip" data-q="TITAN" type="button" onclick="analyze('TITAN')">TITAN</button>
+      <button class="chip" data-q="INFY" type="button" onclick="analyze('INFY')">INFY</button>
+      <button class="chip" data-q="TCS" type="button" onclick="analyze('TCS')">TCS</button>
+      <button class="chip" data-q="HDFCBANK" type="button" onclick="analyze('HDFCBANK')">HDFCBANK</button>
+      <button class="chip" data-q="BAJFINANCE" type="button" onclick="analyze('BAJFINANCE')">BAJFINANCE</button>
+      <button class="chip" data-q="ASIANPNT" type="button" onclick="analyze('ASIANPNT')">ASIANPNT</button>
     </div>
 
     <div class="demoNote">
-      LIVE MODE: Analysis uses the deployed Vercel API and Yahoo Finance data. If live data fails, the page shows the actual backend error instead of silently replacing it with demo numbers.
+      LIVE MODE: Analysis uses the local backend and Yahoo Finance data. If live data fails, the page shows the actual backend error instead of silently replacing it with demo numbers.
     </div>
   </div>
 
@@ -577,14 +577,23 @@ async function analyze(raw){
     if(!r.ok) throw new Error(body?.detail || body?.error || `API error ${r.status}`);
     const live=body;
 
-    state.stock=live.stock;
-    state.sc=live.score;
-    state.tech=live.technical;
+    // Support both API response shapes:
+    // 1) { stock, score, technical, ... }
+    // 2) { stock: { ..., score: { ..., technical: {...} } } }
+    const apiStock=live?.stock || {};
+    const apiScore=live?.score || apiStock?.score || {};
+    const apiTechnical=live?.technical || apiScore?.technical || apiStock?.technical || {};
+
+    state.stock=apiStock;
+    state.sc=apiScore;
+    state.tech=apiTechnical;
     state.live=true;
 
     window.__lastLive=live;
 
-    $("#liveStatus").textContent="● LIVE DATA • "+live.source+" • "+new Date(live.asOf).toLocaleTimeString("en-IN");
+    const apiSource=live?.source || apiStock?.source || "Yahoo Finance";
+    const apiAsOf=live?.asOf || apiStock?.asOf || new Date().toISOString();
+    $("#liveStatus").textContent="● LIVE DATA • "+apiSource+" • "+new Date(apiAsOf).toLocaleTimeString("en-IN");
     $("#liveStatus").className="liveStatus live";
 
     render();
