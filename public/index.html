@@ -114,7 +114,21 @@ canvas{display:block;width:100%;background:#07111d;border:1px solid var(--line);
 .smallBtn{border:1px solid #2a4864;background:#091625;color:#9ed8e4;border-radius:6px;padding:6px 8px;font:9px var(--mono)}
 @media(max-width:520px){.factor{grid-template-columns:115px 1fr 42px}}
 
-.liveStatus{font:9px var(--mono);letter-spacing:.08em;color:#f59e0b;padding:6px 16px;border-bottom:1px solid #1d304b;background:#080f19}.liveStatus.live{color:#22c55e}.liveStatus.err{color:#ff7b89}</style>
+.liveStatus{font:9px var(--mono);letter-spacing:.08em;color:#f59e0b;padding:6px 16px;border-bottom:1px solid #1d304b;background:#080f19}.liveStatus.live{color:#22c55e}.liveStatus.err{color:#ff7b89}
+.valuationHero{display:grid;grid-template-columns:1.15fr .85fr;gap:12px}
+.valuationMain{background:#071522;border:1px solid #24516a;border-radius:12px;padding:16px}
+.valuationMain .fair{font:800 34px var(--mono);margin:7px 0}
+.scenarioGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+.scenario{background:#0a1624;border:1px solid var(--line);border-radius:10px;padding:12px}
+.scenario .price{font:700 21px var(--mono);margin-top:6px}
+.scenario .title{font:800 10px var(--mono);letter-spacing:1px}
+.committeeGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
+.committeeItem{background:#0a1624;border:1px solid var(--line);border-radius:9px;padding:11px}
+.committeeItem .v{font:700 17px var(--mono);margin-top:5px}
+.positive{color:var(--green)}.negative{color:var(--red)}.neutral{color:var(--amber)}
+@media(max-width:800px){.valuationHero{grid-template-columns:1fr}.committeeGrid{grid-template-columns:1fr 1fr}.scenarioGrid{grid-template-columns:1fr}}
+@media(max-width:520px){.committeeGrid{grid-template-columns:1fr}}
+</style>
 </head>
 <body>
 
@@ -208,6 +222,11 @@ canvas{display:block;width:100%;background:#07111d;border:1px solid var(--line);
     <div class="panel">
       <div class="sectionHead"><h2>Real Financial Snapshot</h2><small id="stamp">LOCAL TEST DATA</small></div>
       <div class="tableWrap"><table class="table"><thead><tr><th>Metric</th><th>Value</th><th>What it means</th><th>Status</th></tr></thead><tbody id="metrics"></tbody></table></div>
+    </div>
+
+    <div class="panel">
+      <div class="sectionHead"><h2>Investment Committee Valuation</h2><small>PRICE × EARNINGS × GROWTH</small></div>
+      <div id="valuationSnapshot"><div class="sub">Analyse a stock first.</div></div>
     </div>
 
     <div class="panel">
@@ -327,7 +346,7 @@ BAJFINANCE:{name:"Bajaj Finance Ltd",sector:"Financial Services",price:9800,pe:3
 ASIANPNT:{name:"Asian Paints Ltd",sector:"Consumer Discretionary",price:2440,pe:52.5,fpe:47.0,pb:13.5,roe:24.8,roa:13.9,de:.18,npm:10.2,opm:14.0,rg:2.8,eg:-4.1,revenue:35000,profit:3600,debt:2800,cash:1700,fcf:2200,div:.95,payout:49,high:3423,low:2120,trend:"DOWNTREND",rsi:39}
 };
 
-let state={stock:null,sc:null,prices:[],tech:null,live:false};
+let state={stock:null,sc:null,prices:[],tech:null,valuation:null,fundamentals:null,dataQuality:null,decision:null,live:false};
 const num=(v,d=1)=>Number.isFinite(Number(v))?Number(v).toFixed(d):"N/A";
 
 const $=id=>document.getElementById(id);
@@ -418,6 +437,51 @@ function metricRows(d){
 
 function checks(items){
   return items.map((x,i)=>`<label class="check"><input type="checkbox"><span><b>${i+1}. ${x[0]}</b><div class="why">${x[1]}</div></span></label>`).join("");
+}
+
+
+function pctText(v){
+  return Number.isFinite(Number(v)) ? `${Number(v).toFixed(1)}%` : "N/A";
+}
+function priceText(v){
+  return Number.isFinite(Number(v)) ? `₹${Number(v).toLocaleString("en-IN",{maximumFractionDigits:0})}` : "N/A";
+}
+function signedPct(v){
+  if(!Number.isFinite(Number(v))) return "N/A";
+  return `${v>=0?"+":""}${Number(v).toFixed(1)}%`;
+}
+function valueClass(v,good=0){
+  if(!Number.isFinite(Number(v))) return "neutral";
+  return Number(v)>good ? "positive" : Number(v)<good ? "negative" : "neutral";
+}
+function enhancedMetricRows(d,v,f,t){
+  const r=f?.ratios||{}, g=f?.growth||{}, der=f?.derived||{};
+  const rows=[
+    ["Current Price",priceText(d.price),"Latest live market price","INPUT"],
+    ["Market Cap",v?.marketCap!=null?`₹${(v.marketCap/1e7).toLocaleString("en-IN",{maximumFractionDigits:0})} Cr`:"N/A","Equity value at current price","INPUT"],
+    ["P/E",v?.trailingPE!=null?`${v.trailingPE.toFixed(1)}x`:"N/A","Current earnings multiple","VALUATION"],
+    ["Forward P/E",v?.forwardPE!=null?`${v.forwardPE.toFixed(1)}x`:"N/A","Next-period earnings multiple","VALUATION"],
+    ["PEG",v?.pegRatio!=null?v.pegRatio.toFixed(2):"N/A","P/E relative to growth; screening metric","VALUATION"],
+    ["P/B",v?.priceToBook!=null?`${v.priceToBook.toFixed(1)}x`:"N/A","Price versus book value","VALUATION"],
+    ["Fair Value",priceText(v?.fairValue),"Base growth-adjusted fair-value scenario","VALUATION"],
+    ["Upside / Downside",signedPct(v?.upsideToFairValue),"Current price versus base fair value","VALUATION"],
+    ["ROE",r.roe!=null?pctText(r.roe):"N/A","Return on equity","QUALITY"],
+    ["ROA",r.roa!=null?pctText(r.roa):"N/A","Asset efficiency","QUALITY"],
+    ["Debt / Equity",r.debtToEquity!=null?`${r.debtToEquity.toFixed(2)}x`:"N/A","Balance-sheet leverage","RISK"],
+    ["Net Debt / EBITDA",der.netDebtToEbitda!=null?`${der.netDebtToEbitda.toFixed(2)}x`:"N/A","Debt burden after cash","RISK"],
+    ["Net Margin",r.netMargin!=null?pctText(r.netMargin):"N/A","Profit retained from revenue","QUALITY"],
+    ["Operating Margin",r.operatingMargin!=null?pctText(r.operatingMargin):"N/A","Core operating profitability","QUALITY"],
+    ["Revenue Growth",r.revenueGrowth!=null?pctText(r.revenueGrowth):"N/A","Latest top-line growth","GROWTH"],
+    ["Earnings Growth",r.earningsGrowth!=null?pctText(r.earningsGrowth):"N/A","Latest bottom-line growth","GROWTH"],
+    ["Revenue 5Y CAGR",g.revenue5yCagr!=null?pctText(g.revenue5yCagr):"N/A","Long-term top-line compounding","GROWTH"],
+    ["EPS 5Y CAGR",g.eps5yCagr!=null?pctText(g.eps5yCagr):"N/A","Long-term per-share earnings growth","GROWTH"],
+    ["FCF",d.fcf!=null?`₹${d.fcf.toLocaleString("en-IN")} Cr`:"N/A","Owner-earnings proxy","CASH FLOW"],
+    ["FCF Margin",der.fcfMargin!=null?pctText(der.fcfMargin):"N/A","Free cash flow as % of revenue","CASH FLOW"],
+    ["FCF Conversion",der.fcfConversion!=null?pctText(der.fcfConversion):"N/A","Free cash flow / net income","CASH FLOW"],
+    ["RSI",t?.rsi!=null?t.rsi.toFixed(1):"N/A","Momentum indicator","TECHNICAL"],
+    ["200 DMA",t?.s200!=null?priceText(t.s200):"N/A","Long-term trend reference","TECHNICAL"]
+  ];
+  return rows.map(r=>`<tr><td>${r[0]}</td><td><b>${r[1]}</b></td><td>${r[2]}</td><td><span class="${r[3]==="RISK"?"amber":r[3]==="VALUATION"?"violet":r[3]==="QUALITY"?"green":r[3]==="GROWTH"||r[3]==="CASH FLOW"?"cyan":"cyan"}">${r[3]}</span></td></tr>`).join("");
 }
 
 function render(){
@@ -526,6 +590,52 @@ function render(){
     ["Management candid during bad periods?","Read annual letters and calls."]
   ]);
 
+  $("valuationSnapshot").innerHTML=`
+    <div class="valuationHero">
+      <div class="valuationMain">
+        <div class="label">BASE FAIR VALUE</div>
+        <div class="fair ${v.verdict==="ATTRACTIVE"||v.verdict==="DEEPLY UNDERVALUED"?"positive":v.verdict==="VERY EXPENSIVE"||v.verdict==="EXPENSIVE"?"negative":"neutral"}">${priceText(v.fairValue)}</div>
+        <div class="sub">${v.verdict||"DATA INSUFFICIENT"} · Current ${priceText(v.currentPrice)} · Upside ${signedPct(v.upsideToFairValue)}</div>
+        <div class="scorebar" style="margin-top:10px"><i style="width:${Math.max(0,Math.min(100,50+(v.upsideToFairValue||0)))}%;background:${v.upsideToFairValue>=0?"var(--green)":"var(--red)"}"></i></div>
+        <div class="why" style="margin-top:8px">${v.method||"Growth-adjusted valuation framework."}</div>
+      </div>
+      <div class="card">
+        <div class="label">VALUATION SIGNALS</div>
+        <div class="kv"><span>Growth signal</span><b>${pctText(v.growthSignal)}</b></div>
+        <div class="kv"><span>Base justified P/E</span><b>${v.basePE!=null?v.basePE.toFixed(1)+"x":"N/A"}</b></div>
+        <div class="kv"><span>Margin of safety</span><b class="${valueClass(v.marginOfSafety,0)}">${signedPct(v.marginOfSafety)}</b></div>
+        <div class="kv"><span>PEG</span><b>${v.pegRatio!=null?v.pegRatio.toFixed(2):"N/A"}</b></div>
+      </div>
+    </div>
+    <div class="scenarioGrid" style="margin-top:10px">
+      <div class="scenario"><div class="title">CONSERVATIVE</div><div class="price">${priceText(v.conservativeFairValue)}</div><div class="sub">Growth ${pctText(v.conservativeGrowth)} · P/E ${v.conservativePE!=null?v.conservativePE.toFixed(1)+"x":"N/A"}</div></div>
+      <div class="scenario"><div class="title">BASE CASE</div><div class="price cyan">${priceText(v.baseFairValue)}</div><div class="sub">Growth ${pctText(v.baseGrowth)} · P/E ${v.basePE!=null?v.basePE.toFixed(1)+"x":"N/A"}</div></div>
+      <div class="scenario"><div class="title">OPTIMISTIC</div><div class="price">${priceText(v.optimisticFairValue)}</div><div class="sub">Growth ${pctText(v.optimisticGrowth)} · P/E ${v.optimisticPE!=null?v.optimisticPE.toFixed(1)+"x":"N/A"}</div></div>
+    </div>
+    <div class="committeeGrid" style="margin-top:10px">
+      <div class="committeeItem"><div class="label">EARNINGS</div><div class="v">${v.forwardEPS!=null?priceText(v.forwardEPS):"N/A"}</div><div class="why">Forward EPS</div></div>
+      <div class="committeeItem"><div class="label">5Y EPS CAGR</div><div class="v">${pctText(v.eps5yCagr)}</div><div class="why">Historical compounding</div></div>
+      <div class="committeeItem"><div class="label">FCF CONVERSION</div><div class="v">${pctText(f?.derived?.fcfConversion)}</div><div class="why">Profit → cash</div></div>
+      <div class="committeeItem"><div class="label">CONFIDENCE</div><div class="v">${s.confidence}/100</div><div class="why">${state.dataQuality?.status||"DATA QUALITY"}</div></div>
+    </div>`;
+
+  $("valuationBody").innerHTML=`
+    <div class="valuationHero">
+      <div class="valuationMain"><div class="label">VALUATION VERDICT</div><div class="action">${v.verdict||"DATA INSUFFICIENT"}</div><div class="reason">Current price ${priceText(v.currentPrice)} vs base fair value ${priceText(v.fairValue)}. Framework upside/downside: <b>${signedPct(v.upsideToFairValue)}</b>.</div></div>
+      <div class="card"><div class="label">REFERENCE ONLY</div><div class="kv"><span>Market P/E</span><b>${v.trailingPE!=null?v.trailingPE.toFixed(1)+"x":"N/A"}</b></div><div class="kv"><span>Justified P/E</span><b>${v.basePE!=null?v.basePE.toFixed(1)+"x":"N/A"}</b></div><div class="kv"><span>P/B reference</span><b>${v.pbReference!=null?priceText(v.pbReference):"N/A"}</b></div><div class="why">P/B is shown separately and is not blindly blended into the primary fair value.</div></div>
+    </div>`;
+  $("valuationCards").innerHTML=[
+    ["Growth quality",`5Y revenue CAGR ${pctText(v.revenue5yCagr)} · 5Y EPS CAGR ${pctText(v.eps5yCagr)}.`],
+    ["Earnings power",`Trailing EPS ${v.trailingEPS!=null?priceText(v.trailingEPS):"N/A"} · Forward EPS ${v.forwardEPS!=null?priceText(v.forwardEPS):"N/A"}.`],
+    ["Cash economics",`FCF conversion ${pctText(f?.derived?.fcfConversion)} · FCF margin ${pctText(f?.derived?.fcfMargin)}.`],
+    ["Risk-adjusted price",`${v.verdict||"N/A"} with ${signedPct(v.marginOfSafety)} margin of safety.`],
+    ["Market expectation",`Forward P/E ${v.forwardPE!=null?v.forwardPE.toFixed(1)+"x":"N/A"} vs justified ${v.basePE!=null?v.basePE.toFixed(1)+"x":"N/A"}.`],
+    ["Method",v.method||"Growth-adjusted justified multiple."]
+  ].map(x=>`<div class="card"><b>${x[0]}</b><p class="sub">${x[1]}</p></div>`).join("");
+
+  $("metrics").innerHTML=enhancedMetricRows(d,v,f,t);
+  $("final").innerHTML=`<div class="verdict"><span class="signal ${decisionClass(dec.action||dec.a)}">${dec.action||dec.a}</span><div class="action">${dec.action||dec.a}</div><div class="reason">${(dec.reason||dec.why||[]).map(x=>"• "+x).join("<br>")}</div><div class="why" style="margin-top:10px">Decision uses live fundamentals, valuation, risk and technical evidence. Verify filings and market conditions before acting.</div></div>`;
+
   $("taBody").innerHTML=`<div class="grid4">
     <div class="card"><div class="label">Trend</div><div class="big ${t.trend.includes("UP")?"green":t.trend==="DOWNTREND"?"red":"amber"}">${t.trend}</div></div>
     <div class="card"><div class="label">RSI 14</div><div class="big ${t.rsi>70?"amber":t.rsi<30?"cyan":"green"}">${num(t.rsi,1)}</div><div class="sub">${t.rsi>70?"Overbought":t.rsi<30?"Oversold":"Neutral"}</div></div>
@@ -580,6 +690,10 @@ async function analyze(raw){
     state.stock=live.stock;
     state.sc=live.score;
     state.tech=live.technical;
+    state.valuation=live.valuation;
+    state.fundamentals=live.fundamentals;
+    state.dataQuality=live.dataQuality;
+    state.decision=live.decision;
     state.live=true;
 
     window.__lastLive=live;
@@ -651,7 +765,7 @@ function techExplain(d,t){
 
 function enhancedRender(){
   if(!state.stock)return;
-  const d=state.stock,s=state.sc,t=state.tech,tx=techExplain(d,t),dec=decision(s,t);
+  const d=state.stock,s=state.sc,t=state.tech,v=state.valuation||{},f=state.fundamentals||{},tx=techExplain(d,t),dec=state.decision||decision(s,t);
 
   $("taBody").innerHTML=`<div class="grid4">
     <div class="card"><div class="label">Trend</div><div class="big ${t.trend.includes("UP")?"green":t.trend==="DOWNTREND"?"red":"amber"}">${t.trend}</div></div>
@@ -755,7 +869,7 @@ render=function(){_renderBase();enhancedRender();};
 async function refreshLiveCurrent(){
   if(!state.stock)return;
   const r=await fetch("/api/analyze?symbol="+encodeURIComponent(state.stock.symbol)); if(!r.ok)throw new Error();
-  const live=await r.json(); state.stock=live.stock;state.sc=live.score;state.tech=live.technical;state.live=true;render();
+  const live=await r.json(); state.stock=live.stock;state.sc=live.score;state.tech=live.technical;state.valuation=live.valuation;state.fundamentals=live.fundamentals;state.dataQuality=live.dataQuality;state.decision=live.decision;state.live=true;render();
   $("liveStatus").textContent="● LIVE DATA · "+live.source+" · "+new Date(live.asOf).toLocaleTimeString("en-IN");$("liveStatus").className="liveStatus live";
 }
 function setAutoMode(on){
@@ -798,7 +912,7 @@ function setRadarAuto(on){
 async function setSwingAuto(on){
   $("swingDot").classList.toggle("on",on);$("swingAutoText").textContent=on?"SWING AUTO MODE ON":"SWING AUTO MODE OFF";$("swingAutoToggle").textContent=on?"STOP AUTO SWING":"START AUTO SWING";
   if(swingAutoTimer)clearInterval(swingAutoTimer);swingAutoTimer=null;
-  const tick=async()=>{if(!state.stock)return;try{const r=await fetch("/api/analyze?symbol="+encodeURIComponent(state.stock.symbol));if(!r.ok)throw new Error();const live=await r.json();state.stock=live.stock;state.sc=live.score;state.tech=live.technical;state.live=true;enhancedRender();$("swingAutoLast").textContent="· checked "+new Date().toLocaleTimeString("en-IN");}catch(e){$("swingAutoLast").textContent="· refresh failed";}};
+  const tick=async()=>{if(!state.stock)return;try{const r=await fetch("/api/analyze?symbol="+encodeURIComponent(state.stock.symbol));if(!r.ok)throw new Error();const live=await r.json();state.stock=live.stock;state.sc=live.score;state.tech=live.technical;state.valuation=live.valuation;state.fundamentals=live.fundamentals;state.dataQuality=live.dataQuality;state.decision=live.decision;state.live=true;enhancedRender();$("swingAutoLast").textContent="· checked "+new Date().toLocaleTimeString("en-IN");}catch(e){$("swingAutoLast").textContent="· refresh failed";}};
   if(on){await tick();swingAutoTimer=setInterval(tick,60000);$("swingAutoLast").textContent="· live every 60 sec";}else $("swingAutoLast").textContent="";
 }
 /* Radar */
