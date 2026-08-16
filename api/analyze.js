@@ -25,7 +25,7 @@ function requestId(req) {
 }
 
 function errorResponse(res, status, error, id) {
-  return res.status(status).set(CORS).json({ success: false, error, requestId: id });
+  Object.entries(CORS).forEach(([k,v]) => res.setHeader(k,v)); return res.status(status).json({ success: false, error, requestId: id });
 }
 
 function buildPrompt(stockName, sector, industry, metrics, scores, horizon = 20) {
@@ -68,7 +68,7 @@ async function handleAI(req, res, id) {
   catch { return errorResponse(res, 400, 'Invalid JSON body', id); }
 
   const { valid, errors } = validateAnalyzeRequest(body);
-  if (!valid) return res.status(400).set(CORS).json({ success: false, error: 'Validation failed', details: errors, requestId: id });
+  if (!valid) Object.entries(CORS).forEach(([k,v]) => res.setHeader(k,v)); return res.status(400).json({ success: false, error: 'Validation failed', details: errors, requestId: id });
 
   const { stockName, sector, industry = '', metrics, scores, horizon = 20 } = body;
   const cacheKey = `analyze:${String(stockName).toLowerCase().replace(/[^a-z0-9]/g, '_')}:${horizon}`;
@@ -101,7 +101,7 @@ async function handleAI(req, res, id) {
 
 export default async function handler(req, res) {
   const id = requestId(req);
-  if (req.method === 'OPTIONS') return res.status(204).set(CORS).end();
+  if (req.method === 'OPTIONS') Object.entries(CORS).forEach(([k,v]) => res.setHeader(k,v)); return res.status(204).end();
 
   // Live StockSamjho analysis: GET /api/analyze?symbol=TCS
   if (req.method === 'GET') {
@@ -112,7 +112,7 @@ export default async function handler(req, res) {
 
     try {
       const result = await analyzeStock(symbol);
-      return res.status(200).set(CORS).json(result);
+      Object.entries(CORS).forEach(([k,v]) => res.setHeader(k,v)); return res.status(200).json(result);
     } catch (error) {
       // Keep provider/schema details in server logs only.
       console.error('[MARKET ANALYZE ERROR]', {
