@@ -141,3 +141,30 @@ assert.ok(typeof dec.action === 'string');
 assert.ok(Array.isArray(dec.reason));
 
 console.log('market-engine.unit: PASS');
+
+
+// Phase 4: valuation terminology and evidence-aware financial strength.
+const valuationFixture = buildValuation({
+  summary: {
+    summaryDetail: { trailingPE: 16, forwardPE: 15 },
+    defaultKeyStatistics: { trailingEps: 100, forwardEps: 100, returnOnEquity: 0.3, priceToBook: 5 },
+    financialData: { earningsGrowth: 0.15, revenueGrowth: 0.12 },
+  },
+  annual: [],
+  trailing: [],
+}, 1000);
+assert.equal(valuationFixture.verdict, 'DEEPLY UNDERVALUED', 'deeply undervalued requires >=35% framework gap');
+assert.ok(valuationFixture.verdictThresholds.deeplyUndervaluedAt.includes('-35%'), 'valuation thresholds should be explicit');
+
+const partialFinancials = {
+  ratios: { debtToEquity: 0.1, currentRatio: 2 },
+  growth: { revenue5yCagr: null, eps5yCagr: null, pat5yCagr: null },
+  derived: { fcfConversion: null, netDebtToEbitda: 0 },
+  rawAvailability: { annualBalanceSheet: false, annualCashFlow: false, annualStatements: false, quoteSummary: true },
+  current: { netDebt: 0, freeCashFlow: null },
+  errors: {},
+  periods: { annualHistoryCount: 0 },
+};
+const partialScore = scoreStock(partialFinancials, { trailingPE: 16, forwardPE: 15, priceToBook: 5, fairValue: 3000, growthSignal: 12, evToEbitda: 10, marginOfSafety: 33 }, { trend: 'UPTREND', rsi: 55, distanceFrom200DMA: 5, drawdown: 10 }, { completeness: 60 });
+assert.ok(partialScore.financialStrength <= 70, 'financial strength must be capped when balance sheet is unavailable');
+assert.equal(partialScore.financialStrengthCoverage, 'CURRENT_FIELDS_ONLY');
