@@ -3,9 +3,15 @@
   "version": "3.0.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
     "openai": "^4.47.1",
     "yahoo-finance2": "4.0.2"
+  },
+  "scripts": {
+    "test": "node tests/phase1-smoke.mjs",
+    "verify": "node --check api/analyze.js && node --check api/data.js && node --check api/health.js && node --check api-data-with-scan.js && node --check auto-mode-upgrade.js && node --check lib/cache.js && node --check lib/market-engine.js && node --check lib/validate.js && node --check public/auto-mode.js && node --check server.js && node tests/phase1-smoke.mjs"
   }
 }

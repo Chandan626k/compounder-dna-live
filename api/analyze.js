@@ -112,31 +112,21 @@ export default async function handler(req, res) {
   // Live StockSamjho analysis: GET /api/analyze?symbol=TCS
   if (req.method === 'GET') {
     const rawSymbol = req.query?.symbol;
-    const symbol = String(Array.isArray(rawSymbol) ? rawSymbol[0] : rawSymbol || '').trim().toUpperCase();
+    const symbol = String(Array.isArray(rawSymbol) ? rawSymbol[0] : rawSymbol || '').trim();
     if (!symbol) return errorResponse(res, 400, 'Stock symbol is required.', id);
-    if (!/^[A-Z0-9.&^_-]{1,25}(?:\.(?:NS|BO))?$/i.test(symbol)) return errorResponse(res, 400, 'Invalid stock symbol.', id);
+    if (!/^[A-Za-z0-9.&^_-]{1,25}(?:\.(?:NS|BO))?$/i.test(symbol)) return errorResponse(res, 400, 'Invalid stock symbol.', id);
 
-    // Best-effort server-side cache. The analysis engine remains the source of truth;
-    // cache failures must never change the returned analysis or cause stale data to
-    // be treated as authoritative. Ten minutes is intentionally conservative for
-    // an MVP because the underlying data source is daily OHLCV/fundamental data.
-    const normalizedSymbol = symbol.endsWith('.NS') || symbol.endsWith('.BO') || symbol.startsWith('^')
-      ? symbol
-      : `${symbol}.NS`;
-    const cacheKey = `market-analysis:v1:${normalizedSymbol}`;
+    const cacheKey = `market:${symbol.toUpperCase()}`;
     const cached = cacheGet(cacheKey);
     if (cached) {
-      Object.entries(CORS).forEach(([k, v]) => res.setHeader(k, v));
-      res.setHeader('X-StockSamjho-Cache', 'HIT');
-      return res.status(200).json({ ...cached, cached: true });
+      Object.entries(CORS).forEach(([k,v]) => res.setHeader(k,v));
+      return res.status(200).json({ ...cached, meta: { ...(cached.meta || {}), cached: true } });
     }
 
     try {
       const result = await analyzeStock(symbol);
       cacheSet(cacheKey, result, 10 * 60 * 1000);
-      Object.entries(CORS).forEach(([k,v]) => res.setHeader(k,v));
-      res.setHeader('X-StockSamjho-Cache', 'MISS');
-      return res.status(200).json({ ...result, cached: false });
+      Object.entries(CORS).forEach(([k,v]) => res.setHeader(k,v)); return res.status(200).json({ ...result, meta: { cached: false } });
     } catch (error) {
       // Keep provider/schema details in server logs only.
       console.error('[MARKET ANALYZE ERROR]', {
