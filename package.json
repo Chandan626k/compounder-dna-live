@@ -11,7 +11,8 @@
     "yahoo-finance2": "4.0.2"
   },
   "scripts": {
-    "test": "node tests/market-engine.unit.mjs && node tests/phase1-smoke.mjs",
-    "verify": "node tests/market-engine.unit.mjs && node tests/phase1-smoke.mjs && for f in api/analyze.js api/data.js api/health.js api-data-with-scan.js auto-mode-upgrade.js lib/cache.js lib/market-engine.js lib/validate.js public/auto-mode.js server.js; do node --check \"$f\" || exit 1; done"
+    "test": "node tests/market-engine.unit.mjs && node tests/phase1-smoke.mjs && node tests/frontend-syntax.mjs",
+    "verify": "node tests/market-engine.unit.mjs && node tests/phase1-smoke.mjs && node tests/frontend-syntax.mjs && for f in api/analyze.js api/data.js api/health.js api-data-with-scan.js auto-mode-upgrade.js lib/cache.js lib/market-engine.js lib/validate.js public/auto-mode.js server.js; do node --check \"$f\" || exit 1; done",
+    "frontend:check": "node tests/frontend-syntax.mjs"
   }
 }

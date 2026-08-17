@@ -168,3 +168,41 @@ const partialFinancials = {
 const partialScore = scoreStock(partialFinancials, { trailingPE: 16, forwardPE: 15, priceToBook: 5, fairValue: 3000, growthSignal: 12, evToEbitda: 10, marginOfSafety: 33 }, { trend: 'UPTREND', rsi: 55, distanceFrom200DMA: 5, drawdown: 10 }, { completeness: 60 });
 assert.ok(partialScore.financialStrength <= 70, 'financial strength must be capped when balance sheet is unavailable');
 assert.equal(partialScore.financialStrengthCoverage, 'CURRENT_FIELDS_ONLY');
+
+
+// Phase 5: deterministic evidence confidence, score classification, contribution explainability and decision basis.
+const freshQuality = buildDataQuality(financials, valuation, {}, tech, {
+  marketAsOf: new Date().toISOString(),
+  fundamentalsAsOf: new Date().toISOString(),
+});
+assert.ok(freshQuality.confidenceModel, 'confidence model must be explicit');
+assert.equal(freshQuality.confidenceModel.id, 'data-confidence-v1.0-heuristic');
+assert.equal(Math.round(Object.values(freshQuality.confidenceModel.weights).reduce((a,b)=>a+b,0)), 1);
+assert.ok(freshQuality.confidence >= 0 && freshQuality.confidence <= 100);
+assert.ok(Number.isFinite(freshQuality.confidenceModel.components.coverage));
+assert.ok(Number.isFinite(freshQuality.confidenceModel.components.freshness));
+assert.ok(Number.isFinite(freshQuality.confidenceModel.components.consistency));
+assert.ok(Number.isFinite(freshQuality.confidenceModel.components.historicalDepth));
+
+const explainedScore = scoreStock(financials, valuation, tech, freshQuality);
+assert.ok(Array.isArray(explainedScore.components));
+assert.equal(explainedScore.components.length, Object.keys(SCORE_MODEL.weights).length);
+const contributionSum = explainedScore.components.reduce((sum, x) => sum + x.contribution, 0);
+approx(explainedScore.overall, Math.round(contributionSum), 1e-9);
+assert.ok(['EXCEPTIONAL','STRONG','PROMISING / WATCH','MIXED','WEAK / HIGH RISK'].includes(explainedScore.classification));
+
+const limitedQuality = {
+  ...freshQuality,
+  confidence: 62,
+  completeness: 62,
+  criticalMissingFields: ['ROE'],
+};
+const limitedScore = scoreStock(partialFinancials, valuation, tech, limitedQuality);
+assert.equal(limitedScore.dataLimited, true);
+assert.ok(limitedScore.confidence <= 62);
+
+const limitedDecision = decision(limitedScore, valuation, tech, limitedQuality);
+assert.ok(Array.isArray(limitedDecision.positives));
+assert.ok(Array.isArray(limitedDecision.blockers));
+assert.ok(limitedDecision.basis && Number.isFinite(limitedDecision.basis.score));
+assert.ok(limitedDecision.reason.some((x) => /confidence|missing|evidence/i.test(x)));

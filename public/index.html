@@ -225,6 +225,11 @@ canvas{display:block;width:100%;background:#07111d;border:1px solid var(--line);
     </div>
 
     <div class="panel">
+      <div class="sectionHead"><h2>Data Evidence & Provenance</h2><small>SOURCE · PERIOD · FRESHNESS</small></div>
+      <div id="evidence"></div>
+    </div>
+
+    <div class="panel">
       <div class="sectionHead"><h2>Investment Committee Valuation</h2><small>PRICE × EARNINGS × GROWTH</small></div>
       <div id="valuationSnapshot"><div class="sub">Analyse a stock first.</div></div>
     </div>
@@ -337,7 +342,7 @@ canvas{display:block;width:100%;background:#07111d;border:1px solid var(--line);
 </main>
 
 <script>
-let state={stock:null,sc:null,prices:[],tech:null,valuation:null,fundamentals:null,dataQuality:null,decision:null,live:false};
+let state={stock:null,sc:null,prices:[],tech:null,valuation:null,fundamentals:null,dataQuality:null,decision:null,provenance:null,live:false};
 let analysisController=null;
 let analysisRequestSeq=0;
 const num=(v,d=1)=>Number.isFinite(Number(v))?Number(v).toFixed(d):"N/A";
@@ -422,6 +427,7 @@ async function analyze(raw){
     state.fundamentals=live.fundamentals;
     state.dataQuality=live.dataQuality;
     state.decision=live.decision;
+    state.provenance=live.provenance||null;
     state.live=true;
 
     window.__lastLive=live;
@@ -509,7 +515,9 @@ function enhancedRender(){
   const qualityLabel=s.quality>=80?'EXCELLENT':s.quality>=65?'STRONG':s.quality>=50?'AVERAGE':'WEAK';
   const growthLabel=s.wealth>=80?'HIGH GROWTH':s.wealth>=65?'HEALTHY GROWTH':s.wealth>=50?'MODERATE':'WEAK GROWTH';
   const riskLabel=s.risk<35?'LOW':s.risk<55?'MODERATE':s.risk<70?'HIGH':'VERY HIGH';
-  const confidenceLabel=s.confidence>=85?'HIGH':s.confidence>=65?'MEDIUM':'LOW';
+  const confidenceLabel=s.confidence>=85?'HIGH':s.confidence>=70?'MEDIUM':'LOW';
+  const classification=s.classification||'UNCLASSIFIED';
+  const limitedLabel=s.dataLimited?' · DATA-LIMITED':'';
   const fmtMoney=v=>Number.isFinite(Number(v))?`₹${Number(v).toLocaleString('en-IN',{maximumFractionDigits:0})}`:'N/A';
   const fmtPct=v=>Number.isFinite(Number(v))?`${Number(v).toFixed(1)}%`:'N/A';
   const fmtX=v=>Number.isFinite(Number(v))?`${Number(v).toFixed(2)}x`:'N/A';
@@ -517,8 +525,8 @@ function enhancedRender(){
 
   $('stockName').textContent=d.name||d.symbol||'—';
   $('stockMeta').textContent=`${d.symbol||'—'} · ${d.sector||'N/A'}${d.industry?' · '+d.industry:''}`;
-  $('type').textContent=s.overall>=80?'ELITE COMPOUNDER':s.overall>=68?'STRONG COMPOUNDER':s.overall>=50?'SELECTIVE / AVERAGE':'WEAK / HIGH RISK';
-  $('type').className='badge '+(s.overall>=80?'bcyan':s.overall>=68?'bgreen':s.overall>=50?'bamber':'bred');
+  $('type').textContent=classification+limitedLabel;
+  $('type').className='badge '+(s.overall>=90?'bcyan':s.overall>=80?'bgreen':s.overall>=70?'bamber':'bred');
   const dq=state.dataQuality||{};
   $('stamp').textContent=`${state.live?'LIVE DATA':'DATA UNAVAILABLE'} · ${dq.status||'QUALITY CHECKED'} · ${new Date().toLocaleTimeString('en-IN')}`;
   const dqWarnings=(dq.warnings||[]).slice(0,3);
@@ -532,9 +540,8 @@ function enhancedRender(){
     ['Business quality',s.quality,'Moat, profitability, returns and balance-sheet quality.'],
     ['Wealth creation',s.wealth,'Growth, earnings trajectory and reinvestment runway.'],
     ['Risk',s.risk,'Lower is safer; valuation, leverage and business risks are included.'],
-    ['Confidence',s.confidence,'Completeness and consistency of the live dataset.']
+    ['Confidence',s.confidence,'Evidence confidence from coverage, freshness, consistency and historical depth.']
   ].map(x=>`<div style="margin:12px 0"><div class="kv"><span>${x[0]}</span><b>${num(x[1],0)}/100</b></div><div class="scorebar"><i style="width:${Math.max(0,Math.min(100,Number(x[1])||0))}%;background:${x[0]==='Risk'?'var(--red)':'var(--cyan)'}"></i></div><div class="why">${x[2]}</div></div>`).join('');
-
   const cross=[];
   if(q.roe!=null && q.debtToEquity!=null && q.debtToEquity>1) cross.push(['RED FLAG','High ROE with meaningful leverage. Check whether leverage is driving returns.']);
   if(q.revenueGrowth!=null && q.earningsGrowth!=null && q.revenueGrowth>10 && q.earningsGrowth<0) cross.push(['RED FLAG','Revenue is growing while earnings are falling. Investigate margins, costs and one-offs.']);
@@ -543,6 +550,9 @@ function enhancedRender(){
   if(q.debtToEquity!=null && q.debtToEquity<0.3) cross.push(['POSITIVE','Low reported leverage supports balance-sheet resilience.']);
   if(der.fcfConversion!=null && der.fcfConversion>=80) cross.push(['POSITIVE','Strong profit-to-cash conversion supports earnings quality.']);
   $('cross').innerHTML=(cross.length?cross:[['CHECK','No automatic contradiction detected. Primary filings and business-specific due diligence are still required.']]).map(x=>`<div class="alert ${x[0]==='POSITIVE'?'green':x[0]==='VALUATION'?'amber':x[0]==='RED FLAG'?'red':'blue'}"><b>${x[0]}</b><br>${esc(x[1])}</div>`).join('');
+  const cc=dq.confidenceModel?.components||{}, cw=dq.confidenceModel?.weights||{};
+  const caps=(dq.confidenceModel?.capsApplied||[]).length?`<div class="why"><b>Caps:</b> ${dq.confidenceModel.capsApplied.map(esc).join(' · ')}</div>`:'';
+  $('cross').insertAdjacentHTML('beforeend', `<div class="alert blue" style="margin-top:10px"><b>CONFIDENCE MODEL:</b> Coverage ${num(cc.coverage,0)} (${Math.round((cw.coverage||0)*100)}%) · Freshness ${num(cc.freshness,0)} (${Math.round((cw.freshness||0)*100)}%) · Consistency ${num(cc.consistency,0)} (${Math.round((cw.consistency||0)*100)}%) · History ${num(cc.historicalDepth,0)} (${Math.round((cw.historicalDepth||0)*100)}%). ${caps}</div>`);
 
   $('fundamentalBody').innerHTML=`<div class="grid4">
     <div class="card"><div class="label">QUALITY</div><div class="big cyan">${qualityLabel}</div><div class="sub">Score ${num(s.quality,0)}/100</div></div>
@@ -601,6 +611,9 @@ function enhancedRender(){
     ['RSI',Number.isFinite(Number(t.rsi))?Number(t.rsi).toFixed(1):'N/A','Momentum indicator','TECHNICAL'],
     ['200 DMA',fmtMoney(t.s200),'Long-term trend reference','TECHNICAL']
   ].map(r=>`<tr><td>${r[0]}</td><td><b>${r[1]}</b></td><td>${r[2]}</td><td><span class="${r[3]==='RISK'?'amber':r[3]==='VALUATION'?'violet':r[3]==='QUALITY'?'green':'cyan'}">${r[3]}</span></td></tr>`).join('');
+  const prov=state.provenance?.metrics||{};
+  const evidenceKeys=[['currentPrice','Current Price'],['trailingPE','P/E'],['roe','ROE'],['debtToEquity','Debt / Equity'],['revenue5yCagr','Revenue 5Y CAGR'],['eps5yCagr','EPS 5Y CAGR'],['fcfConversion','FCF Conversion'],['fairValue','Fair Value'],['rsi14','RSI14'],['sma200','SMA200']];
+  $('evidence').innerHTML=`<div class="tableWrap"><table class="table"><thead><tr><th>Metric</th><th>Source</th><th>Period</th><th>As of</th><th>Status</th></tr></thead><tbody>${evidenceKeys.map(([k,label])=>{const x=prov[k]||{};return `<tr><td>${label}</td><td>${esc(x.source||'N/A')}</td><td>${esc(x.period||'N/A')}</td><td>${x.asOf?new Date(x.asOf).toLocaleString('en-IN'):'N/A'}</td><td><span class="${x.status==='NOT_AVAILABLE'?'amber':x.status==='CALCULATED'?'violet':'green'}">${esc(x.status||'N/A')}</span></td></tr>`}).join('')}</tbody></table></div>`;
 
   $('thesis').innerHTML=`<div class="reason"><b>Business quality:</b> ${num(s.quality,0)}/100 (${qualityLabel}).<br><b>Wealth creation:</b> ${num(s.wealth,0)}/100 (${growthLabel}).<br><b>Financial strength:</b> ${num(s.financialStrength,0)}/100 (${esc(s.financialStrengthCoverage||'UNKNOWN')}).<br><b>Risk:</b> ${num(s.risk,0)}/100 (${riskLabel}; lower is safer).<br><b>Confidence:</b> ${num(s.confidence,0)}/100 (${confidenceLabel}).<br><br><b>Decision:</b> ${esc(decAction)}.<br>${decReasons.length?decReasons.map(x=>`• ${esc(x)}`).join('<br>'):'The backend did not provide a detailed reason.'}</div>`;
   $('final').innerHTML=`<div class="verdict"><span class="signal ${decisionClass(decAction)}">${esc(decAction)}</span><div class="action">${esc(decAction)}</div><div class="reason">${decReasons.length?decReasons.map(x=>`• ${esc(x)}`).join('<br>'):'Decision evidence is insufficient.'}</div><div class="why" style="margin-top:10px">Framework output only. Verify primary filings, current market conditions and your own risk tolerance before acting.</div></div>`;
@@ -683,15 +696,16 @@ function enhancedRender(){
   ]);
 
   const w=s.model?.weights||{quality:.22,growth:.15,wealth:.14,financialStrength:.18,valuation:.14,technical:.05,inverseRisk:.04,confidence:.08};
+  const componentMap=Object.fromEntries((s.components||[]).map(x=>[x.key,x]));
   const params=[
-    ["Quality",s.quality,w.quality*100,"Operating quality and earnings quality."],
-    ["Growth",s.growth,w.growth*100,"Long-term revenue, EPS and PAT growth."],
-    ["Wealth Creation",s.wealth,w.wealth*100,"Returns, cash conversion and reinvestment potential."],
-    ["Financial Strength",s.financialStrength,w.financialStrength*100,"Debt, liquidity and balance-sheet strength."],
-    ["Valuation",s.valuation,w.valuation*100,"Current valuation and framework fair-value evidence."],
-    ["Technical",s.technical,w.technical*100,"Trend and price confirmation."],
-    ["Risk-adjusted",100-s.risk,w.inverseRisk*100,"Lower risk contributes positively to the overall score."],
-    ["Evidence Confidence",s.confidence,w.confidence*100,"Data completeness; not a forecast-confidence probability."]
+    ["Quality",componentMap.quality?.value??s.quality,w.quality*100,"Operating quality and earnings quality."],
+    ["Growth",componentMap.growth?.value??s.growth,w.growth*100,"Long-term revenue, EPS and PAT growth."],
+    ["Wealth Creation",componentMap.wealth?.value??s.wealth,w.wealth*100,"Returns, cash conversion and reinvestment potential."],
+    ["Financial Strength",componentMap.financialStrength?.value??s.financialStrength,w.financialStrength*100,"Debt, liquidity and balance-sheet strength."],
+    ["Valuation",componentMap.valuation?.value??s.valuation,w.valuation*100,"Current valuation and framework fair-value evidence."],
+    ["Technical",componentMap.technical?.value??s.technical,w.technical*100,"Trend and price confirmation."],
+    ["Risk-adjusted",componentMap.inverseRisk?.value??(100-s.risk),w.inverseRisk*100,"Lower risk contributes positively to the overall score."],
+    ["Evidence Confidence",componentMap.confidence?.value??s.confidence,w.confidence*100,"Deterministic data-evidence score; not a probability of future returns."]
   ];
   $("decisionParams").innerHTML=params.map(x=>`<div class="factor"><span><b>${x[0]}</b></span><div class="bar"><i style="width:${x[1]}%"></i></div><b>${x[1]}</b></div><div class="why">${x[3]} Weight: ${x[2]}%.</div>`).join("");
 
@@ -700,7 +714,7 @@ function enhancedRender(){
   else if(decAction.includes("WAIT")){buyReason="There are positive elements, but the evidence is not strong enough for an aggressive entry.";avoidReason="Buying now would depend too much on assumptions. Better price, stronger trend or cleaner evidence is needed.";}
   else{buyReason="The business may have good qualities, but the current risk/reward does not compensate enough.";avoidReason="Risk, valuation or weak evidence makes fresh capital unattractive until the thesis improves.";}
 
-  $("decisionBody").innerHTML=`<div class="decisionGrid"><div class="verdict"><span class="signal ${decisionClass(decAction)}">${decAction}</span><div class="bigDecision">${decAction}</div><div class="reason"><b>Why buying can make sense:</b><br>${buyReason}<br><br><b>Why buying may be wrong now:</b><br>${avoidReason}</div></div>
+  $("decisionBody").innerHTML=`<div class="decisionGrid"><div class="verdict"><span class="signal ${decisionClass(decAction)}">${decAction}</span><div class="bigDecision">${decAction}</div><div class="reason"><b>Why this decision:</b><br>${(decReasons||[]).map(esc).join("<br>")}<br><br><b>Why buying may be wrong now:</b><br>${avoidReason}</div></div>
   <div class="card"><div class="label">Final DNA Score</div><div class="big cyan">${s.overall}/100</div><div class="kv"><span>Quality</span><b>${s.quality}</b></div><div class="kv"><span>Growth</span><b>${s.wealth}</b></div><div class="kv"><span>Risk</span><b>${s.risk}</b></div><div class="kv"><span>Technical</span><b>${tx.verdict}</b></div></div></div>`;
 
   $("decisionTimeline").innerHTML=`<div class="timeline">
@@ -784,7 +798,7 @@ function setRadarAuto(on){
 async function setSwingAuto(on){
   $("swingDot").classList.toggle("on",on);$("swingAutoText").textContent=on?"SWING AUTO MODE ON":"SWING AUTO MODE OFF";$("swingAutoToggle").textContent=on?"STOP AUTO SWING":"START AUTO SWING";
   if(swingAutoTimer)clearInterval(swingAutoTimer);swingAutoTimer=null;
-  const tick=async()=>{if(!state.stock)return;try{const r=await fetch("/api/analyze?symbol="+encodeURIComponent(state.stock.symbol));if(!r.ok)throw new Error();const live=await r.json();state.stock=live.stock;state.sc=live.score;state.tech=live.technical;state.valuation=live.valuation;state.fundamentals=live.fundamentals;state.dataQuality=live.dataQuality;state.decision=live.decision;state.live=true;enhancedRender();$("swingAutoLast").textContent="· checked "+new Date().toLocaleTimeString("en-IN");}catch(e){$("swingAutoLast").textContent="· refresh failed";}};
+  const tick=async()=>{if(!state.stock)return;try{const r=await fetch("/api/analyze?symbol="+encodeURIComponent(state.stock.symbol));if(!r.ok)throw new Error();const live=await r.json();state.stock=live.stock;state.sc=live.score;state.tech=live.technical;state.valuation=live.valuation;state.fundamentals=live.fundamentals;state.dataQuality=live.dataQuality;state.decision=live.decision;state.provenance=live.provenance||null;state.live=true;enhancedRender();$("swingAutoLast").textContent="· checked "+new Date().toLocaleTimeString("en-IN");}catch(e){$("swingAutoLast").textContent="· refresh failed";}};
   if(on){await tick();swingAutoTimer=setInterval(tick,60000);$("swingAutoLast").textContent="· live every 60 sec";}else $("swingAutoLast").textContent="";
 }
 /* Radar */
