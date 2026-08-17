@@ -679,11 +679,16 @@ function enhancedRender(){
     ["Promises repeatedly missed","Reduce management confidence."]
   ]);
 
+  const w=s.model?.weights||{quality:.22,growth:.15,wealth:.14,financialStrength:.18,valuation:.14,technical:.05,inverseRisk:.04,confidence:.08};
   const params=[
-    ["Business Quality",s.quality,34,"Durable economics and operating quality."],
-    ["Growth / Wealth Creation",s.wealth,30,"Growth plus ability to reinvest at good returns."],
-    ["Risk-adjusted score",100-s.risk,20,"Lower risk improves the decision score."],
-    ["Evidence Confidence",s.confidence,16,"Data completeness and consistency."]
+    ["Quality",s.quality,w.quality*100,"Operating quality and earnings quality."],
+    ["Growth",s.growth,w.growth*100,"Long-term revenue, EPS and PAT growth."],
+    ["Wealth Creation",s.wealth,w.wealth*100,"Returns, cash conversion and reinvestment potential."],
+    ["Financial Strength",s.financialStrength,w.financialStrength*100,"Debt, liquidity and balance-sheet strength."],
+    ["Valuation",s.valuation,w.valuation*100,"Current valuation and framework fair-value evidence."],
+    ["Technical",s.technical,w.technical*100,"Trend and price confirmation."],
+    ["Risk-adjusted",100-s.risk,w.inverseRisk*100,"Lower risk contributes positively to the overall score."],
+    ["Evidence Confidence",s.confidence,w.confidence*100,"Data completeness; not a forecast-confidence probability."]
   ];
   $("decisionParams").innerHTML=params.map(x=>`<div class="factor"><span><b>${x[0]}</b></span><div class="bar"><i style="width:${x[1]}%"></i></div><b>${x[1]}</b></div><div class="why">${x[3]} Weight: ${x[2]}%.</div>`).join("");
 

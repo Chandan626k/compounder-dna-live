@@ -1,7 +1,7 @@
-import OpenAI from 'openai';
 import { analyze as analyzeStock } from '../lib/market-engine.js';
 import { cacheGet, cacheSet, cacheStats, isRateLimited } from '../lib/cache.js';
-import { validateAnalyzeRequest, safeMetric } from '../lib/validate.js';
+import { validateAnalyzeRequest } from '../lib/validate.js';
+import { parseAIResponse, renderAIHtml } from '../lib/ai-schema.js';
 
 const CORS = {
   'Access-Control-Allow-Origin': process.env.ALLOWED_ORIGIN || '*',
@@ -10,14 +10,39 @@ const CORS = {
   'Cache-Control': 'no-store',
 };
 
-let openaiClient = null;
-function getOpenAI() {
-  if (!openaiClient) {
-    const key = process.env.OPENAI_API_KEY;
-    if (!key || !key.startsWith('sk-')) throw new Error('OPENAI_API_KEY not configured on server');
-    openaiClient = new OpenAI({ apiKey: key });
+async function callOpenAI({ apiKey, model, prompt }) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 20_000);
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: 700,
+        temperature: 0.35,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+      signal: controller.signal,
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const error = new Error(data?.error?.message || `OpenAI HTTP ${response.status}`);
+      error.status = response.status;
+      throw error;
+    }
+    return data;
+  } finally {
+    clearTimeout(timeout);
   }
-  return openaiClient;
+}
+
+function applyHeaders(res) {
+  Object.entries(CORS).forEach(([k, v]) => res.setHeader(k, v));
+  return res;
 }
 
 function requestId(req) {
@@ -28,34 +53,71 @@ function errorResponse(res, status, error, id) {
   Object.entries(CORS).forEach(([k,v]) => res.setHeader(k,v)); return res.status(status).json({ success: false, error, requestId: id });
 }
 
-function buildPrompt(stockName, sector, industry, metrics, scores, horizon = 20) {
-  const m = metrics || {};
-  const sm = (key, dec = 1) => safeMetric(m, key, dec);
+function buildPromptFromAnalysis(analysis, horizon = 20) {
+  const s = analysis.stock || {};
+  const f = analysis.fundamentals || {};
+  const r = f.ratios || {};
+  const g = f.growth || {};
+  const d = f.derived || {};
+  const v = analysis.valuation || {};
+  const t = analysis.technical || {};
+  const score = analysis.score || {};
+  const dq = analysis.dataQuality || {};
+  const unavailable = (value) => value == null ? 'Not Available' : value;
+
   return `You are a senior equity research analyst specializing in Indian long-term investing.
-Do NOT invent numbers. Interpret only the verified data supplied below.
-Return concise Hinglish HTML only.
+You are an interpretation layer only. NEVER invent, estimate, or alter financial facts.
+Use only the structured StockSamjho analysis below. If a fact is unavailable, explicitly say "Not Available".
+Do not give a price target or guarantee returns.
+Return JSON only with exactly these string fields:
+- businessQuality
+- numbersValuation
+- risks
+- thesis
+- whatToMonitor
+Keep each field concise and evidence-based.
 
-Company: ${stockName}
-Sector: ${sector || 'Unavailable'} · ${industry || 'Unavailable'}
-Market Cap: ₹${sm('marketCap', 0)} Cr
-Current Price: ₹${sm('currentPrice', 0)}
-P/E: ${sm('peRatio')}x
-P/B: ${sm('pbRatio')}x
-ROE: ${sm('roe')}%
-Debt/Equity: ${sm('debtToEquity')}x
-Net Margin: ${sm('netProfitMargin')}%
-Revenue Growth: ${sm('revenueGrowthYoY')}%
-Earnings Growth: ${sm('earningsGrowthYoY')}%
-Dividend Yield: ${sm('dividendYield')}%
-FCF: ₹${sm('freeCashFlow', 0)} Cr
-52W High: ₹${sm('week52High', 0)}
-52W Low: ₹${sm('week52Low', 0)}
+COMPANY
+Name: ${unavailable(s.name)}
+Symbol: ${unavailable(s.symbol)}
+Sector: ${unavailable(s.sector)}
+Industry: ${unavailable(s.industry)}
+Price: ${unavailable(s.price)} ${unavailable(s.currency)}
 
-Overall DNA: ${scores?.overallDNA ?? 'Unavailable'}/100
-Confidence: ${scores?.confidenceScore?.total ?? 'Unavailable'}/100
-Investment Horizon: ${horizon} years
+FUNDAMENTALS
+ROE: ${unavailable(r.roe)}%
+ROCE (simplified): ${unavailable(d.roceFromStatements)}%
+Debt/Equity: ${unavailable(r.debtToEquity)}x
+Interest Coverage: ${unavailable(d.interestCoverage)}x
+Revenue Growth: ${unavailable(r.revenueGrowth)}%
+Earnings Growth: ${unavailable(r.earningsGrowth)}%
+5Y Revenue CAGR: ${unavailable(g.revenue5yCagr)}%
+5Y EPS CAGR: ${unavailable(g.eps5yCagr)}%
+5Y PAT CAGR: ${unavailable(g.pat5yCagr)}%
+FCF Margin: ${unavailable(d.fcfMargin)}%
+FCF Conversion: ${unavailable(d.fcfConversion)}%
+Net Debt/EBITDA: ${unavailable(d.netDebtToEbitda)}x
 
-Write four short sections: business quality/moat, numbers & valuation, risks, and long-term thesis. Be explicit when data is unavailable.`;
+VALUATION
+Trailing P/E: ${unavailable(v.trailingPE)}x
+Forward P/E: ${unavailable(v.forwardPE)}x
+P/B: ${unavailable(v.priceToBook)}x
+Fair Value Framework: ${unavailable(v.fairValue)}
+Valuation Verdict: ${unavailable(v.verdict)}
+
+TECHNICAL
+Trend: ${unavailable(t.trend)}
+RSI14: ${unavailable(t.rsi)}
+Price vs 200DMA: ${unavailable(t.distanceFrom200DMA)}%
+Relative Volume: ${unavailable(t.relativeVolume)}x
+
+RISK / DATA QUALITY
+Risk Score: ${unavailable(score.risk)}/100 (higher = more risk)
+Overall Score: ${unavailable(score.overall)}/100
+Data Confidence: ${unavailable(dq.confidence)}/100
+Warnings: ${dq.warnings?.length ? dq.warnings.join(' | ') : 'None reported'}
+Decision: ${unavailable(analysis.decision?.action)}
+Investment Horizon: ${horizon} years`;
 }
 
 async function handleAI(req, res, id) {
@@ -73,27 +135,38 @@ async function handleAI(req, res, id) {
     return res.status(400).json({ success: false, error: 'Validation failed', details: errors, requestId: id });
   }
 
-  const { stockName, sector, industry = '', metrics, scores, horizon = 20 } = body;
-  const cacheKey = `analyze:${String(stockName).toLowerCase().replace(/[^a-z0-9]/g, '_')}:${horizon}`;
+  const { symbol, horizon = 20 } = body;
+  const normalizedSymbol = String(symbol).trim().toUpperCase();
+  const cacheKey = `analyze:${normalizedSymbol}:${horizon}`;
   const cached = cacheGet(cacheKey);
   if (cached) {
-    return res.status(200).set(CORS).json({ success: true, verdict: cached.verdict, cached: true, cachedAt: cached.generatedAt, generatedAt: cached.generatedAt, tokensUsed: 0, requestId: id });
+    return applyHeaders(res).status(200).json({ success: true, verdict: cached.verdict, cached: true, cachedAt: cached.generatedAt, generatedAt: cached.generatedAt, tokensUsed: 0, requestId: id });
   }
 
   try {
-    const ai = getOpenAI();
-    const completion = await ai.chat.completions.create({
+    const key = process.env.OPENAI_API_KEY;
+    if (!key || !key.startsWith('sk-')) throw new Error('OPENAI_API_KEY not configured on server');
+
+    const analysisCacheKey = `market:${normalizedSymbol}`;
+    let analysis = cacheGet(analysisCacheKey);
+    if (!analysis) {
+      analysis = await analyzeStock(normalizedSymbol);
+      cacheSet(analysisCacheKey, analysis, 10 * 60 * 1000);
+    }
+
+    const completion = await callOpenAI({
+      apiKey: key,
       model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-      max_tokens: 700,
-      temperature: 0.35,
-      messages: [{ role: 'user', content: buildPrompt(stockName, sector, industry, metrics, scores, horizon) }],
+      prompt: buildPromptFromAnalysis(analysis, horizon),
     });
-    const verdict = completion.choices?.[0]?.message?.content?.trim() || '';
-    if (!verdict) throw new Error('OpenAI returned empty response');
+    const content = completion.choices?.[0]?.message?.content?.trim() || '';
+    if (!content) throw new Error('OpenAI returned empty response');
+    const parsed = parseAIResponse(content);
+    const verdict = renderAIHtml(parsed);
     const generatedAt = new Date().toISOString();
     const tokensUsed = completion.usage?.total_tokens || 0;
     cacheSet(cacheKey, { verdict, generatedAt });
-    return res.status(200).set(CORS).json({ success: true, verdict, cached: false, generatedAt, tokensUsed, requestId: id, cacheStats: cacheStats() });
+    return applyHeaders(res).status(200).json({ success: true, verdict, cached: false, generatedAt, tokensUsed, requestId: id, cacheStats: cacheStats(), model: process.env.OPENAI_MODEL || 'gpt-4o-mini' });
   } catch (error) {
     console.error('[AI ERROR]', { requestId: id, message: error?.message, status: error?.status });
     const keyError = error?.status === 401 || /api key/i.test(error?.message || '');
