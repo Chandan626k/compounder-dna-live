@@ -1,48 +1,16 @@
-import { analyze as analyzeStock } from '../lib/market-engine.js';
-
-const SYMBOLS = [
-  'TCS','INFY','HCLTECH','WIPRO','RELIANCE','ITC','HDFCBANK','ICICIBANK',
-  'SBIN','AXISBANK','KOTAKBANK','LT','BHARTIARTL','MARUTI','M&M','SUNPHARMA',
-  'TITAN','ASIANPAINT','ULTRACEMCO','NESTLEIND','HINDUNILVR','BAJFINANCE'
-];
-
-const num = v => typeof v === 'number' && Number.isFinite(v) ? v : null;
-
-export default async function handler(req, res) {
-  if (req.method !== 'GET') return res.status(405).json({ success:false, error:'Method not allowed' });
-  try {
-    const settled = await Promise.allSettled(SYMBOLS.map(s => analyzeStock(s)));
-    const results = settled.map((x, i) => {
-      if (x.status !== 'fulfilled') return null;
-      const d = x.value || {};
-      const score = d.score || {};
-      const v = d.valuation || {};
-      const t = d.technical || {};
-      const stock = d.stock || {};
-      return {
-        symbol: stock.symbol || SYMBOLS[i],
-        name: stock.name || SYMBOLS[i],
-        price: num(stock.price),
-        score: num(score.overall),
-        risk: num(score.risk),
-        valuation: v.verdict || 'DATA INSUFFICIENT',
-        trend: t.trend || 'Not Available',
-        action: d.decision?.action || 'WAIT',
-        confidence: num(d.dataQuality?.confidence),
-        dataLimited: Boolean(d.dataQuality?.dataLimited),
-      };
-    }).filter(Boolean).sort((a,b) => (b.score ?? -1) - (a.score ?? -1));
-
-    return res.status(200).json({
-      success: true,
-      generatedAt: new Date().toISOString(),
-      count: results.length,
-      requested: SYMBOLS.length,
-      results,
-      note: 'Radar ranks the same deterministic StockSamjho engine; unavailable metrics are not fabricated.'
-    });
-  } catch (error) {
-    console.error('[SCAN ERROR]', error?.message);
-    return res.status(502).json({ success:false, error:'Opportunity Radar is temporarily unavailable.' });
-  }
+import { scanSymbols, DEFAULT_UNIVERSE } from '../lib/scanner-engine.js';
+import { cacheGet, cacheSet } from '../lib/cache.js';
+const CORS={'Access-Control-Allow-Origin':process.env.ALLOWED_ORIGIN||'*','Access-Control-Allow-Methods':'GET,POST,OPTIONS','Access-Control-Allow-Headers':'Content-Type','Cache-Control':'no-store'};
+const send=(res,status,body)=>{Object.entries(CORS).forEach(([k,v])=>res.setHeader(k,v));return res.status(status).json(body)};
+export default async function handler(req,res){
+ if(req.method==='OPTIONS')return send(res,204,{});
+ if(req.method!=='GET'&&req.method!=='POST')return send(res,405,{success:false,error:'Method not allowed'});
+ try{
+  let symbols=DEFAULT_UNIVERSE;
+  if(req.method==='GET'&&req.query?.symbols)symbols=String(req.query.symbols).split(',').map(x=>x.trim()).filter(Boolean);
+  if(req.method==='POST'){const b=typeof req.body==='string'?JSON.parse(req.body):req.body||{};if(Array.isArray(b.symbols)&&b.symbols.length)symbols=b.symbols;}
+  const key=`tomorrow-scan:${symbols.map(String).sort().join(',')}`;
+  const cached=cacheGet(key);if(cached)return send(res,200,{...cached,cached:true});
+  const result=await scanSymbols(symbols);cacheSet(key,result,10*60*1000);return send(res,200,{...result,cached:false});
+ }catch(error){console.error('[SCAN ERROR]',error?.message);return send(res,502,{success:false,error:'Scanner data is temporarily unavailable. No fallback or fabricated values are used.'})}
 }
