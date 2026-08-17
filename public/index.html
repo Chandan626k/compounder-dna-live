@@ -230,6 +230,11 @@ canvas{display:block;width:100%;background:#07111d;border:1px solid var(--line);
     </div>
 
     <div class="panel">
+      <div class="sectionHead"><h2>Sector KPI Framework</h2><small>INDUSTRY-AWARE ANALYSIS</small></div>
+      <div id="sectorFramework"><div class="sub">Analyse a stock first.</div></div>
+    </div>
+
+    <div class="panel">
       <div class="sectionHead"><h2>Investment Committee Valuation</h2><small>PRICE × EARNINGS × GROWTH</small></div>
       <div id="valuationSnapshot"><div class="sub">Analyse a stock first.</div></div>
     </div>
@@ -611,6 +616,12 @@ function enhancedRender(){
     ['RSI',Number.isFinite(Number(t.rsi))?Number(t.rsi).toFixed(1):'N/A','Momentum indicator','TECHNICAL'],
     ['200 DMA',fmtMoney(t.s200),'Long-term trend reference','TECHNICAL']
   ].map(r=>`<tr><td>${r[0]}</td><td><b>${r[1]}</b></td><td>${r[2]}</td><td><span class="${r[3]==='RISK'?'amber':r[3]==='VALUATION'?'violet':r[3]==='QUALITY'?'green':'cyan'}">${r[3]}</span></td></tr>`).join('');
+  const sf=state.dataQuality?.sectorFramework||state.sc?.sectorFramework||null;
+  if(sf){
+    const rows=(sf.required||[]).map(x=>`<tr><td>${esc(x.name)}</td><td><b>${x.value==null?'NOT AVAILABLE':esc(String(x.value))}</b></td><td><span class="${x.value==null?'amber':'green'}">${x.value==null?'NOT AVAILABLE':'SOURCED'}</span></td></tr>`).join('');
+    $('sectorFramework').innerHTML=`<div class="reason"><b>${esc(sf.label||'Sector framework')}</b> · ${esc(sf.status||'UNKNOWN')} · Coverage <b>${num(sf.coverage,0)}%</b><br>${esc(sf.policy||'Only sourced industry metrics are used.')}</div><div class="tableWrap" style="margin-top:10px"><table class="table"><thead><tr><th>Sector KPI</th><th>Value</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  }
+
   const prov=state.provenance?.metrics||{};
   const evidenceKeys=[['currentPrice','Current Price'],['trailingPE','P/E'],['roe','ROE'],['debtToEquity','Debt / Equity'],['revenue5yCagr','Revenue 5Y CAGR'],['eps5yCagr','EPS 5Y CAGR'],['fcfConversion','FCF Conversion'],['fairValue','Fair Value'],['rsi14','RSI14'],['sma200','SMA200']];
   $('evidence').innerHTML=`<div class="tableWrap"><table class="table"><thead><tr><th>Metric</th><th>Source</th><th>Period</th><th>As of</th><th>Status</th></tr></thead><tbody>${evidenceKeys.map(([k,label])=>{const x=prov[k]||{};return `<tr><td>${label}</td><td>${esc(x.source||'N/A')}</td><td>${esc(x.period||'N/A')}</td><td>${x.asOf?new Date(x.asOf).toLocaleString('en-IN'):'N/A'}</td><td><span class="${x.status==='NOT_AVAILABLE'?'amber':x.status==='CALCULATED'?'violet':'green'}">${esc(x.status||'N/A')}</span></td></tr>`}).join('')}</tbody></table></div>`;
