@@ -1,16 +1,27 @@
 import { scanSymbols, DEFAULT_UNIVERSE } from '../lib/scanner-engine.js';
+import { analyze as analyzeStock } from '../lib/market-engine.js';
 import { cacheGet, cacheSet } from '../lib/cache.js';
 const CORS={'Access-Control-Allow-Origin':process.env.ALLOWED_ORIGIN||'*','Access-Control-Allow-Methods':'GET,POST,OPTIONS','Access-Control-Allow-Headers':'Content-Type','Cache-Control':'no-store'};
 const send=(res,status,body)=>{Object.entries(CORS).forEach(([k,v])=>res.setHeader(k,v));return res.status(status).json(body)};
+async function enrichDeep(rows){
+ const candidates=rows.slice(0,8), out=[];let i=0;
+ async function worker(){while(i<candidates.length){const item=candidates[i++];try{const d=await analyzeStock(item.symbol);const s=d.score||{},v=d.valuation||{},q=d.dataQuality||{};out.push({...item,deep:{overall:s.overall??null,risk:s.risk??null,confidence:q.confidence??null,dataLimited:Boolean(s.dataLimited),valuation:v.verdict??'DATA INSUFFICIENT',decision:d.decision?.action??'WAIT',fairValue:v.fairValue??null,marginOfSafety:v.marginOfSafety??null}})}catch(error){out.push({...item,deep:{status:'UNAVAILABLE',error:error?.message||'Deep analysis unavailable'}})}}
+ }
+ await Promise.all(Array.from({length:3},worker));
+ return out.sort((a,b)=>(b.deep?.overall??-1)-(a.deep?.overall??-1));
+}
 export default async function handler(req,res){
  if(req.method==='OPTIONS')return send(res,204,{});
  if(req.method!=='GET'&&req.method!=='POST')return send(res,405,{success:false,error:'Method not allowed'});
  try{
-  let symbols=DEFAULT_UNIVERSE;
-  if(req.method==='GET'&&req.query?.symbols)symbols=String(req.query.symbols).split(',').map(x=>x.trim()).filter(Boolean);
-  if(req.method==='POST'){const b=typeof req.body==='string'?JSON.parse(req.body):req.body||{};if(Array.isArray(b.symbols)&&b.symbols.length)symbols=b.symbols;}
-  const key=`tomorrow-scan:${symbols.map(String).sort().join(',')}`;
+  let symbols=DEFAULT_UNIVERSE,deep=false;
+  if(req.method==='GET'){if(req.query?.symbols)symbols=String(req.query.symbols).split(',').map(x=>x.trim()).filter(Boolean);deep=String(req.query?.deep||'false')==='true'}
+  if(req.method==='POST'){const b=typeof req.body==='string'?JSON.parse(req.body):req.body||{};if(Array.isArray(b.symbols)&&b.symbols.length)symbols=b.symbols;deep=b.deep===true}
+  const key=`tomorrow-scan:${deep?'deep:':''}${symbols.map(String).sort().join(',')}`;
   const cached=cacheGet(key);if(cached)return send(res,200,{...cached,cached:true});
-  const result=await scanSymbols(symbols);cacheSet(key,result,10*60*1000);return send(res,200,{...result,cached:false});
+  const broad=await scanSymbols(symbols);let results=broad.results;
+  if(deep)results=await enrichDeep(results);
+  const payload={...broad,results,mode:deep?'BROAD+DEEP_VERIFIED':'BROAD_TECHNICAL',decisionPolicy:'Ready-list candidates require verified data; missing evidence excludes a stock from a ready action. Deep mode validates the highest-ranked candidates against the full StockSamjho deterministic engine.'};
+  cacheSet(key,payload,10*60*1000);return send(res,200,{...payload,cached:false});
  }catch(error){console.error('[SCAN ERROR]',error?.message);return send(res,502,{success:false,error:'Scanner data is temporarily unavailable. No fallback or fabricated values are used.'})}
 }
