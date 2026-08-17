@@ -1,18 +1,13 @@
 {
   "name": "compounder-dna-live",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "private": true,
   "type": "module",
-  "engines": {
-    "node": ">=20"
-  },
-  "dependencies": {
-    "express": "^5.1.0",
-    "yahoo-finance2": "4.0.2"
-  },
+  "engines": { "node": ">=20" },
+  "dependencies": { "express": "^5.1.0", "yahoo-finance2": "4.0.2" },
   "scripts": {
-    "test": "node tests/market-engine.unit.mjs && node tests/phase1-smoke.mjs && node tests/frontend-syntax.mjs && node tests/sector-framework.unit.mjs",
-    "verify": "node tests/market-engine.unit.mjs && node tests/phase1-smoke.mjs && node tests/frontend-syntax.mjs && node tests/sector-framework.unit.mjs && for f in api/analyze.js api/data.js api/health.js api-data-with-scan.js auto-mode-upgrade.js lib/cache.js lib/market-engine.js lib/validate.js public/auto-mode.js server.js; do node --check \"$f\" || exit 1; done",
+    "test": "node tests/market-engine.unit.mjs && node tests/phase1-smoke.mjs && node tests/frontend-syntax.mjs && node tests/sector-framework.unit.mjs && node --check api/trading.js && node --check lib/trading-engine.js && node --check api/data-foundation.js",
+    "verify": "node tests/market-engine.unit.mjs && node tests/phase1-smoke.mjs && node tests/frontend-syntax.mjs && node tests/sector-framework.unit.mjs && for f in api/analyze.js api/data.js api/health.js api/trading.js api/data-foundation.js api-data-with-scan.js auto-mode-upgrade.js lib/cache.js lib/market-engine.js lib/trading-engine.js lib/validate.js public/auto-mode.js server.js; do node --check \"$f\" || exit 1; done",
     "frontend:check": "node tests/frontend-syntax.mjs"
   }
 }
