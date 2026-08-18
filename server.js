@@ -11,7 +11,7 @@ const publicDir = path.join(__dirname, 'public');
 
 app.use(express.json({ limit: '1mb' }));
 app.use(express.static(publicDir, { extensions: ['html'] }));
-app.get('/', (req, res) => res.sendFile(path.join(publicDir, 'index.html')));
+app.get('/', (req, res) => res.sendFile(path.join(publicDir, 'decision.html')));
 
 app.get('/api/health', (req, res) => res.json({
   ok: true,
