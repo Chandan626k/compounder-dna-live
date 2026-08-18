@@ -8,6 +8,6 @@
     }
   },
   "rewrites": [
-    { "source": "/", "destination": "/decision.html" }
+    { "source": "/", "destination": "/terminal.html" }
   ]
 }
