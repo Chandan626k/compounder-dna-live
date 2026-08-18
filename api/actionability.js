@@ -34,6 +34,15 @@ async function fetchChart(symbol) {
         if (!Number.isNaN(date.getTime())) rows.push({ date: date.toISOString(), open: num(item?.open), close, high, low, volume });
       }
     }
+  } else {
+    const timestamps = data?.timestamp || [];
+    const q = data?.indicators?.quote?.[0] || {};
+    for (let i = 0; i < timestamps.length; i++) {
+      const close = num(q.close?.[i]), high = num(q.high?.[i]), low = num(q.low?.[i]), volume = num(q.volume?.[i]);
+      if (close != null && high != null && low != null && volume != null) {
+        rows.push({ date: new Date(timestamps[i] * 1000).toISOString(), open: num(q.open?.[i]), close, high, low, volume });
+      }
+    }
   }
   if (rows.length < 60) throw Error(`Insufficient market data (${rows.length} points)`);
   return rows;
