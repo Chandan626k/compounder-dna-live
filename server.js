@@ -11,7 +11,9 @@ const publicDir = path.join(__dirname, 'public');
 
 app.use(express.json({ limit: '1mb' }));
 app.use(express.static(publicDir, { extensions: ['html'], index: false }));
-app.get('/', (req, res) => res.sendFile(path.join(publicDir, 'decision.html')));
+// Keep the full research terminal as the primary product surface. The
+// decision center remains available explicitly at /decision.html.
+app.get('/', (req, res) => res.sendFile(path.join(publicDir, 'terminal.html')));
 
 app.get('/api/health', (req, res) => res.json({
   ok: true,
