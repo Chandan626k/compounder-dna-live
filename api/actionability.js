@@ -1,6 +1,7 @@
-import { analyze as analyzeStock } from '../lib/market-engine.js';
+import { analyze as analyzeStock, buildDataQuality, scoreStock, decision, buildSectorFramework } from '../lib/market-engine.js';
 import { buildTrading } from '../lib/trading-engine.js';
 import { buildActionability } from '../lib/actionability.js';
+import { fetchStatementEvidence, mergeStatementEvidence } from '../lib/statement-evidence.js';
 
 const HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -56,9 +57,58 @@ export default async function handler(req, res) {
   if (!/^[A-Za-z0-9.&_-]{1,25}(?:\.(?:NS|BO))?$/i.test(symbol)) return res.status(400).json({ success: false, error: 'Valid stock symbol is required' });
   try {
     const analysis = await analyzeStock(symbol);
-    const rows = await fetchChart(symbol);
+    const [rows, statementEvidence] = await Promise.all([
+      fetchChart(symbol),
+      fetchStatementEvidence(symbol),
+    ]);
+
     const trading = buildTrading(analysis, rows);
-    const result = buildActionability(analysis, trading);
+
+    // Dedicated annual statement recovery path. It only enriches fields with
+    // provider-returned values; missing evidence remains null and is still gated.
+    const enrichedFinancials = mergeStatementEvidence(analysis.fundamentals, statementEvidence);
+    const sectorFramework = buildSectorFramework(
+      enrichedFinancials,
+      analysis.stock?.sector,
+      analysis.stock?.industry,
+    );
+    const enrichedDataQuality = buildDataQuality(
+      enrichedFinancials,
+      analysis.valuation,
+      analysis.ownership,
+      analysis.technical,
+      {
+        marketAsOf: analysis.provenance?.marketData?.asOf,
+        fundamentalsAsOf: analysis.provenance?.currentFundamentals?.asOf,
+      },
+      sectorFramework,
+    );
+    const enrichedScore = scoreStock(
+      enrichedFinancials,
+      analysis.valuation,
+      analysis.technical,
+      enrichedDataQuality,
+      sectorFramework,
+    );
+    const enrichedDecision = decision(
+      enrichedScore,
+      analysis.valuation,
+      analysis.technical,
+      enrichedDataQuality,
+    );
+
+    const enrichedAnalysis = {
+      ...analysis,
+      fundamentals: enrichedFinancials,
+      dataQuality: enrichedDataQuality,
+      score: enrichedScore,
+      decision: enrichedDecision,
+      sectorFramework,
+      dataLimited: enrichedScore.dataLimited,
+      stock: { ...analysis.stock, dataLimited: enrichedScore.dataLimited, sectorFramework: sectorFramework.key },
+    };
+
+    const result = buildActionability(enrichedAnalysis, trading);
 
     // Contract: the UI must treat this as the sole authority for production actions.
     // Research stances may still be shown, but they can never authorize a trade.
@@ -70,6 +120,14 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       ...result,
+      statementEvidence: {
+        provider: statementEvidence.provider,
+        period: statementEvidence.period,
+        coverage: statementEvidence.coverage,
+        history: statementEvidence.history,
+        errors: statementEvidence.errors,
+        validation: statementEvidence.validation,
+      },
       productionDecisionBlocked,
       productionActionsEnabled,
       productionBlockReasons,
