@@ -12,19 +12,24 @@ assert.deepEqual(blocked.blockers, [
   'SURVIVORSHIP_UNVALIDATED',
   'LIQUIDITY_MARKET_IMPACT_UNVALIDATED',
   'STRATEGY_NOT_PRODUCTION_VALIDATED',
+  'ROBUSTNESS_CRITERIA_NOT_MET',
 ]);
 assert.equal(blocked.metricValidity.historicalBacktest, 'RESEARCH_ONLY');
 assert.equal(blocked.metricValidity.rollingOutOfSample, 'RESEARCH_ONLY');
 assert.equal(blocked.metricValidity.parameterSensitivity, 'DIAGNOSTIC_ONLY');
+assert.equal(blocked.promotionCriteria.targetAccuracyPct, 95);
 
 const eligible = buildValidationGate({
   decision: 'PRODUCTION-VALIDATE',
   universeIntegrity: { status: 'PASS', eligible: true },
   liquidity: { status: 'PASS' },
+  costComparison: { conservative: { outOfSample: { winRate: 65, profitFactor: 1.5, expectancyPct: 0.4 } } },
+  rollingOutOfSample: { summary: { positiveWindowRate: 75, worstWindowDrawdownPct: 18 } },
 });
 assert.equal(eligible.productionEligible, true);
 assert.equal(eligible.decision, 'PRODUCTION-ELIGIBLE');
 assert.deepEqual(eligible.blockers, []);
+assert.equal(eligible.strategyQuality.pass, true);
 assert.equal(eligible.metricValidity.historicalBacktest, 'PRODUCTION_VALID');
 
 console.log('Validation gate tests: PASS');
