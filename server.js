@@ -1,5 +1,6 @@
 import express from 'express';
 import path from 'node:path';
+import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { analyze } from './lib/market-engine.js';
 
@@ -12,8 +13,18 @@ const publicDir = path.join(__dirname, 'public');
 app.use(express.json({ limit: '1mb' }));
 app.use(express.static(publicDir, { extensions: ['html'], index: false }));
 // Keep the full research terminal as the primary product surface. The
-// decision center remains available explicitly at /decision.html.
-app.get('/', (req, res) => res.sendFile(path.join(publicDir, 'terminal.html')));
+// backend decision-authority bridge is injected without replacing the terminal.
+app.get('/', async (req, res) => {
+  try {
+    const html = await fs.readFile(path.join(publicDir, 'terminal.html'), 'utf8');
+    const bridge = '<script src="/decision-authority.js" defer></script>';
+    const output = html.includes('</body>') ? html.replace('</body>', `${bridge}</body>`) : `${html}${bridge}`;
+    res.type('html').send(output);
+  } catch (e) {
+    console.error('[root]', e);
+    res.status(500).send('Research terminal unavailable');
+  }
+});
 
 app.get('/api/health', (req, res) => res.json({
   ok: true,
