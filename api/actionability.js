@@ -1,8 +1,9 @@
 import { analyze as analyzeStock, buildDataQuality, scoreStock, decision, buildSectorFramework } from '../lib/market-engine.js';
 import { buildTrading } from '../lib/trading-engine.js';
 import { buildActionability } from '../lib/actionability.js';
-import { buildScenarios } from '../lib/scenario-engine.js';
+import { buildScenarios, scenarioEvidenceFromValidation } from '../lib/scenario-engine.js';
 import { fetchStatementEvidence, mergeStatementEvidence } from '../lib/statement-evidence.js';
+import { validateStrategy } from '../lib/strategy-validation.js';
 
 const HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -58,9 +59,11 @@ export default async function handler(req, res) {
   if (!/^[A-Za-z0-9.&_-]{1,25}(?:\.(?:NS|BO))?$/i.test(symbol)) return res.status(400).json({ success: false, error: 'Valid stock symbol is required' });
   try {
     const analysis = await analyzeStock(symbol);
-    const [rows, statementEvidence] = await Promise.all([
+    const [rows, statementEvidence, validation] = await Promise.all([
       fetchChart(symbol),
       fetchStatementEvidence(symbol),
+      // Fixed default validation parameters. No parameter tuning is performed here.
+      validateStrategy(symbol, { days: 2500, horizon: 20 }),
     ]);
 
     const trading = buildTrading(analysis, rows);
@@ -108,13 +111,13 @@ export default async function handler(req, res) {
     };
 
     const result = buildActionability(enrichedAnalysis, trading);
+    const historicalEvidence = scenarioEvidenceFromValidation(validation);
     const scenarios = buildScenarios({
       price: result.currentPrice,
       support: result.technical?.support,
       resistance: result.technical?.resistance,
       atr: result.technical?.atr,
-      // Deliberately omitted until validated OOS signal-level evidence is available.
-      historicalEvidence: null,
+      historicalEvidence,
     });
 
     const productionDecisionBlocked = true;
@@ -126,6 +129,14 @@ export default async function handler(req, res) {
     return res.status(200).json({
       ...result,
       scenarios,
+      scenarioValidation: {
+        status: historicalEvidence.status,
+        source: historicalEvidence.source || null,
+        sampleSize: historicalEvidence.sampleSize || 0,
+        checks: historicalEvidence.checks || null,
+        confidenceIntervals95: historicalEvidence.confidenceIntervals95 || null,
+        limitations: historicalEvidence.limitations || [],
+      },
       statementEvidence: {
         provider: statementEvidence.provider,
         period: statementEvidence.period,
