@@ -58,7 +58,33 @@ export default async function handler(req, res) {
     const analysis = await analyzeStock(symbol);
     const rows = await fetchChart(symbol);
     const trading = buildTrading(analysis, rows);
-    return res.status(200).json(buildActionability(analysis, trading));
+    const result = buildActionability(analysis, trading);
+
+    // Contract: the UI must treat this as the sole authority for production actions.
+    // Research stances may still be shown, but they can never authorize a trade.
+    const productionDecisionBlocked = true;
+    const productionActionsEnabled = false;
+    const productionBlockReasons = [
+      'Production BUY/SELL actions are disabled until strategy validation is production-eligible.',
+    ];
+
+    return res.status(200).json({
+      ...result,
+      productionDecisionBlocked,
+      productionActionsEnabled,
+      productionBlockReasons,
+      decisionAuthority: 'backend-actionability-v1',
+      uiContract: {
+        useBackendDecision: true,
+        ignoreClientDerivedBuySell: true,
+        allowedProductionActions: [],
+      },
+      horizons: Object.fromEntries(Object.entries(result.horizons || {}).map(([horizon, value]) => [horizon, {
+        ...value,
+        productionEligible: false,
+        productionAction: 'NO TRADE — VALIDATION REQUIRED',
+      }])),
+    });
   } catch (e) {
     console.error('[ACTIONABILITY ERROR]', { symbol, message: e?.message, stack: e?.stack });
     return res.status(502).json({ success: false, error: 'Actionability data temporarily unavailable. Please try again.' });
