@@ -1,0 +1,66 @@
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const esc = (v) => String(v ?? '').replace(/[&<>\"]/g, (m) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '\"':'&quot;' }[m]));
+  const INR = (v) => typeof v === 'number' && Number.isFinite(v) ? '₹' + v.toLocaleString('en-IN', { maximumFractionDigits: 0 }) : 'Not Available';
+
+  function ensurePanel() {
+    let p = $('backendAuthorityPanel');
+    if (p) return p;
+    const host = document.querySelector('#decision .panel') || document.querySelector('#decision');
+    if (!host) return null;
+    p = document.createElement('div');
+    p.id = 'backendAuthorityPanel';
+    p.style.cssText = 'margin:0 0 12px;padding:14px;border:1px solid #dfe5ee;border-radius:12px;background:#fff;box-shadow:0 5px 18px rgba(20,35,55,.05)';
+    p.innerHTML = '<div style="font:700 10px ui-monospace,monospace;letter-spacing:1px;color:#687587;text-transform:uppercase">Authoritative backend decision</div><div id="backendOverall" style="font:900 22px ui-monospace,monospace;margin:6px 0;color:#a56800">Loading…</div><div id="backendMeta" style="font:11px ui-monospace,monospace;color:#687587"></div><div id="backendHorizons" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px"></div>';
+    host.prepend(p);
+    return p;
+  }
+
+  function render(d) {
+    const p = ensurePanel();
+    if (!p) return;
+    const blocked = d.productionTradingEnabled !== true || d.productionActionsEnabled === false || d.productionDecisionBlocked === true;
+    const overall = d.overallStance || 'WAIT';
+    const color = String(overall).includes('BUY') ? '#11834a' : String(overall).includes('SELL') ? '#c63d49' : '#a56800';
+    $('backendOverall').textContent = overall;
+    $('backendOverall').style.color = color;
+    $('backendMeta').textContent = `${blocked ? 'PRODUCTION ACTION BLOCKED' : 'PRODUCTION ELIGIBLE'} • authority: ${d.decisionAuthority || 'backend-actionability-v1'} • confidence: ${d.confidence ?? 'N/A'} • coverage: ${d.sectorCoverage ?? 'N/A'}%`;
+    const h = d.horizons || {};
+    $('backendHorizons').innerHTML = ['longTerm','swing','shortTerm'].map((k) => {
+      const x = h[k] || {};
+      return `<div style="padding:9px;border:1px solid #edf0f4;border-radius:9px;background:#fbfcfe"><div style="font:700 9px ui-monospace,monospace;color:#687587">${k === 'longTerm' ? 'LONG TERM' : k === 'shortTerm' ? 'SHORT TERM' : 'SWING'}</div><div style="font:800 12px ui-monospace,monospace;margin-top:4px">${esc(x.productionAction || x.action || 'WAIT')}</div><div style="font:10px system-ui;color:#687587;margin-top:3px">${esc(x.status || '')}</div></div>`;
+    }).join('');
+  }
+
+  async function refresh() {
+    const input = $('symbol');
+    const symbol = input?.value?.trim()?.toUpperCase();
+    if (!symbol) return;
+    try {
+      const r = await fetch('/api/actionability?symbol=' + encodeURIComponent(symbol), { cache: 'no-store' });
+      const d = await r.json();
+      if (!r.ok || d.success === false) throw new Error(d.error || 'Decision unavailable');
+      render(d);
+    } catch (e) {
+      const p = ensurePanel();
+      if (p) {
+        $('backendOverall').textContent = 'DECISION UNAVAILABLE';
+        $('backendOverall').style.color = '#c63d49';
+        $('backendMeta').textContent = 'Backend authority could not be verified. Do not treat client-derived BUY/SELL as production-authorized.';
+        $('backendHorizons').innerHTML = '';
+      }
+    }
+  }
+
+  function wire() {
+    const btn = $('analyse');
+    if (btn) btn.addEventListener('click', () => setTimeout(refresh, 250));
+    const input = $('symbol');
+    if (input) input.addEventListener('keydown', (e) => { if (e.key === 'Enter') setTimeout(refresh, 250); });
+    document.querySelectorAll('.chip').forEach((b) => b.addEventListener('click', () => setTimeout(refresh, 250)));
+    refresh();
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wire);
+  else wire();
+})();
