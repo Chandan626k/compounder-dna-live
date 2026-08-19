@@ -1,6 +1,7 @@
 import { analyze as analyzeStock, buildDataQuality, scoreStock, decision, buildSectorFramework } from '../lib/market-engine.js';
 import { buildTrading } from '../lib/trading-engine.js';
 import { buildActionability } from '../lib/actionability.js';
+import { buildScenarios } from '../lib/scenario-engine.js';
 import { fetchStatementEvidence, mergeStatementEvidence } from '../lib/statement-evidence.js';
 
 const HEADERS = {
@@ -64,8 +65,6 @@ export default async function handler(req, res) {
 
     const trading = buildTrading(analysis, rows);
 
-    // Dedicated annual statement recovery path. It only enriches fields with
-    // provider-returned values; missing evidence remains null and is still gated.
     const enrichedFinancials = mergeStatementEvidence(analysis.fundamentals, statementEvidence);
     const sectorFramework = buildSectorFramework(
       enrichedFinancials,
@@ -109,9 +108,15 @@ export default async function handler(req, res) {
     };
 
     const result = buildActionability(enrichedAnalysis, trading);
+    const scenarios = buildScenarios({
+      price: result.currentPrice,
+      support: result.technical?.support,
+      resistance: result.technical?.resistance,
+      atr: result.technical?.atr,
+      // Deliberately omitted until validated OOS signal-level evidence is available.
+      historicalEvidence: null,
+    });
 
-    // Contract: the UI must treat this as the sole authority for production actions.
-    // Research stances may still be shown, but they can never authorize a trade.
     const productionDecisionBlocked = true;
     const productionActionsEnabled = false;
     const productionBlockReasons = [
@@ -120,6 +125,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       ...result,
+      scenarios,
       statementEvidence: {
         provider: statementEvidence.provider,
         period: statementEvidence.period,
