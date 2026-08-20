@@ -6,5 +6,8 @@
     "api/*.js": {
       "maxDuration": 60
     }
-  }
+  },
+  "redirects": [
+    { "source": "/", "destination": "/terminal.html", "permanent": false }
+  ]
 }
