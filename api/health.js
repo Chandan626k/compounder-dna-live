@@ -55,12 +55,6 @@ export default async function handler(req, res) {
       if (!identity) return;
       return res.status(200).json({ ok: true });
     }
-    if (route === 'auth/config') {
-      const identity = await guardRequest(req, res, { auth: false, policy: 'health', route: 'auth-config' });
-      if (!identity) return;
-      if (req.method !== 'GET') return res.status(405).json({ success: false, error: 'METHOD_NOT_ALLOWED' });
-      return res.status(200).json({ publishableKey: String(process.env.CLERK_PUBLISHABLE_KEY || '') });
-    }
     if (route === 'health') {
       const identity = await guardRequest(req, res, POLICY.health);
       if (!identity) return;
