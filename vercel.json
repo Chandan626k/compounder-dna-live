@@ -8,6 +8,12 @@
     }
   },
   "redirects": [
-    { "source": "/", "destination": "/terminal.html", "permanent": false }
+    { "source": "/", "destination": "/app", "permanent": false },
+    { "source": "/terminal.html", "destination": "/app", "permanent": false }
+  ],
+  "routes": [
+    { "src": "/api/(?!secure-gateway$|terminal$)(.*)", "dest": "/api/secure-gateway?route=$1" },
+    { "src": "/app", "dest": "/api/terminal" },
+    { "handle": "filesystem" }
   ]
 }
