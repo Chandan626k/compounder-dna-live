@@ -12,8 +12,8 @@
     { "source": "/terminal.html", "destination": "/app", "permanent": false }
   ],
   "routes": [
-    { "src": "/api/(?!secure-gateway$|terminal$)(.*)", "dest": "/api/secure-gateway?route=$1" },
-    { "src": "/app", "dest": "/api/terminal" },
+    { "src": "/api/(.*)", "dest": "/api/health?route=$1" },
+    { "src": "/app", "dest": "/api/health?route=terminal" },
     { "handle": "filesystem" }
   ]
 }
