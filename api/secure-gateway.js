@@ -13,11 +13,13 @@ const HANDLERS = {
   'validate-strategy': () => import('./validate-strategy.js'),
   'final-holdout': () => import('./final-holdout.js'),
   health: () => import('./health.js'),
+  'auth-config': () => import('./auth-config.js'),
 };
 
 const POLICY = {
   health: { auth: false, policy: 'health' },
   'data/health': { auth: false, policy: 'health' },
+  'auth/config': { auth: false, policy: 'health' },
   analyze: { policy: 'normal' },
   'analyze-gated': { policy: 'normal' },
   actionability: { policy: 'normal' },
@@ -35,16 +37,15 @@ export default async function handler(req, res) {
   const route = String(req.query?.route || '').replace(/^\/+|\/+$/g, '');
   if (!route) return res.status(404).json({ success: false, error: 'NOT_FOUND' });
 
-  if (route === 'data/health') {
-    const identity = await guardRequest(req, res, POLICY['data/health']);
-    if (!identity) return;
-    return res.status(200).json({ ok: true });
-  }
-
-  const loader = HANDLERS[route];
-  if (!loader) return res.status(404).json({ success: false, error: 'NOT_FOUND' });
-
   try {
+    if (route === 'data/health') {
+      const identity = await guardRequest(req, res, POLICY['data/health']);
+      if (!identity) return;
+      return res.status(200).json({ ok: true });
+    }
+
+    const loader = route === 'auth/config' ? HANDLERS['auth-config'] : HANDLERS[route];
+    if (!loader) return res.status(404).json({ success: false, error: 'NOT_FOUND' });
     const identity = await guardRequest(req, res, POLICY[route] || { policy: 'normal' });
     if (!identity) return;
     const module = await loader();
