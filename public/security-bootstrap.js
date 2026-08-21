@@ -1,5 +1,5 @@
 (() => {
-  const PUBLIC_API = new Set(['/api/health', '/api/data/health', '/api/auth/config']);
+  const PUBLIC_API = new Set(['/api/health', '/api/data/health']);
   const originalFetch = window.fetch.bind(window);
   let clerk = null;
   const overlay = document.createElement('div');
