@@ -8,22 +8,53 @@ import {
   verifyEvidenceProvenance,
   buildValidationGate,
 } from '../lib/validation-gate.js';
+import {
+  metricCalculationVersion,
+  modelSelectionAggregationMethod,
+  finalCandidateAggregationMethod,
+  modelSelectionWindowIdentity,
+  finalCandidateWindowIdentity,
+  trainingWindowDefinition,
+  OOSWindowDefinition,
+  selectionRuleVersion,
+} from '../lib/canonical-provenance.js';
 import { RESEARCH_CANDIDATES } from '../lib/predictive-research.js';
 
 const candidateParameters = Object.freeze({ ...RESEARCH_CANDIDATES[0] });
 const candidateFamily = RESEARCH_CANDIDATES;
+const selectionRule = 'training-only: >=8 trades, positive expectancy, PF>1, maxDD<=25%; otherwise highest training expectancy';
+const selectionTrace = [{ window: 5, trainStart: 300, trainEnd: 799, testStart: 800, testEnd: 924, chosen: candidateParameters.id }];
+const modelSelection = {
+  method: 'FINAL_RESEARCH_WALK_FORWARD_WINDOW', window: 5,
+  trainStart: 300, trainEnd: 799, testStart: 800, testEnd: 924,
+  chosenCandidateId: candidateParameters.id, candidateParameters,
+};
 const artifact = {
   protocolId: 'predictive-validity-v1', protocolVersion: 1,
   symbol: 'TCS', candidateFamilyHash: stableHash(candidateFamily), candidateFamilySize: candidateFamily.length,
   horizon: 20, costs: { buyTransactionPct: 0.15, sellTransactionPct: 0.15, slippagePct: 0.10 },
   holdoutFraction: 0.20, totalBars: 1000, researchBars: 800, holdoutStart: 800, holdoutBars: 200,
   historyFingerprint: stableHash({ dataset: 'synthetic-pre-holdout' }),
-  modelSelection: {
-    method: 'FINAL_RESEARCH_WALK_FORWARD_WINDOW', window: 5,
-    trainStart: 300, trainEnd: 799, testStart: 800, testEnd: 924,
-    chosenCandidateId: candidateParameters.id, candidateParameters,
+  modelSelection,
+  selectionTrace,
+  provenance: {
+    trainingWindowDefinition: trainingWindowDefinition(modelSelection),
+    OOSWindowDefinition: OOSWindowDefinition(modelSelection),
+    windowIdentity: {
+      modelSelection: modelSelectionWindowIdentity(selectionTrace),
+      finalCandidate: finalCandidateWindowIdentity(modelSelection),
+    },
+    selectionMethod: {
+      modelSelection: 'WALK_FORWARD_MODEL_SELECTION',
+      finalCandidate: modelSelection.method,
+    },
+    selectionRuleVersion: selectionRuleVersion(selectionRule),
+    metricCalculationVersion: metricCalculationVersion('runValidationBacktest:v1'),
+    aggregationMethod: {
+      modelSelection: modelSelectionAggregationMethod({ method: 'WALK_FORWARD_MODEL_SELECTION', summaryKeys: ['windows', 'usableWindows', 'positiveWindowRatePct', 'aggregateReturnPct', 'meanTestExpectancyPct', 'testExpectancyBonferroniCI', 'worstTestDrawdownPct'] }),
+      finalCandidate: finalCandidateAggregationMethod(),
+    },
   },
-  selectionTrace: [],
   finalHoldout: { status: 'UNTOUCHED', evaluated: false, selectionUsed: false },
 };
 artifact.artifactHash = artifactIdentityHash(artifact);
@@ -36,13 +67,6 @@ function evidence(evidenceType) {
     candidateParameters: artifact.modelSelection.candidateParameters,
     evidenceType,
     researchRows,
-    trainBars: 500,
-    testBars: 125,
-    windowIdentity: stableHash({ evidenceType, window: artifact.modelSelection.window }),
-    aggregationMethod: stableHash({ evidenceType, method: 'frozen-aggregate' }),
-    metricCalculationVersion: stableHash('runValidationBacktest:v1'),
-    selectionMethod: evidenceType === 'MODEL_SELECTION_EVIDENCE' ? 'WALK_FORWARD_MODEL_SELECTION' : artifact.modelSelection.method,
-    selectionRuleVersion: stableHash('training-only:frozen-candidate-family'),
   });
 }
 
@@ -89,12 +113,16 @@ assertBlocked(x => { x.finalCandidateValidation.provenance.historyFingerprint = 
 assertBlocked(x => { x.finalCandidateValidation.provenance.researchBoundary.researchBars = 799; }, 'researchBoundary');
 assertBlocked(x => { x.finalCandidateValidation.provenance.holdoutBoundary.holdoutBars = 201; }, 'holdoutBoundary');
 assertBlocked(x => { x.finalCandidateValidation.provenance.horizon = 21; }, 'horizon');
-assertBlocked(x => { x.finalCandidateValidation.provenance.trainingWindowDefinition.trainBars = 499; }, 'trainingWindowDefinition');
-assertBlocked(x => { x.finalCandidateValidation.provenance.OOSWindowDefinition.testBars = 124; }, 'OOSWindowDefinition');
+assertBlocked(x => { x.finalCandidateValidation.provenance.trainingWindowDefinition.trainStart = 301; }, 'trainingWindowDefinition');
+assertBlocked(x => { x.finalCandidateValidation.provenance.OOSWindowDefinition.testEnd = 923; }, 'OOSWindowDefinition');
+assertBlocked(x => { x.finalCandidateValidation.provenance.windowIdentity = 'wrong'; }, 'windowIdentity');
+assertBlocked(x => { x.finalCandidateValidation.provenance.selectionRuleVersion = 'wrong'; }, 'selectionRuleVersion');
+assertBlocked(x => { x.finalCandidateValidation.provenance.metricCalculationVersion = 'wrong'; }, 'metricCalculationVersion');
+assertBlocked(x => { x.finalCandidateValidation.provenance.aggregationMethod = 'wrong'; }, 'aggregationMethod');
 assertBlocked(x => { x.finalCandidateValidation.provenance.costModel = { ...x.finalCandidateValidation.provenance.costModel, slippagePct: 0.20 }; }, 'costModel');
 assertBlocked(x => { x.finalCandidateValidation.provenance.slippage = 0.20; }, 'slippage');
 
-for (const field of ['protocolId','protocolVersion','artifactHash','candidateId','parameterHash','candidateFamilyHash','historyFingerprint','researchBoundary','holdoutBoundary','horizon','costModel','slippage','trainingWindowDefinition','OOSWindowDefinition','selectionMethod','selectionRuleVersion','metricCalculationVersion','aggregationMethod']) {
+for (const field of ['protocolId','protocolVersion','artifactHash','candidateId','parameterHash','candidateFamilyHash','candidateFamilySize','historyFingerprint','datasetIdentity','researchBoundary','holdoutBoundary','trainingWindowDefinition','OOSWindowDefinition','windowIdentity','horizon','costModel','slippage','selectionMethod','selectionRuleVersion','metricCalculationVersion','aggregationMethod']) {
   const x = structuredClone(passingMetrics);
   delete x.finalCandidateValidation.provenance[field];
   const gate = buildValidationGate(x);
@@ -107,6 +135,11 @@ for (const missing of ['modelSelectionEvidence','finalCandidateValidation','froz
   const gate = buildValidationGate(x);
   assert.equal(gate.productionEligible, false, `${missing} must block`);
 }
+
+const wrongArtifact = structuredClone(passingMetrics);
+wrongArtifact.frozenResearchArtifact.protocolVersion = 2;
+const wrongArtifactGate = buildValidationGate(wrongArtifact);
+assert.equal(wrongArtifactGate.productionEligible, false);
 
 const defaultParamsOnly = structuredClone(passingMetrics);
 defaultParamsOnly.modelSelectionEvidence = undefined;
