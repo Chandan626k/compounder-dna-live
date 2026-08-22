@@ -14,6 +14,7 @@ import {
   finalCandidateAggregationMethod,
   modelSelectionWindowIdentity,
   finalCandidateWindowIdentity,
+  finalCandidateRollingWindowIdentity,
   trainingWindowDefinition,
   OOSWindowDefinition,
   selectionRuleVersion,
@@ -49,6 +50,7 @@ const baseArtifact = {
     windowIdentity: {
       modelSelection: modelSelectionWindowIdentity(selectionTrace),
       finalCandidate: finalCandidateWindowIdentity(modelSelection),
+      finalCandidateRolling: finalCandidateRollingWindowIdentity(1000, 20),
     },
     selectionMethod: {
       modelSelection: 'WALK_FORWARD_MODEL_SELECTION',
@@ -97,6 +99,11 @@ const finalCandidateEvidence = evidence(independentArtifact, 'FINAL_CANDIDATE_VA
 assert.equal(finalCandidateEvidence.status, 'VERIFIABLE');
 assert.equal(finalCandidateEvidence.independenceStatus, 'VERIFIED');
 assert.equal(verifyEvidenceProvenance(independentArtifact, finalCandidateEvidence).valid, true);
+
+const selectedWindowEvidence = structuredClone(finalCandidateEvidence);
+selectedWindowEvidence.windowIdentity = independentArtifact.provenance.windowIdentity.finalCandidate;
+assert.equal(verifyEvidenceProvenance(independentArtifact, selectedWindowEvidence).valid, false);
+assert.equal(verifyEvidenceProvenance(independentArtifact, selectedWindowEvidence).checks.windowIdentity, false);
 
 const passingMetrics = {
   finalCandidateValidation: {
@@ -197,6 +204,7 @@ assert.equal(candidateFamily.length, 12);
 assert.equal(candidateFamily.length, RESEARCH_CANDIDATES.length);
 assert.equal(stableHash(candidateFamily), artifact.candidateFamilyHash);
 assert.deepEqual(candidateParameters, artifact.modelSelection.candidateParameters);
+assert.equal(artifact.provenance.windowIdentity.finalCandidateRolling, finalCandidateRollingWindowIdentity(artifact.researchBars, artifact.horizon));
 assert.equal(PROMOTION_CRITERIA.minOutOfSampleWinRatePct, 60);
 assert.equal(PROMOTION_CRITERIA.minOutOfSampleProfitFactor, 1.25);
 assert.equal(PROMOTION_CRITERIA.minOutOfSampleExpectancyPct, 0);
