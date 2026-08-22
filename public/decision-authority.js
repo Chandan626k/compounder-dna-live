@@ -1,6 +1,6 @@
 (() => {
   const $ = (id) => document.getElementById(id);
-  const esc = (v) => String(v ?? '').replace(/[&<>\"]/g, (m) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '\"':'&quot;' }[m]));
+  const esc = (v) => String(v ?? '').replace(/[&<>\"] /g, (m) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '\"':'&quot;', ' ':' ' }[m]));
   const INR = (v) => typeof v === 'number' && Number.isFinite(v) ? '₹' + v.toLocaleString('en-IN', { maximumFractionDigits: 0 }) : 'Not Available';
 
   function ensurePanel() {
@@ -16,7 +16,7 @@
     return p;
   }
 
-  function render(d) {
+  function render(d, analysis) {
     const p = ensurePanel();
     if (!p) return;
     const blocked = d.productionTradingEnabled !== true || d.productionActionsEnabled === false || d.productionDecisionBlocked === true;
@@ -30,6 +30,15 @@
       const x = h[k] || {};
       return `<div style="padding:9px;border:1px solid #edf0f4;border-radius:9px;background:#fbfcfe"><div style="font:700 9px ui-monospace,monospace;color:#687587">${k === 'longTerm' ? 'LONG TERM' : k === 'shortTerm' ? 'SHORT TERM' : 'SWING'}</div><div style="font:800 12px ui-monospace,monospace;margin-top:4px">${esc(x.productionAction || x.action || 'WAIT')}</div><div style="font:10px system-ui;color:#687587;margin-top:3px">${esc(x.status || '')}</div></div>`;
     }).join('');
+
+    // The analysis API owns the canonical score at score.technical.
+    // The terminal historically expected technical.score, so adapt the
+    // response contract here without calculating or inventing a score.
+    const technicalScore = analysis?.score?.technical;
+    const scoreEl = $('tscore');
+    const barEl = $('tsbar');
+    if (scoreEl) scoreEl.textContent = Number.isFinite(technicalScore) ? `${technicalScore}/100` : '—';
+    if (barEl) barEl.style.width = Number.isFinite(technicalScore) ? `${Math.max(0, Math.min(100, technicalScore))}%` : '0%';
   }
 
   async function refresh() {
@@ -37,10 +46,15 @@
     const symbol = input?.value?.trim()?.toUpperCase();
     if (!symbol) return;
     try {
-      const r = await fetch('/api/actionability?symbol=' + encodeURIComponent(symbol), { cache: 'no-store' });
-      const d = await r.json();
-      if (!r.ok || d.success === false) throw new Error(d.error || 'Decision unavailable');
-      render(d);
+      const [actionabilityResponse, analysisResponse] = await Promise.all([
+        fetch('/api/actionability?symbol=' + encodeURIComponent(symbol), { cache: 'no-store' }),
+        fetch('/api/analyze?symbol=' + encodeURIComponent(symbol), { cache: 'no-store' }),
+      ]);
+      const d = await actionabilityResponse.json();
+      const analysis = await analysisResponse.json();
+      if (!actionabilityResponse.ok || d.success === false) throw new Error(d.error || 'Decision unavailable');
+      if (!analysisResponse.ok || analysis.success === false) throw new Error(analysis.error || 'Analysis unavailable');
+      render(d, analysis);
     } catch (e) {
       const p = ensurePanel();
       if (p) {
@@ -48,6 +62,10 @@
         $('backendOverall').style.color = '#c63d49';
         $('backendMeta').textContent = 'Backend authority could not be verified. Do not treat client-derived BUY/SELL as production-authorized.';
         $('backendHorizons').innerHTML = '';
+        const scoreEl = $('tscore');
+        const barEl = $('tsbar');
+        if (scoreEl) scoreEl.textContent = '—';
+        if (barEl) barEl.style.width = '0%';
       }
     }
   }
