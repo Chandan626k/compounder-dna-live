@@ -1,8 +1,7 @@
-import { analyze as analyzeStock, buildDataQuality, scoreStock, decision, buildSectorFramework } from '../lib/market-engine.js';
+import { analyze as analyzeStock } from '../lib/market-engine.js';
 import { buildTrading } from '../lib/trading-engine.js';
 import { buildActionability } from '../lib/actionability.js';
 import { buildScenarios, scenarioEvidenceFromValidation } from '../lib/scenario-engine.js';
-import { fetchStatementEvidence, mergeStatementEvidence } from '../lib/statement-evidence.js';
 import { validateStrategy } from '../lib/strategy-validation.js';
 
 const HEADERS = {
@@ -59,58 +58,15 @@ export default async function handler(req, res) {
   if (!/^[A-Za-z0-9.&_-]{1,25}(?:\.(?:NS|BO))?$/i.test(symbol)) return res.status(400).json({ success: false, error: 'Valid stock symbol is required' });
   try {
     const analysis = await analyzeStock(symbol);
-    const [rows, statementEvidence, validation] = await Promise.all([
+    const [rows, validation] = await Promise.all([
       fetchChart(symbol),
-      fetchStatementEvidence(symbol),
       // Fixed default validation parameters. No parameter tuning is performed here.
       validateStrategy(symbol, { days: 2500, horizon: 20 }),
     ]);
 
     const trading = buildTrading(analysis, rows);
-
-    const enrichedFinancials = mergeStatementEvidence(analysis.fundamentals, statementEvidence);
-    const sectorFramework = buildSectorFramework(
-      enrichedFinancials,
-      analysis.stock?.sector,
-      analysis.stock?.industry,
-    );
-    const enrichedDataQuality = buildDataQuality(
-      enrichedFinancials,
-      analysis.valuation,
-      analysis.ownership,
-      analysis.technical,
-      {
-        marketAsOf: analysis.provenance?.marketData?.asOf,
-        fundamentalsAsOf: analysis.provenance?.currentFundamentals?.asOf,
-      },
-      sectorFramework,
-    );
-    const enrichedScore = scoreStock(
-      enrichedFinancials,
-      analysis.valuation,
-      analysis.technical,
-      enrichedDataQuality,
-      sectorFramework,
-    );
-    const enrichedDecision = decision(
-      enrichedScore,
-      analysis.valuation,
-      analysis.technical,
-      enrichedDataQuality,
-    );
-
-    const enrichedAnalysis = {
-      ...analysis,
-      fundamentals: enrichedFinancials,
-      dataQuality: enrichedDataQuality,
-      score: enrichedScore,
-      decision: enrichedDecision,
-      sectorFramework,
-      dataLimited: enrichedScore.dataLimited,
-      stock: { ...analysis.stock, dataLimited: enrichedScore.dataLimited, sectorFramework: sectorFramework.key },
-    };
-
-    const result = buildActionability(enrichedAnalysis, trading);
+    const statementEvidence = analysis.fundamentals?.statementEvidence;
+    const result = buildActionability(analysis, trading);
     const historicalEvidence = scenarioEvidenceFromValidation(validation);
     const scenarios = buildScenarios({
       price: result.currentPrice,
