@@ -1,7 +1,6 @@
 (() => {
   const $ = (id) => document.getElementById(id);
-  const esc = (v) => String(v ?? '').replace(/[&<>\"] /g, (m) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '\"':'&quot;', ' ':' ' }[m]));
-  const INR = (v) => typeof v === 'number' && Number.isFinite(v) ? '₹' + v.toLocaleString('en-IN', { maximumFractionDigits: 0 }) : 'Not Available';
+  const esc = (v) => String(v ?? '').replace(/[&<>\"]/g, (m) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '\"':'&quot;' }[m]));
 
   function ensurePanel() {
     let p = $('backendAuthorityPanel');
@@ -31,9 +30,9 @@
       return `<div style="padding:9px;border:1px solid #edf0f4;border-radius:9px;background:#fbfcfe"><div style="font:700 9px ui-monospace,monospace;color:#687587">${k === 'longTerm' ? 'LONG TERM' : k === 'shortTerm' ? 'SHORT TERM' : 'SWING'}</div><div style="font:800 12px ui-monospace,monospace;margin-top:4px">${esc(x.productionAction || x.action || 'WAIT')}</div><div style="font:10px system-ui;color:#687587;margin-top:3px">${esc(x.status || '')}</div></div>`;
     }).join('');
 
-    // The analysis API owns the canonical score at score.technical.
-    // The terminal historically expected technical.score, so adapt the
-    // response contract here without calculating or inventing a score.
+    // Canonical technical score is produced by the deterministic analysis
+    // engine at analysis.score.technical. The bridge only maps that existing
+    // value into the terminal's legacy display contract; it never calculates it.
     const technicalScore = analysis?.score?.technical;
     const scoreEl = $('tscore');
     const barEl = $('tsbar');
