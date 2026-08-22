@@ -1,0 +1,33 @@
+name: Remediation Tests
+
+on:
+  push:
+    branches:
+      - remediation/verified-data-contract
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout actual repository
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Targeted provenance/data-contract tests
+        run: |
+          node tests/validation-gate.unit.mjs
+          node tests/verified-data-contract.unit.mjs
+      - name: Directly affected strategy/data tests
+        run: |
+          node tests/market-engine.unit.mjs
+          node tests/sector-framework.unit.mjs
+          node tests/decision-evidence-gate.unit.mjs
