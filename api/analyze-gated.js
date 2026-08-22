@@ -1,4 +1,4 @@
-import { analyze as analyzeStock } from '../lib/market-engine.js';
+import { analyzeVerified } from '../lib/verified-analysis.js';
 import { applyDecisionEvidenceGate } from '../lib/decision-evidence-gate.js';
 
 const CORS = {
@@ -18,7 +18,7 @@ export default async function handler(req, res) {
   if (!symbol) return res.status(400).json({ success: false, error: 'Stock symbol is required.' });
 
   try {
-    const analysis = await analyzeStock(symbol);
+    const analysis = await analyzeVerified(symbol);
     return res.status(200).json(applyDecisionEvidenceGate(analysis));
   } catch (error) {
     console.error('[api/analyze-gated]', { symbol, message: error?.message });
