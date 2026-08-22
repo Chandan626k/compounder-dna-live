@@ -12,6 +12,7 @@ import {
   decision,
   SCORE_MODEL,
 } from '../lib/market-engine.js';
+import { mergeStatementEvidence } from '../lib/statement-evidence.js';
 
 
 const aiParsed = parseAIResponse(JSON.stringify({
@@ -121,6 +122,37 @@ assert.equal(financials.ratios.debtToEquity, 0.2);
 assert.equal(financials.derived.interestCoverage, 10);
 assert.ok(financials.derived.roceFromStatements > 0);
 assert.ok(financials.derived.fcfConversion > 0);
+
+const statementEvidence = {
+  provider: 'fixture provider',
+  coverage: { income: true, balanceSheet: true, cashFlow: true },
+  evidence: {
+    balance: {
+      totalDebt: { value: 250, key: 'totalDebt', date: '2025-03-31T00:00:00.000Z' },
+      cash: { value: 75, key: 'cashCashEquivalentsAndShortTermInvestments', date: '2025-03-31T00:00:00.000Z' },
+      equity: { value: 1250, key: 'stockholdersEquity', date: '2025-03-31T00:00:00.000Z' },
+    },
+    cash: { freeCashFlow: { value: 175, key: 'freeCashFlow', date: '2025-03-31T00:00:00.000Z' } },
+  },
+};
+const mergedFinancials = mergeStatementEvidence(
+  buildFinancials({ summary: {}, annual: [], trailing: [] }),
+  statementEvidence,
+);
+assert.equal(mergedFinancials.current.totalDebt, 250, 'canonical analysis should propagate statement evidence');
+assert.equal(mergedFinancials.current.cash, 75);
+assert.equal(mergedFinancials.current.freeCashFlow, 175);
+assert.equal(mergedFinancials.derived.debtToEquityFromStatements, 0.2);
+assert.equal(mergedFinancials.statementEvidence, statementEvidence, 'statement provenance should be preserved');
+
+const missingFinancials = mergeStatementEvidence(
+  buildFinancials({ summary: {}, annual: [], trailing: [] }),
+  { coverage: { income: false, balanceSheet: false, cashFlow: false }, evidence: {} },
+);
+assert.equal(missingFinancials.current.totalDebt, null, 'missing financial values remain null');
+assert.equal(missingFinancials.current.cash, null);
+assert.equal(missingFinancials.current.freeCashFlow, null);
+assert.notEqual(missingFinancials.current.totalDebt, 0, 'missing values must not become zero');
 
 const valuation = buildValuation(raw, 200);
 assert.equal(valuation.marketCap, 2000);

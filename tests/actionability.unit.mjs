@@ -57,6 +57,7 @@ const readyAnalysis = {
   ...analysis,
   dataLimited: false,
   stock: { ...analysis.stock, dataLimited: false },
+  valuation: { ...analysis.valuation, verdict: 'FAIRLY VALUED' },
   dataQuality: { confidence: 82, warnings: [], sectorFramework: { available: 7, total: 8 } },
   score: { financialStrengthCoverage: 'FULL', sectorFramework: { available: 7, total: 8 }, overall: 84 },
 };
@@ -72,5 +73,27 @@ const readyTrading = {
 const ready = buildActionability(readyAnalysis, readyTrading);
 assert.equal(ready.horizons.longTerm.action, 'STAGED ACCUMULATION CANDIDATE');
 assert.equal(ready.horizons.swing.action, 'CONDITIONAL BUY SETUP');
+
+const technicalOnlyAnalysis = {
+  ...readyAnalysis,
+  fundamentals: undefined,
+  valuation: { verdict: 'FAIRLY VALUED', fairValue: null },
+};
+const technicalOnly = buildActionability(technicalOnlyAnalysis, readyTrading);
+assert.equal(technicalOnly.horizons.swing.action, 'CONDITIONAL BUY SETUP', 'missing fundamentals do not automatically block Swing');
+assert.equal(technicalOnly.horizons.shortTerm.action, 'WAIT', 'missing fundamentals do not automatically block Short-Term');
+
+const evidenceLimited = buildActionability({
+  ...technicalOnlyAnalysis,
+  dataLimited: true,
+  stock: { ...technicalOnlyAnalysis.stock, dataLimited: true },
+}, readyTrading);
+assert.equal(evidenceLimited.horizons.longTerm.action, 'WATCH / WAIT FOR EVIDENCE', 'Long-Term remains evidence-limited');
+
+const actionabilitySource = await import('node:fs/promises');
+const actionabilitySourceText = await actionabilitySource.readFile(new URL('../api/actionability.js', import.meta.url), 'utf8');
+assert.equal((actionabilitySourceText.match(/fetchStatementEvidence/g) || []).length, 0, 'actionability must not fetch statement evidence independently');
+assert.equal((actionabilitySourceText.match(/mergeStatementEvidence/g) || []).length, 0, 'actionability must not merge statement evidence independently');
+assert.match(actionabilitySourceText, /analysis\.fundamentals\?\.statementEvidence/);
 
 console.log('actionability unit tests passed');
