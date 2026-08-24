@@ -25,6 +25,7 @@ jobs:
       - name: Targeted provenance/data-contract tests
         run: |
           node tests/validation-gate.unit.mjs
+          node tests/statement-evidence.unit.mjs
           node tests/verified-data-contract.unit.mjs
       - name: Directly affected strategy/data tests
         run: |
