@@ -31,6 +31,7 @@ jobs:
           node tests/bank-ir-pdf-qualification.unit.mjs
           node tests/verified-data-contract.unit.mjs
       - name: Directly affected strategy/data tests
+        if: ${{ always() }}
         run: |
           node tests/market-engine.unit.mjs
           node tests/sector-framework.unit.mjs
