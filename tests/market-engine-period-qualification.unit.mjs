@@ -31,6 +31,18 @@ const quarterly = buildFinancials({
 });
 assert.equal(quarterly.current.revenue, null, '3M evidence must not qualify as annual merely because annual was requested');
 
+const trailing = buildFinancials({
+  ...base,
+  annual: [{
+    date: '2025-03-31T00:00:00.000Z',
+    periodType: 'TTM',
+    requestedPeriod: 'annual',
+    providerType: 'FINANCIALS',
+    totalRevenue: 850,
+  }],
+});
+assert.equal(trailing.current.revenue, null, 'TTM evidence must not qualify as annual');
+
 const missingPeriod = buildFinancials({
   ...base,
   annual: [{
