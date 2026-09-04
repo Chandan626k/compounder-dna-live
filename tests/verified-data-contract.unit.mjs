@@ -38,6 +38,7 @@ assert.equal(history.rows.length, 2);
 assert.equal(history.rows.at(-1).c, 102);
 assert.equal(history.rows.at(-1).v, 1_100_000);
 assert.ok(history.latest);
+assert.ok(history.retrievedAt);
 
 const normalizedHistory = await verifiedHistory('TCS', { interval: '1d', days: 10, minBars: 2 });
 assert.equal(normalizedHistory.rows.at(-1).c, 102);
@@ -65,6 +66,7 @@ assert.deepEqual(provenance, {
   confidence: 65,
   provider: 'Yahoo Finance',
   source: 'Yahoo Finance chart API + quoteSummary + fundamentalsTimeSeries',
+  marketRetrievedAt: null,
 });
 
 const actionabilitySource = fs.readFileSync(new URL('../api/actionability.js', import.meta.url), 'utf8');
