@@ -1,7 +1,15 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const read = path => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const read = relative => fs.readFileSync(path.join(root, relative), 'utf8');
+const walk = dir => fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
+  const full = path.join(dir, entry.name);
+  if (entry.isDirectory()) return walk(full);
+  return /\.(?:js|mjs|html)$/.test(entry.name) ? [full] : [];
+});
 
 const server = read('server.js');
 assert.match(server, /import \{ analyzeVerified \} from ['"]\.\/lib\/verified-analysis\.js['"]/);
@@ -23,5 +31,14 @@ for (const [name, source] of Object.entries({ analyze, actionability, trading, i
 }
 assert.doesNotMatch(actionability, /fetchStatementEvidence\(/, 'actionability must not create a duplicate statement fetch path');
 assert.match(actionability, /analysis\.fundamentals\?\.statementEvidence/);
+
+const productionFiles = walk(path.join(root, 'api')).concat(walk(path.join(root, 'public')), [path.join(root, 'server.js')]);
+for (const file of productionFiles) {
+  const relative = path.relative(root, file);
+  const source = fs.readFileSync(file, 'utf8');
+  if (relative === 'api/data.js' || relative === 'api-data-with-scan.js') continue;
+  assert.doesNotMatch(source, /import\s*\{\s*analyze\s*(?:as\s+\w+)?\s*\}\s*from\s*['"][^'"]*market-engine\.js['"]/, `${relative} must not import legacy market-engine analyze()`);
+  assert.doesNotMatch(source, /fetch\(['"]\/api\/data(?:['"]|[?])/ , `${relative} must not consume legacy /api/data`);
+}
 
 console.log('verified-consumer-audit.unit: PASS');
