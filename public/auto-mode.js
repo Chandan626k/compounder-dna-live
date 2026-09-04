@@ -52,22 +52,28 @@
   }
 
   function scoreRow(x){
-    const risk=Number(x.riskScore ?? 50), momentum=Number(x.momentumPct ?? 0), trend=x.trend||'MIXED';
-    let score=50+(trend==='BULLISH'?20:trend==='MIXED'?0:-18)+Math.max(-10,Math.min(10,momentum*3))+(risk<40?15:risk<60?5:-10);
-    score=Math.max(0,Math.min(100,Math.round(score)));
-    const decision=score>=80?'BUY CANDIDATE':score>=68?'WATCH / WAIT':'AVOID';
-    return {...x,score,decision};
+    const setup=x.setup||{};
+    return {
+      ...x,
+      score:Number.isFinite(Number(x.strategyScore))?Number(x.strategyScore):(Number.isFinite(Number(x.score))?Number(x.score):null),
+      decision:setup.action||x.action||'WAIT',
+      momentumPct:x.technical?.momentum5d??x.momentumPct??null,
+      sma20:x.technical?.e20??x.sma20??null,
+      trend:x.technical?.trend??x.trend??'MIXED',
+    };
   }
+
+  const scanResults=payload=>Array.isArray(payload?.results)?payload.results:Array.isArray(payload?.data)?payload.data:Array.isArray(payload)?payload:[];
 
   async function swingScan(){
     const body=$('swingBody'); if(!body)return;
-    body.innerHTML='<div class="sub">Scanning liquid NSE stocks… trend + momentum + SMA20/50 + risk filter.</div>';
+    body.innerHTML='<div class="sub">Scanning liquid NSE stocks… verified daily market data + technical evidence.</div>';
     try{
-      const r=await fetch('/api/data',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'scan',limit:15})});
+      const r=await fetch('/api/scan?deep=false',{cache:'no-store'});
       if(!r.ok) throw new Error(await r.text());
-      const payload=await r.json(); const raw=Array.isArray(payload)?payload:(payload?.data||[]); const list=raw.map(scoreRow).sort((a,b)=>b.score-a.score);
-      body.innerHTML=`<div class="scanHeader"><div><h3 style="margin:0">Today's Swing Candidates</h3><div class="sub">Only screened candidates are shown. No setup can be the correct decision.</div></div><button class="smallBtn scanBtn" id="rescanSwing">RESCAN</button></div>`+
-      (list.length?list.map((x,i)=>`<div class="panel" style="margin-bottom:10px;padding:13px"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><b>#${i+1} ${esc(x.symbol||'')}</b><span class="badge bcyan">${x.decision}</span><span class="sub">Score ${x.score}/100</span></div><div class="scanGrid"><div class="scanMini">PRICE<br><b>₹${fmt(x.price)}</b></div><div class="scanMini">1D MOMENTUM<br><b>${fmt(x.momentumPct)}%</b></div><div class="scanMini">SMA20<br><b>₹${fmt(x.sma20)}</b></div><div class="scanMini">TREND<br><b>${esc(x.trend)}</b></div></div></div>`).join(''):'<div class="alert amber">NO TRADE TODAY — no sufficiently strong technical setup passed the scan.</div>');
+      const payload=await r.json(); const list=scanResults(payload).map(scoreRow).sort((a,b)=>(b.score??-1)-(a.score??-1));
+      body.innerHTML=`<div class="scanHeader"><div><h3 style="margin:0">Today's Swing Candidates</h3><div class="sub">Verified provider-backed market data. No setup can be the correct decision.</div></div><button class="smallBtn scanBtn" id="rescanSwing">RESCAN</button></div>`+
+      (list.length?list.map((x,i)=>`<div class="panel" style="margin-bottom:10px;padding:13px"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><b>#${i+1} ${esc(x.symbol||'')}</b><span class="badge bcyan">${esc(x.decision)}</span><span class="sub">Score ${x.score??'—'}/100</span></div><div class="scanGrid"><div class="scanMini">PRICE<br><b>₹${fmt(x.price)}</b></div><div class="scanMini">5D MOMENTUM<br><b>${fmt(x.momentumPct)}%</b></div><div class="scanMini">EMA20<br><b>₹${fmt(x.sma20)}</b></div><div class="scanMini">TREND<br><b>${esc(x.trend)}</b></div></div></div>`).join(''):'<div class="alert amber">NO TRADE TODAY — no sufficiently strong technical setup passed the scan.</div>');
       $('rescanSwing')?.addEventListener('click',swingScan);
     }catch(e){body.innerHTML=`<div class="alert amber"><b>Swing scan unavailable.</b><br>${esc(e.message||'Backend unavailable')}</div>`;}
   }
@@ -76,10 +82,10 @@
     const msg=$('radarMsg'); if(!msg)return;
     msg.textContent='Auto radar scanning…';
     try{
-      const r=await fetch('/api/data',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'scan',limit:15})});
+      const r=await fetch('/api/scan?deep=false',{cache:'no-store'});
       if(!r.ok)throw new Error(await r.text());
-      const payload=await r.json(); const raw=Array.isArray(payload)?payload:(payload?.data||[]); const list=raw.map(scoreRow).sort((a,b)=>b.score-a.score);
-      $('radarTable').innerHTML=list.map((x,i)=>`<tr><td>${i+1}</td><td><b>${esc(x.symbol)}</b></td><td class="cyan">${x.score}</td><td>—</td><td>—</td><td>${x.riskScore??'—'}</td><td>${esc(x.trend||'—')}</td><td><span class="signal ${x.decision.includes('BUY')?'buy':x.decision.includes('AVOID')?'sell':'wait'}">${x.decision}</span></td></tr>`).join('');
+      const payload=await r.json(); const list=scanResults(payload).map(scoreRow).sort((a,b)=>(b.score??-1)-(a.score??-1));
+      $('radarTable').innerHTML=list.map((x,i)=>`<tr><td>${i+1}</td><td><b>${esc(x.symbol||'')}</b></td><td class="cyan">${x.score??'—'}</td><td>—</td><td>—</td><td>${x.risk??'—'}</td><td>${esc(x.trend||'—')}</td><td><span class="signal ${x.decision.includes('BUY')?'buy':x.decision.includes('AVOID')?'sell':'wait'}">${esc(x.decision)}</span></td></tr>`).join('');
       msg.textContent=`${list.length} stocks ranked • ${new Date().toLocaleTimeString('en-IN')}`;
     }catch(e){msg.textContent='Radar unavailable: '+(e.message||'backend error');}
   }
