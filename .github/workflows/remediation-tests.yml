@@ -1,5 +1,6 @@
 name: Remediation Tests
 
+# Runs the current remediation branch so targeted evidence regressions cannot be hidden by an earlier known failure.
 on:
   push:
     branches:
