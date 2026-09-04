@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mergeStatementEvidence } from '../lib/statement-evidence.js';
+import { mergeStatementEvidence, buildStatementCoverage } from '../lib/statement-evidence.js';
 import { createCanonicalEvidence } from '../lib/financial-evidence.js';
 
 const date = '2025-03-31T00:00:00.000Z';
@@ -12,6 +12,8 @@ const raw = {
 const canonicalEvidence={byId:{},observations:{}};
 for(const fields of Object.values(raw)) for(const [field,item] of Object.entries(fields)){const e=meta(item.key,item.value);canonicalEvidence.byId[e.evidenceId]=e;canonicalEvidence.observations[field]=e.evidenceId;}
 const evidence={provider:'Yahoo Finance fundamentalsTimeSeries',ticker:'TEST.NS',period:'annual / 12M',coverage:{income:true,balanceSheet:true,cashFlow:true},evidence:raw,canonicalEvidence,history:{incomeYears:4,balanceYears:4,cashFlowYears:4},errors:{income:null,balance:null,cash:null}};
+assert.deepEqual(buildStatementCoverage({ income: { revenue:{status:'PROVIDER_RETURNED',value:0} }, balance: { totalDebt:{status:'PROVIDER_RETURNED',value:0} }, cash: { operatingCashFlow:{status:'PROVIDER_RETURNED',value:-100} } }), { income:true, balanceSheet:true, cashFlow:true });
+assert.deepEqual(buildStatementCoverage({ income: { revenue:{status:'PROVIDER_DID_NOT_RETURN',value:null} }, balance: { totalDebt:{status:'PROVIDER_RETURNED',value:null} }, cash: { operatingCashFlow:{status:'SOURCE_UNAVAILABLE',value:null} } }), { income:false, balanceSheet:false, cashFlow:false });
 const merged=mergeStatementEvidence({current:{},derived:{},rawAvailability:{}},evidence);
 assert.equal(merged.current.totalDebt,250);assert.equal(merged.current.revenue,1000);assert.equal(merged.current.ebitda,220);
 assert.ok(merged.evidence.fields.totalDebt);assert.equal(merged.evidence.byId[merged.evidence.fields.totalDebt].sourceKey,'totalDebt');assert.equal(merged.evidence.byId[merged.evidence.fields.totalDebt].value,250);assert.equal(merged.evidence.byId[merged.evidence.fields.totalDebt].reportingDate,date);assert.equal(merged.evidence.byId[merged.evidence.fields.totalDebt].periodType,'ANNUAL');assert.equal(merged.evidence.byId[merged.evidence.fields.totalDebt].statementScope,'CONSOLIDATED');assert.equal(merged.evidence.byId[merged.evidence.fields.totalDebt].unit,'INR_CRORE');assert.equal(merged.evidence.byId[merged.evidence.fields.totalDebt].currency,'INR');assert.equal(merged.evidence.byId[merged.evidence.fields.totalDebt].reportedOrDerived,'REPORTED');
