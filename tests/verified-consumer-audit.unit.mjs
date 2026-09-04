@@ -25,10 +25,15 @@ const actionability = read('api/actionability.js');
 const trading = read('api/trading.js');
 const investmentReadiness = read('api/investment-readiness.js');
 const scan = read('api/scan.js');
+const legacyData = read('api/data.js');
 
 for (const [name, source] of Object.entries({ analyze, actionability, trading, investmentReadiness, scan })) {
   assert.match(source, /analyzeVerified|verifiedHistory|scanSymbols/, `${name} must consume verified market/data path`);
 }
+assert.match(legacyData, /verifiedHistory/);
+assert.match(legacyData, /verifiedQuote/);
+assert.match(legacyData, /scanSymbols/);
+assert.doesNotMatch(legacyData, /function ema\(|function rsi\(|function atr\(|function technicalSignal\(/, 'legacy /api/data must not own duplicate technical calculations');
 assert.doesNotMatch(actionability, /fetchStatementEvidence\(/, 'actionability must not create a duplicate statement fetch path');
 assert.match(actionability, /analysis\.fundamentals\?\.statementEvidence/);
 
@@ -36,9 +41,8 @@ const productionFiles = walk(path.join(root, 'api')).concat(walk(path.join(root,
 for (const file of productionFiles) {
   const relative = path.relative(root, file);
   const source = fs.readFileSync(file, 'utf8');
-  if (relative === 'api/data.js' || relative === 'api-data-with-scan.js') continue;
   assert.doesNotMatch(source, /import\s*\{\s*analyze\s*(?:as\s+\w+)?\s*\}\s*from\s*['"][^'"]*market-engine\.js['"]/, `${relative} must not import legacy market-engine analyze()`);
-  assert.doesNotMatch(source, /fetch\(['"]\/api\/data(?:['"]|[?])/ , `${relative} must not consume legacy /api/data`);
+  assert.doesNotMatch(source, /fetch\(['"]\/api\/data(?:['"]|[?])/, `${relative} must not consume legacy /api/data`);
 }
 
 console.log('verified-consumer-audit.unit: PASS');
