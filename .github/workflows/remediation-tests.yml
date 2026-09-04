@@ -34,6 +34,20 @@ jobs:
             console.log(JSON.stringify({name, severity:v.severity, range:v.range, fixAvailable:v.fixAvailable, via:v.via}, null, 2));
           }
           NODE
+      - name: Production syntax checks
+        run: |
+          node --check server.js
+          node --check api/actionability.js
+          node --check api/analyze.js
+          node --check api/data.js
+          node --check api/investment-readiness.js
+          node --check api/scan.js
+          node --check api/trading.js
+          node --check lib/market-data-provider.js
+          node --check lib/verified-analysis.js
+          node --check lib/scanner-engine-v2.js
+          node --check tests/market-data-integrity.unit.mjs
+          node --check tests/verified-consumer-audit.unit.mjs
       - name: Core provenance/data-contract tests
         run: |
           node tests/validation-gate.unit.mjs
