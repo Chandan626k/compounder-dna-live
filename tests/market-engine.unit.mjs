@@ -14,7 +14,6 @@ import {
 } from '../lib/market-engine.js';
 import { mergeStatementEvidence } from '../lib/statement-evidence.js';
 
-
 const aiParsed = parseAIResponse(JSON.stringify({
   businessQuality: 'Quality evidence is constructive.',
   numbersValuation: 'Valuation should be reviewed against the framework.',
@@ -29,13 +28,10 @@ const approx = (actual, expected, tolerance = 1e-9) => {
   assert.ok(Math.abs(actual - expected) <= tolerance, `expected ${actual} ≈ ${expected}`);
 };
 
-// Yahoo financialData.debtToEquity is a percentage; 79.548 means 0.79548x.
 approx(normalizeDebtToEquity(79.548), 0.79548, 1e-10);
 assert.equal(normalizeDebtToEquity(-1), null);
 assert.equal(normalizeDebtToEquity(null), null);
 
-// Wilder ATR fixture: true ranges are [2, 3, 4, 5], seed ATR(3)=3,
-// then one Wilder update with TR=5 => (3*2+5)/3 = 11/3.
 const atrRows = [
   { high: 11, low: 9, close: 10 },
   { high: 13, low: 10, close: 12 },
@@ -45,7 +41,6 @@ const atrRows = [
 ];
 approx(atr(atrRows, 3), 37 / 9, 1e-12);
 
-// RSI should be deterministic and bounded.
 const closes = Array.from({ length: 30 }, (_, i) => 100 + i);
 const r = rsi(closes, 14);
 assert.ok(r >= 0 && r <= 100);
@@ -123,26 +118,37 @@ assert.equal(financials.derived.interestCoverage, 10);
 assert.ok(financials.derived.roceFromStatements > 0);
 assert.ok(financials.derived.fcfConversion > 0);
 
+const provenanceMeta = {
+  issuer: 'Fixture Corp',
+  ticker: 'TEST.NS',
+  periodType: '12M',
+  reportingPeriod: 'FY2025',
+  statementScope: 'consolidated',
+  unit: 'INR',
+  currency: 'INR',
+};
 const statementEvidence = {
   provider: 'fixture provider',
+  ticker: 'TEST.NS',
+  fetchedAt: new Date().toISOString(),
   coverage: { income: true, balanceSheet: true, cashFlow: true },
   evidence: {
     balance: {
-      totalDebt: { value: 250, key: 'totalDebt', date: '2025-03-31T00:00:00.000Z' },
-      cash: { value: 75, key: 'cashCashEquivalentsAndShortTermInvestments', date: '2025-03-31T00:00:00.000Z' },
-      equity: { value: 1250, key: 'stockholdersEquity', date: '2025-03-31T00:00:00.000Z' },
+      totalDebt: { value: 250, key: 'totalDebt', date: '2025-03-31T00:00:00.000Z', row: provenanceMeta },
+      cash: { value: 75, key: 'cashCashEquivalentsAndShortTermInvestments', date: '2025-03-31T00:00:00.000Z', row: provenanceMeta },
+      equity: { value: 1250, key: 'stockholdersEquity', date: '2025-03-31T00:00:00.000Z', row: provenanceMeta },
     },
-    cash: { freeCashFlow: { value: 175, key: 'freeCashFlow', date: '2025-03-31T00:00:00.000Z' } },
+    cash: { freeCashFlow: { value: 175, key: 'freeCashFlow', date: '2025-03-31T00:00:00.000Z', row: provenanceMeta } },
   },
 };
 const mergedFinancials = mergeStatementEvidence(
   buildFinancials({ summary: {}, annual: [], trailing: [] }),
   statementEvidence,
 );
-assert.equal(mergedFinancials.current.totalDebt, 250, 'canonical analysis should propagate statement evidence');
+assert.equal(mergedFinancials.current.totalDebt, 250, 'canonical analysis should propagate qualified statement evidence');
 assert.equal(mergedFinancials.current.cash, 75);
 assert.equal(mergedFinancials.current.freeCashFlow, 175);
-assert.equal(mergedFinancials.derived.debtToEquityFromStatements, null, 'derived D/E is blocked when statement provenance lacks scope/unit/currency');
+assert.equal(mergedFinancials.derived.debtToEquityFromStatements, 0.2, 'derived D/E should use compatible qualified statement provenance');
 assert.equal(mergedFinancials.statementEvidence, statementEvidence, 'statement provenance should be preserved');
 
 const missingFinancials = mergeStatementEvidence(
@@ -174,8 +180,6 @@ assert.ok(Array.isArray(dec.reason));
 
 console.log('market-engine.unit: PASS');
 
-
-// Phase 4: valuation terminology and evidence-aware financial strength.
 const valuationFixture = buildValuation({
   summary: {
     summaryDetail: { trailingPE: 16, forwardPE: 15 },
@@ -201,8 +205,6 @@ const partialScore = scoreStock(partialFinancials, { trailingPE: 16, forwardPE: 
 assert.ok(partialScore.financialStrength <= 70, 'financial strength must be capped when balance sheet is unavailable');
 assert.equal(partialScore.financialStrengthCoverage, 'CURRENT_FIELDS_ONLY');
 
-
-// Phase 5: deterministic evidence confidence, score classification, contribution explainability and decision basis.
 const freshQuality = buildDataQuality(financials, valuation, {}, tech, {
   marketAsOf: new Date().toISOString(),
   fundamentalsAsOf: new Date().toISOString(),
