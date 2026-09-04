@@ -2,7 +2,7 @@ import express from 'express';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { analyze } from './lib/market-engine.js';
+import { analyzeVerified } from './lib/verified-analysis.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -36,7 +36,7 @@ app.get('/api/analyze', async (req, res) => {
   const symbol = String(req.query?.symbol || '').trim();
   if (!symbol) return res.status(400).json({ error: 'symbol required' });
   try {
-    return res.status(200).json(await analyze(symbol));
+    return res.status(200).json(await analyzeVerified(symbol));
   } catch (e) {
     console.error('[api/analyze]', e);
     return res.status(502).json({
