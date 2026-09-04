@@ -44,6 +44,9 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       ...result,
+      currentQuote: analysis.currentQuote || null,
+      priceSource: analysis.provenance?.priceSelection || null,
+      marketDataProvenance: analysis.provenance?.marketData || null,
       scenarios,
       scenarioValidation: {
         status: historicalEvidence.status,
