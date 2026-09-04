@@ -34,6 +34,8 @@ jobs:
           node tests/verified-statement-failure.integration.mjs
           node tests/bank-ir-pdf-qualification.unit.mjs
           node tests/verified-data-contract.unit.mjs
+          node tests/market-data-integrity.unit.mjs
+          node tests/verified-consumer-audit.unit.mjs
       - name: Directly affected strategy/data tests
         if: ${{ always() }}
         run: |
