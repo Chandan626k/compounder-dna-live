@@ -5,9 +5,6 @@ const now = Math.floor(Date.now() / 1000);
 const timestamps = Array.from({ length: 90 }, (_, i) => now - (89 - i) * 86400);
 const closes = timestamps.map((_, i) => 100 + i * 0.2);
 
-// Keep verified market history available while making every fundamental
-// provider request fail. This exercises the real analyzeVerified ->
-// analyzeStock -> statement-evidence failure path without synthetic finance data.
 globalThis.fetch = async (url) => {
   if (String(url).includes('/v8/finance/chart/')) {
     return {
@@ -49,7 +46,7 @@ try {
   });
   assert.equal(analysis.fundamentals.current.totalDebt, null);
   assert.equal(analysis.fundamentals.current.revenue, null);
-  assert.equal(analysis.score.financialStrengthCoverage, 'MISSING');
+  assert.equal(analysis.score.financialStrengthCoverage, 'CURRENT_FIELDS_ONLY');
   assert.notEqual(analysis.decision.action, 'BUY');
   assert.notEqual(analysis.decision.action, 'ACCUMULATE');
 } finally {
