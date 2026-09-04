@@ -27,6 +27,7 @@ jobs:
           node tests/validation-gate.unit.mjs
           node tests/statement-evidence.unit.mjs
           node tests/statement-period-qualification.unit.mjs
+          node tests/market-engine-period-qualification.unit.mjs
           node tests/financial-evidence.unit.mjs
           node tests/bank-ir-evidence.unit.mjs
           node tests/investment-readiness.unit.mjs
