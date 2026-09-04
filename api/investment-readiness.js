@@ -1,4 +1,4 @@
-import { analyze } from '../lib/market-engine.js';
+import { analyzeVerified } from '../lib/verified-analysis.js';
 import { buildInvestmentReadiness } from '../lib/investment-readiness.js';
 
 const HEADERS = {
@@ -19,12 +19,12 @@ export default async function handler(req, res) {
   }
 
   try {
-    const analysis = await analyze(symbol);
+    const analysis = await analyzeVerified(symbol);
     const result = buildInvestmentReadiness(analysis);
     return res.status(200).json({ symbol: symbol.replace(/\.(?:NS|BO)$/i, ''), ...result });
   } catch (error) {
     const message = String(error?.message || error || '');
-    const unavailable = /no data found|symbol may be delisted|insufficient market data|no usable market prices/i.test(message);
+    const unavailable = /no data found|symbol may be delisted|insufficient market data|no usable market prices|verified market data unavailable/i.test(message);
     if (unavailable) {
       return res.status(404).json({
         success: false,
