@@ -1,6 +1,5 @@
 name: Remediation Tests
 
-# Runs the current remediation branch so targeted evidence regressions cannot be hidden by an earlier known failure.
 on:
   push:
     branches:
@@ -31,20 +30,10 @@ jobs:
           const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
           const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
           const root = lock.packages?.[''] || {};
-          const secure = lock.lockfileVersion === 3
-            && lock.version === pkg.version
-            && root.version === pkg.version
-            && root.engines?.node === pkg.engines?.node
-            && lock.packages?.['node_modules/fast-uri']?.version === '3.1.7'
-            && lock.packages?.['node_modules/qs']?.version === '6.16.0';
+          const secure = lock.lockfileVersion === 3 && lock.version === pkg.version && root.version === pkg.version && root.engines?.node === pkg.engines?.node && lock.packages?.['node_modules/fast-uri']?.version === '3.1.7' && lock.packages?.['node_modules/qs']?.version === '6.16.0';
           fs.writeFileSync('/tmp/lock-secure', secure ? 'yes' : 'no');
-          console.log('committed lock already secure:', secure);
           NODE
-          if [ "$(cat /tmp/lock-secure)" = "yes" ]; then
-            echo 'Using committed secure package-lock.json; no resolver mutation.'
-          else
-            npm install --package-lock-only --ignore-scripts --no-audit
-          fi
+          if [ "$(cat /tmp/lock-secure)" != "yes" ]; then npm install --package-lock-only --ignore-scripts --no-audit; fi
           node - <<'NODE'
           const fs = require('fs');
           const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
@@ -53,8 +42,6 @@ jobs:
           if (lock.version !== pkg.version || root.version !== pkg.version || root.engines?.node !== pkg.engines?.node) throw new Error('Lock root metadata mismatch');
           if (lock.packages?.['node_modules/fast-uri']?.version !== '3.1.7') throw new Error('fast-uri lock version is not 3.1.7');
           if (lock.packages?.['node_modules/qs']?.version !== '6.16.0') throw new Error('qs lock version is not 6.16.0');
-          console.log('lock root metadata:', JSON.stringify({version:lock.version,node:root.engines?.node}, null, 2));
-          console.log('locked security versions:', JSON.stringify({fastUri:lock.packages['node_modules/fast-uri'].version,qs:lock.packages['node_modules/qs'].version}, null, 2));
           NODE
       - name: Commit generated lockfile when resolver changed it
         run: |
@@ -71,34 +58,22 @@ jobs:
         run: |
           npm audit --json > /tmp/npm-audit.json || true
           node - <<'NODE'
-          const fs = require('fs'); const audit = JSON.parse(fs.readFileSync('/tmp/npm-audit.json', 'utf8')); console.log('audit metadata:', JSON.stringify(audit.metadata?.vulnerabilities || {}, null, 2));
-          for (const [name, v] of Object.entries(audit.vulnerabilities || {})) console.log(JSON.stringify({name, severity:v.severity, range:v.range, fixAvailable:v.fixAvailable, via:v.via}, null, 2));
+          const fs = require('fs'); const audit = JSON.parse(fs.readFileSync('/tmp/npm-audit.json', 'utf8')); console.log(JSON.stringify(audit.metadata?.vulnerabilities || {}, null, 2));
           NODE
           npm ls fast-uri qs @modelcontextprotocol/sdk --all
       - name: Yahoo annual provider metadata probe
         run: |
           node --input-type=module - <<'NODE'
-          import YahooFinance from 'yahoo-finance2'; const yf = new YahooFinance({ suppressNotices: ['yahooSurvey'] }); const ticker = 'RELIANCE.NS'; const period2 = new Date(); const period1 = new Date(Date.now() - 3 * 365.25 * 86400000); const rows = await yf.fundamentalsTimeSeries(ticker, {period1, period2, type:'annual', module:'financials'}, {validateResult:false}); const annual = (Array.isArray(rows) ? rows : []).filter(r => String(r?.periodType || '').toUpperCase() === '12M'); if (!annual.length) throw new Error('No annual 12M fundamentalsTimeSeries rows returned for metadata probe'); const row=annual.at(-1); console.log('annual row keys:', Object.keys(row).sort()); console.log('identity metadata:', JSON.stringify({date:row?.date??null,periodType:row?.periodType??null,reportingPeriod:row?.reportingPeriod??null,issuer:row?.issuer??null,companyName:row?.companyName??null,statementScope:row?.statementScope??null,scope:row?.scope??null,unit:row?.unit??null,units:row?.units??null,currency:row?.currency??null,symbol:row?.symbol??null,ticker:row?.ticker??null},null,2));
+          import YahooFinance from 'yahoo-finance2';
+          const yf = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
+          const rows = await yf.fundamentalsTimeSeries('RELIANCE.NS', { period1: new Date(Date.now() - 3 * 365.25 * 86400000), period2: new Date(), type: 'annual', module: 'financials' }, { validateResult: false });
+          const annual = (Array.isArray(rows) ? rows : []).filter(r => String(r?.periodType || '').toUpperCase() === '12M');
+          if (!annual.length) throw new Error('No annual 12M fundamentalsTimeSeries rows returned');
+          const row = annual.at(-1); console.log(JSON.stringify({ date: row?.date ?? null, periodType: row?.periodType ?? null, issuer: row?.issuer ?? null, reportingPeriod: row?.reportingPeriod ?? null, statementScope: row?.statementScope ?? null, unit: row?.unit ?? null, currency: row?.currency ?? null, ticker: row?.ticker ?? null }, null, 2));
           NODE
       - name: Production syntax checks
         run: |
           for f in server.js api/actionability.js api/analyze.js api/data.js api/data-foundation.js api/investment-readiness.js api/scan.js api/trading.js lib/market-data-provider.js lib/verified-analysis.js lib/canonical-technical-engine.js lib/scanner-engine-v2.js lib/statement-evidence.js lib/financial-metric-lineage.js tests/canonical-technical-engine.unit.mjs tests/market-data-integrity.unit.mjs tests/verified-consumer-audit.unit.mjs tests/financial-metric-lineage.unit.mjs tests/financial-metric-lineage-builder.unit.mjs tests/statement-period-lineage.unit.mjs; do node --check "$f" || exit 1; done
-      - name: Canonical technical diagnostic
-        continue-on-error: true
-        run: node tests/canonical-technical-engine.unit.mjs > /tmp/canonical-technical.log 2>&1 || true; cat /tmp/canonical-technical.log
-      - name: Phase 2 core diagnostic matrix
-        continue-on-error: true
-        run: |
-          set +e
-          : > /tmp/phase2-core.log
-          for f in tests/validation-gate.unit.mjs tests/canonical-technical-engine.unit.mjs tests/statement-evidence.unit.mjs tests/statement-period-qualification.unit.mjs tests/market-engine-period-qualification.unit.mjs tests/financial-evidence.unit.mjs tests/bank-ir-evidence.unit.mjs tests/investment-readiness.unit.mjs tests/verified-statement-failure.integration.mjs tests/verified-data-contract.unit.mjs tests/market-data-integrity.unit.mjs tests/verified-consumer-audit.unit.mjs tests/financial-metric-lineage.unit.mjs tests/financial-metric-lineage-builder.unit.mjs tests/statement-period-lineage.unit.mjs; do echo "===== $f =====" | tee -a /tmp/phase2-core.log; node "$f" >> /tmp/phase2-core.log 2>&1; s=$?; echo "exit=$s" | tee -a /tmp/phase2-core.log; done
-          cat /tmp/phase2-core.log
-      - name: Upload Phase 2 core diagnostic
-        uses: actions/upload-artifact@v4
-        with:
-          name: phase2-core-diagnostic
-          path: /tmp/phase2-core.log
-          if-no-files-found: error
       - name: Core provenance/data-contract tests
         run: |
           node tests/validation-gate.unit.mjs
