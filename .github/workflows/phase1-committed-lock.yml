@@ -1,0 +1,110 @@
+name: Phase 1 Committed Lock Verification
+
+on:
+  push:
+    branches:
+      - remediation/verified-data-contract
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact committed lock target
+        uses: actions/checkout@v4
+        with:
+          ref: 852eba6da719e1f7975e4a3ecbe308795faef519
+          fetch-depth: 1
+
+      - name: Confirm exact HEAD and committed dependency contract
+        run: |
+          test "$(git rev-parse HEAD)" = "852eba6da719e1f7975e4a3ecbe308795faef519"
+          node - <<'NODE'
+          const fs = require('fs');
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
+          const root = lock.packages?.[''] || {};
+          if (pkg.version !== '3.1.0') throw new Error(`package.json version ${pkg.version}`);
+          if (lock.version !== '3.1.0' || root.version !== '3.1.0') throw new Error('lock root version mismatch');
+          if (pkg.engines?.node !== '>=22' || root.engines?.node !== '>=22') throw new Error('Node engine mismatch');
+          if (lock.packages?.['node_modules/fast-uri']?.version !== '3.1.7') throw new Error('fast-uri mismatch');
+          if (lock.packages?.['node_modules/qs']?.version !== '6.16.0') throw new Error('qs mismatch');
+          if (lock.lockfileVersion !== 3) throw new Error('unexpected lockfile version');
+          console.log(JSON.stringify({head:require('child_process').execSync('git rev-parse HEAD').toString().trim(),packageVersion:pkg.version,lockVersion:lock.version,node:root.engines.node,fastUri:lock.packages['node_modules/fast-uri'].version,qs:lock.packages['node_modules/qs'].version}, null, 2));
+          NODE
+          sha256sum package-lock.json | tee /tmp/lock-before.sha256
+
+      - name: Install from committed package-lock only
+        run: npm ci
+
+      - name: Verify lockfile unchanged after npm ci
+        run: |
+          sha256sum package-lock.json | tee /tmp/lock-after.sha256
+          cmp /tmp/lock-before.sha256 /tmp/lock-after.sha256
+          test -z "$(git status --porcelain -- package-lock.json)"
+
+      - name: Dependency audit and tree
+        run: |
+          npm audit
+          npm ls fast-uri qs @modelcontextprotocol/sdk --all
+          node - <<'NODE'
+          const { execSync } = require('child_process');
+          const out = execSync('npm ls fast-uri qs --all --json', { encoding:'utf8' });
+          const tree = JSON.parse(out);
+          function walk(node, path='root') {
+            if (!node?.dependencies) return;
+            for (const [name, dep] of Object.entries(node.dependencies)) {
+              if ((name === 'fast-uri' && dep.version !== '3.1.7') || (name === 'qs' && dep.version !== '6.16.0')) {
+                throw new Error(`Unexpected ${name}@${dep.version} at ${path}`);
+              }
+              walk(dep, `${path}>${name}`);
+            }
+          }
+          walk(tree);
+          console.log('secure dependency tree verified');
+          NODE
+
+      - name: Production syntax checks
+        run: |
+          node --check server.js
+          node --check api/actionability.js
+          node --check api/analyze.js
+          node --check api/data.js
+          node --check api/data-foundation.js
+          node --check api/investment-readiness.js
+          node --check api/scan.js
+          node --check api/trading.js
+          node --check lib/market-data-provider.js
+          node --check lib/verified-analysis.js
+          node --check lib/scanner-engine-v2.js
+          node --check lib/statement-evidence.js
+          node --check lib/financial-metric-lineage.js
+
+      - name: Phase 1 provenance and financial tests
+        run: |
+          node tests/validation-gate.unit.mjs
+          node tests/statement-evidence.unit.mjs
+          node tests/statement-period-qualification.unit.mjs
+          node tests/market-engine-period-qualification.unit.mjs
+          node tests/financial-evidence.unit.mjs
+          node tests/financial-metric-lineage.unit.mjs
+          node tests/financial-metric-lineage-builder.unit.mjs
+          node tests/statement-period-lineage.unit.mjs
+          node tests/bank-ir-evidence.unit.mjs
+          node tests/bank-ir-pdf-qualification.unit.mjs
+          node tests/investment-readiness.unit.mjs
+          node tests/verified-statement-failure.integration.mjs
+          node tests/verified-data-contract.unit.mjs
+          node tests/verified-consumer-audit.unit.mjs
+          node tests/market-data-integrity.unit.mjs
+          node tests/market-engine.unit.mjs
+          node tests/sector-framework.unit.mjs
+          node tests/decision-evidence-gate.unit.mjs
+
+      - name: Affected strategy/data tests
+        run: |
+          node tests/strategy-validation.unit.mjs
+          node tests/strategy-validation-gate.unit.mjs
