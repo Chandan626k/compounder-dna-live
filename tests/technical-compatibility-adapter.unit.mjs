@@ -47,14 +47,18 @@ const downTech = technicalCompatibility(downRows, { symbol: 'TEST', source: 'fix
 assert.equal(downTech.trend, 'RECOVERING / MIXED');
 assert.equal(downTech.canonicalEvidence.trend, 'DOWNTREND');
 
-const breakoutRows = rows(60);
-const priorHigh = Math.max(...breakoutRows.slice(-21, -1).map((row) => row.high));
-breakoutRows.at(-1).close = priorHigh + 2;
-breakoutRows.at(-1).high = priorHigh + 2.5;
-breakoutRows.at(-1).open = priorHigh + 1;
+const breakoutCloses = [100, 99, 102, 98, 105, 100, 110, 103, 115, 108, 120, 112, 125, 119, 130, 123, 135, 128, 140, 135, 145];
+const breakoutRows = breakoutCloses.map((close, i) => ({
+  date: new Date(Date.UTC(2025, 0, 1 + i)).toISOString(),
+  open: close,
+  high: close + 1,
+  low: close - 1,
+  close,
+  volume: 1000,
+}));
 const breakoutTech = technicalCompatibility(breakoutRows, { symbol: 'TEST', source: 'fixture', timeframe: '1d' });
 assert.equal(breakoutTech.canonicalEvidence.breakout.confirmed, true);
-assert.equal(breakoutTech.canonicalEvidence.breakout.level, priorHigh);
+assert.equal(breakoutTech.canonicalEvidence.breakout.level, 141);
 assert.ok(breakoutTech.canonicalEvidence.breakout.level < breakoutRows.at(-1).close);
 
 const malformed = rows(30);
