@@ -9,6 +9,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: write
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -21,9 +24,27 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - name: Resolve dependency lock with npm
+      - name: Resolve dependency lock with npm when required
         run: |
-          npm install --package-lock-only --ignore-scripts --no-audit
+          node - <<'NODE'
+          const fs = require('fs');
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
+          const root = lock.packages?.[''] || {};
+          const secure = lock.lockfileVersion === 3
+            && lock.version === pkg.version
+            && root.version === pkg.version
+            && root.engines?.node === pkg.engines?.node
+            && lock.packages?.['node_modules/fast-uri']?.version === '3.1.7'
+            && lock.packages?.['node_modules/qs']?.version === '6.16.0';
+          fs.writeFileSync('/tmp/lock-secure', secure ? 'yes' : 'no');
+          console.log('committed lock already secure:', secure);
+          NODE
+          if [ "$(cat /tmp/lock-secure)" = "yes" ]; then
+            echo 'Using committed secure package-lock.json; no resolver mutation.'
+          else
+            npm install --package-lock-only --ignore-scripts --no-audit
+          fi
           node - <<'NODE'
           const fs = require('fs');
           const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
@@ -32,15 +53,29 @@ jobs:
           if (lock.version !== pkg.version || root.version !== pkg.version || root.engines?.node !== pkg.engines?.node) {
             throw new Error(`Lock root metadata mismatch: package=${pkg.version}/${pkg.engines?.node}, lock=${lock.version}/${root.version}/${root.engines?.node}`);
           }
+          if (lock.packages?.['node_modules/fast-uri']?.version !== '3.1.7') throw new Error('fast-uri lock version is not 3.1.7');
+          if (lock.packages?.['node_modules/qs']?.version !== '6.16.0') throw new Error('qs lock version is not 6.16.0');
           console.log('lock root metadata:', JSON.stringify({version:lock.version,node:root.engines?.node}, null, 2));
+          console.log('locked security versions:', JSON.stringify({fastUri:lock.packages['node_modules/fast-uri'].version,qs:lock.packages['node_modules/qs'].version}, null, 2));
           NODE
+      - name: Commit generated lockfile when resolver changed it
+        run: |
+          if git diff --quiet -- package-lock.json; then
+            echo 'No package-lock.json changes to commit.'
+          else
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add package-lock.json
+            git commit -m 'chore: reconcile dependency lockfile'
+            git push origin HEAD:remediation/verified-data-contract
+          fi
       - name: Upload resolved dependency lock
         uses: actions/upload-artifact@v4
         with:
           name: dependency-lock-resolved
           path: package-lock.json
           if-no-files-found: error
-      - name: Install dependencies from resolved lock
+      - name: Install dependencies from committed/resolved lock
         run: npm ci
       - name: Dependency vulnerability diagnostic
         run: |
@@ -53,7 +88,7 @@ jobs:
             console.log(JSON.stringify({name, severity:v.severity, range:v.range, fixAvailable:v.fixAvailable, via:v.via}, null, 2));
           }
           NODE
-          npm ls fast-uri qs @modelcontextprotocol/sdk --all || true
+          npm ls fast-uri qs @modelcontextprotocol/sdk --all
       - name: Yahoo annual provider metadata probe
         run: |
           node --input-type=module - <<'NODE'
