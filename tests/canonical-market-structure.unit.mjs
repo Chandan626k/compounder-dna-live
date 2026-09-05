@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { calculateCanonicalMarketStructure } from '../lib/canonical-market-structure.js';
 
-const closes = [100, 99, 102, 98, 105, 100, 110, 103, 115, 108, 120, 112, 125, 119, 130, 123, 135, 128, 140, 135, 138, 136, 145];
+const closes = [100, 99, 102, 98, 105, 100, 110, 103, 115, 108, 120, 112, 125, 119, 130, 123, 135, 128, 140, 134, 142, 136, 145];
 const rows = closes.map((close, i) => ({
   date: new Date(Date.UTC(2025, 0, 1 + i)).toISOString(),
   open: close,
@@ -15,7 +15,7 @@ const structure = calculateCanonicalMarketStructure(rows);
 assert.equal(structure.state, 'UPTREND_STRUCTURE');
 assert.equal(structure.lastEvent, 'HIGHER_HIGH_HIGHER_LOW');
 assert.equal(structure.breakout.confirmed, true);
-assert.equal(structure.breakout.level, 141);
+assert.equal(structure.breakout.level, 143);
 assert.equal(structure.evidence.currentExcluded, true);
 assert.ok(structure.pivots.highs.length >= 2);
 assert.ok(structure.pivots.lows.length >= 2);
