@@ -1,0 +1,31 @@
+name: Phase 2 Support Resistance Plan
+
+on:
+  push:
+    branches:
+      - remediation/verified-data-contract
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate planner syntax
+        run: node --check scripts/phase2-support-resistance-plan.mjs
+      - name: Generate candidate
+        run: node scripts/phase2-support-resistance-plan.mjs
+      - name: Generate equivalent diff
+        run: git diff --no-index -- lib/canonical-technical-engine.js /tmp/canonical-technical-engine.candidate.js > /tmp/canonical-support-resistance.diff || test $? -eq 1
+      - name: Validate candidate syntax
+        run: node --check /tmp/canonical-technical-engine.candidate.js
+      - name: Upload candidate diff
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase2-canonical-support-resistance-diff
+          path: /tmp/canonical-support-resistance.diff
+          if-no-files-found: error
