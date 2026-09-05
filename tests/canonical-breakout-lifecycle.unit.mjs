@@ -47,6 +47,10 @@ const afterFuture = calculateCanonicalBreakoutLifecycle(futureShock, { timeframe
 assert.equal(afterFuture.status, 'FAILED');
 assert.equal(afterFuture.events.find((event) => event.type === 'BREAKOUT_CONFIRMED').date, beforeFuture.events.find((event) => event.type === 'BREAKOUT_CONFIRMED').date);
 
+const failedRetest = calculateCanonicalBreakoutLifecycle(rows.slice(0, 43).concat({ ...rows[42], date: new Date(Date.UTC(2025, 0, 44)).toISOString(), close: 104, open: 104, high: 105, low: 103, volume: 1400 }), { timeframe: '1d' });
+assert.equal(failedRetest.status, 'FAILED_RETEST');
+assert.equal(failedRetest.failureEvidence.reason, 'RETEST_CLOSE_BACK_ACROSS_BREAKOUT_LEVEL');
+
 const weakVolumes = [...breakoutVolumes];
 weakVolumes[40] = 1050;
 const weak = calculateCanonicalBreakoutLifecycle(makeRows(breakoutCloses.slice(0, 41), weakVolumes), { timeframe: '1d' });
@@ -63,6 +67,9 @@ const missingVolume = makeRows(breakoutCloses.slice(0, 41));
 missingVolume[40].volume = null;
 const missingVolumeLifecycle = calculateCanonicalBreakoutLifecycle(missingVolume, { timeframe: '1d' });
 assert.equal(missingVolumeLifecycle.confirmationEvidence.volumeStatus, 'UNAVAILABLE');
+
+const intraday = calculateCanonicalBreakoutLifecycle(rows, { timeframe: '1h' });
+assert.equal(intraday.timeframe, '1h');
 
 const canonical = calculateCanonicalTechnical(rows, {
   timeframe: '1d',
