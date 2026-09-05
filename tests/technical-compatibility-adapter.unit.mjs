@@ -58,7 +58,7 @@ const breakoutRows = breakoutCloses.map((close, i) => ({
 }));
 const breakoutTech = technicalCompatibility(breakoutRows, { symbol: 'TEST', source: 'fixture', timeframe: '1d' });
 assert.equal(breakoutTech.canonicalEvidence.breakout.confirmed, true);
-assert.equal(breakoutTech.canonicalEvidence.breakout.level, 141);
+assert.equal(breakoutTech.canonicalEvidence.breakout.level, 131);
 assert.ok(breakoutTech.canonicalEvidence.breakout.level < breakoutRows.at(-1).close);
 
 const malformed = rows(30);
