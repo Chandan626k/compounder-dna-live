@@ -73,13 +73,14 @@ jobs:
           NODE
       - name: Production syntax checks
         run: |
-          for f in server.js api/actionability.js api/analyze.js api/data.js api/data-foundation.js api/investment-readiness.js api/scan.js api/trading.js lib/market-data-provider.js lib/verified-analysis.js lib/canonical-technical-engine.js lib/canonical-support-resistance.js lib/technical-compatibility-adapter.js lib/scanner-engine-v2.js lib/statement-evidence.js lib/financial-metric-lineage.js tests/canonical-technical-engine.unit.mjs tests/canonical-support-resistance.unit.mjs tests/technical-compatibility-adapter.unit.mjs tests/market-data-integrity.unit.mjs tests/verified-consumer-audit.unit.mjs tests/financial-metric-lineage.unit.mjs tests/financial-metric-lineage-builder.unit.mjs tests/statement-period-lineage.unit.mjs; do node --check "$f" || exit 1; done
+          for f in server.js api/actionability.js api/analyze.js api/data.js api/data-foundation.js api/investment-readiness.js api/scan.js api/trading.js lib/market-data-provider.js lib/verified-analysis.js lib/canonical-technical-engine.js lib/canonical-support-resistance.js lib/canonical-market-structure.js lib/technical-compatibility-adapter.js lib/scanner-engine-v2.js lib/statement-evidence.js lib/financial-metric-lineage.js tests/canonical-technical-engine.unit.mjs tests/canonical-support-resistance.unit.mjs tests/canonical-market-structure.unit.mjs tests/technical-compatibility-adapter.unit.mjs tests/market-data-integrity.unit.mjs tests/verified-consumer-audit.unit.mjs tests/financial-metric-lineage.unit.mjs tests/financial-metric-lineage-builder.unit.mjs tests/statement-period-lineage.unit.mjs; do node --check "$f" || exit 1; done
       - name: Core provenance/data-contract tests
         run: |
           node tests/validation-gate.unit.mjs
           node tests/canonical-technical-engine.unit.mjs
           node tests/technical-compatibility-adapter.unit.mjs
           node tests/canonical-support-resistance.unit.mjs
+          node tests/canonical-market-structure.unit.mjs
           node tests/statement-evidence.unit.mjs
           node tests/statement-period-qualification.unit.mjs
           node tests/market-engine-period-qualification.unit.mjs
