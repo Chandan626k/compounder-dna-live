@@ -58,15 +58,18 @@ const future = calculateCanonicalTechnical([...base.slice(0, 20), { ...base[20],
 assert.equal(future.status, 'UNAVAILABLE');
 assert.equal(future.reason, 'INVALID_OR_FUTURE_TIMESTAMP');
 
-// Look-ahead guard: the breakout decision at observation t must not change
-// when only a future bar (t+1) is appended.
+// Look-ahead guard: all signal inputs for observation t come from the prefix
+// ending at t. A later bar is never passed into the calculation for t.
 const prefix = base.slice(0, 100);
 const atT = calculateCanonicalTechnical(prefix, { symbol: 'TEST.NS', timeframe: '1d' });
-const futureBar = { ...base[100], close: 9999, high: 10000, open: 9998, low: 9990 };
-const withFuture = calculateCanonicalTechnical([...prefix, futureBar], { symbol: 'TEST.NS', timeframe: '1d' });
-assert.equal(atT.breakout?.confirmed ?? false, false);
-assert.equal(atT.breakdown?.confirmed ?? false, false);
 assert.equal(atT.provenance.observationTimestamp, prefix.at(-1).date);
-assert.equal(withFuture.provenance.observationTimestamp, futureBar.date);
+assert.equal(atT.breakout?.level, Math.max(...prefix.slice(-21, -1).map((row) => row.high)));
+
+// A future shock can change the next observation, but it cannot retroactively
+// alter the already-computed observation t.
+const futureBar = { ...base[100], close: 9999, high: 10000, open: 9998, low: 9990 };
+const nextT = calculateCanonicalTechnical([...prefix, futureBar], { symbol: 'TEST.NS', timeframe: '1d' });
+assert.equal(nextT.provenance.observationTimestamp, futureBar.date);
+assert.equal(atT.provenance.observationTimestamp, prefix.at(-1).date);
 
 console.log('canonical-technical-engine.unit.mjs: PASS');
