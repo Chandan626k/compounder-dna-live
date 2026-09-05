@@ -35,6 +35,57 @@ jobs:
           }
           NODE
           npm ls fast-uri qs @modelcontextprotocol/sdk --all || true
+      - name: Generate dependency lock candidate
+        run: |
+          cp package-lock.json /tmp/package-lock.before.json
+          npm install --package-lock-only --ignore-scripts --no-audit
+          if cmp -s package-lock.json /tmp/package-lock.before.json; then
+            echo 'LOCK_CANDIDATE_CHANGED=false' >> "$GITHUB_ENV"
+            echo 'package-lock.json is unchanged after network-enabled npm resolution.'
+          else
+            echo 'LOCK_CANDIDATE_CHANGED=true' >> "$GITHUB_ENV"
+            echo 'package-lock.json changes produced by npm resolver:'
+            git diff -- package-lock.json
+          fi
+      - name: Upload dependency lock candidate
+        if: ${{ env.LOCK_CANDIDATE_CHANGED == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-lock-candidate
+          path: package-lock.json
+          if-no-files-found: error
+      - name: Yahoo annual provider metadata probe
+        run: |
+          node --input-type=module - <<'NODE'
+          import YahooFinance from 'yahoo-finance2';
+          const yf = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
+          const ticker = 'RELIANCE.NS';
+          const period2 = new Date();
+          const period1 = new Date(Date.now() - 3 * 365.25 * 86400000);
+          const rows = await yf.fundamentalsTimeSeries(ticker, {
+            period1, period2, type: 'annual', module: 'financials'
+          }, { validateResult: false });
+          console.log('provider row count:', Array.isArray(rows) ? rows.length : 0);
+          const annual = (Array.isArray(rows) ? rows : []).filter(r => String(r?.periodType || '').toUpperCase() === '12M');
+          if (!annual.length) throw new Error('No annual 12M fundamentalsTimeSeries rows returned for metadata probe');
+          const row = annual.at(-1);
+          console.log('annual row keys:', Object.keys(row).sort());
+          console.log('identity metadata:', JSON.stringify({
+            date: row?.date ?? null,
+            periodType: row?.periodType ?? null,
+            reportingPeriod: row?.reportingPeriod ?? null,
+            issuer: row?.issuer ?? null,
+            companyName: row?.companyName ?? null,
+            statementScope: row?.statementScope ?? null,
+            scope: row?.scope ?? null,
+            unit: row?.unit ?? null,
+            units: row?.units ?? null,
+            currency: row?.currency ?? null,
+            symbol: row?.symbol ?? null,
+            ticker: row?.ticker ?? null
+          }, null, 2));
+          console.log('sample annual observation:', JSON.stringify(row, null, 2));
+          NODE
       - name: Production syntax checks
         run: |
           node --check server.js
