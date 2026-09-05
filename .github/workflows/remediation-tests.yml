@@ -21,7 +21,26 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - name: Install dependencies
+      - name: Resolve dependency lock with npm
+        run: |
+          npm install --package-lock-only --ignore-scripts --no-audit
+          node - <<'NODE'
+          const fs = require('fs');
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
+          const root = lock.packages?.[''] || {};
+          if (lock.version !== pkg.version || root.version !== pkg.version || root.engines?.node !== pkg.engines?.node) {
+            throw new Error(`Lock root metadata mismatch: package=${pkg.version}/${pkg.engines?.node}, lock=${lock.version}/${root.version}/${root.engines?.node}`);
+          }
+          console.log('lock root metadata:', JSON.stringify({version:lock.version,node:root.engines?.node}, null, 2));
+          NODE
+      - name: Upload resolved dependency lock
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-lock-resolved
+          path: package-lock.json
+          if-no-files-found: error
+      - name: Install dependencies from resolved lock
         run: npm ci
       - name: Dependency vulnerability diagnostic
         run: |
@@ -35,25 +54,6 @@ jobs:
           }
           NODE
           npm ls fast-uri qs @modelcontextprotocol/sdk --all || true
-      - name: Generate dependency lock candidate
-        run: |
-          cp package-lock.json /tmp/package-lock.before.json
-          npm install --package-lock-only --ignore-scripts --no-audit
-          if cmp -s package-lock.json /tmp/package-lock.before.json; then
-            echo 'LOCK_CANDIDATE_CHANGED=false' >> "$GITHUB_ENV"
-            echo 'package-lock.json is unchanged after network-enabled npm resolution.'
-          else
-            echo 'LOCK_CANDIDATE_CHANGED=true' >> "$GITHUB_ENV"
-            echo 'package-lock.json changes produced by npm resolver:'
-            git diff -- package-lock.json
-          fi
-      - name: Upload dependency lock candidate
-        if: ${{ env.LOCK_CANDIDATE_CHANGED == 'true' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: dependency-lock-candidate
-          path: package-lock.json
-          if-no-files-found: error
       - name: Yahoo annual provider metadata probe
         run: |
           node --input-type=module - <<'NODE'
