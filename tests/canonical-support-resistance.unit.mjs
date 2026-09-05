@@ -27,7 +27,7 @@ rows.at(-1).high = 9999;
 const afterHighMutation = calculateReactionSupportResistance(rows);
 assert.equal(afterHighMutation.resistance, beforeHigh);
 
-const insufficient = calculateReactionSupportResistance(rows.slice(0, 20));
+const insufficient = calculateReactionSupportResistance(rows.slice(0, 19));
 assert.equal(insufficient.status, 'UNAVAILABLE');
 assert.equal(insufficient.support, null);
 assert.equal(insufficient.resistance, null);
