@@ -1,0 +1,33 @@
+name: Phase 2 Fixture Planner
+
+on:
+  push:
+    branches:
+      - remediation/verified-data-contract
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: contains(github.event.head_commit.message, 'chore: add temporary branch fixture planner')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply surgical fixture correction
+        run: node scripts/phase2-fix-market-structure-fixture.mjs
+      - name: Validate fixture syntax and diff
+        run: |
+          node --check tests/canonical-market-structure.unit.mjs
+          git diff --check
+      - name: Commit correction and remove temporary planner
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tests/canonical-market-structure.unit.mjs
+          git rm scripts/phase2-fix-market-structure-fixture.mjs .github/workflows/phase2-fix-market-structure-fixture.yml
+          git commit -m 'test: correct confirmed market structure fixture'
+          git push origin HEAD:remediation/verified-data-contract
