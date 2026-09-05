@@ -1,0 +1,29 @@
+name: Phase 2 Adapter Plan
+
+on:
+  push:
+    branches:
+      - remediation/verified-data-contract
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Generate candidate
+        run: node scripts/phase2-technical-adapter-plan.mjs
+      - name: Generate equivalent diff
+        run: git diff --no-index -- lib/market-engine.js /tmp/market-engine.candidate.js > /tmp/market-engine-adapter.diff || test $? -eq 1
+      - name: Validate candidate syntax
+        run: node --check /tmp/market-engine.candidate.js
+      - name: Upload candidate diff
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase2-market-engine-adapter-diff
+          path: /tmp/market-engine-adapter.diff
+          if-no-files-found: error
