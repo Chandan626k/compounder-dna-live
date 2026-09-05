@@ -26,6 +26,7 @@ const trading = read('api/trading.js');
 const investmentReadiness = read('api/investment-readiness.js');
 const scan = read('api/scan.js');
 const legacyData = read('api/data.js');
+const foundation = read('api/data-foundation.js');
 
 for (const [name, source] of Object.entries({ analyze, actionability, trading, investmentReadiness, scan })) {
   assert.match(source, /analyzeVerified|verifiedHistory|scanSymbols/, `${name} must consume verified market/data path`);
@@ -36,6 +37,10 @@ assert.match(legacyData, /scanSymbols/);
 assert.doesNotMatch(legacyData, /function ema\(|function rsi\(|function atr\(|function technicalSignal\(/, 'legacy /api/data must not own duplicate technical calculations');
 assert.doesNotMatch(actionability, /fetchStatementEvidence\(/, 'actionability must not create a duplicate statement fetch path');
 assert.match(actionability, /analysis\.fundamentals\?\.statementEvidence/);
+assert.match(foundation, /periodType !== expectedPeriod/);
+assert.match(foundation, /verifiedQuote\(symbol\)/);
+assert.match(foundation, /annualPeriod:'explicit 12M only'/);
+assert.match(foundation, /quarterlyPeriod:'explicit 3M only'/);
 
 const productionFiles = walk(path.join(root, 'api')).concat(walk(path.join(root, 'public')), [path.join(root, 'server.js')]);
 for (const file of productionFiles) {
