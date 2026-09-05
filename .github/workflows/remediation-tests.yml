@@ -54,6 +54,7 @@ jobs:
           node --check tests/verified-consumer-audit.unit.mjs
           node --check tests/financial-metric-lineage.unit.mjs
           node --check tests/financial-metric-lineage-builder.unit.mjs
+          node --check tests/statement-period-lineage.unit.mjs
       - name: Core provenance/data-contract tests
         run: |
           node tests/validation-gate.unit.mjs
@@ -69,6 +70,7 @@ jobs:
           node tests/verified-consumer-audit.unit.mjs
           node tests/financial-metric-lineage.unit.mjs
           node tests/financial-metric-lineage-builder.unit.mjs
+          node tests/statement-period-lineage.unit.mjs
       - name: Known bank PDF qualification test
         continue-on-error: true
         run: node tests/bank-ir-pdf-qualification.unit.mjs
