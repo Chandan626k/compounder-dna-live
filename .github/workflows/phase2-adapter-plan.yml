@@ -9,7 +9,7 @@ jobs:
   plan:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -19,13 +19,19 @@ jobs:
         run: node --check scripts/phase2-technical-adapter-plan.mjs
       - name: Generate candidate
         run: node scripts/phase2-technical-adapter-plan.mjs
-      - name: Generate equivalent diff
-        run: git diff --no-index -- lib/market-engine.js /tmp/market-engine.candidate.js > /tmp/market-engine-adapter.diff || test $? -eq 1
       - name: Validate candidate syntax
         run: node --check /tmp/market-engine.candidate.js
-      - name: Upload candidate diff
-        uses: actions/upload-artifact@v4
-        with:
-          name: phase2-market-engine-adapter-diff
-          path: /tmp/market-engine-adapter.diff
-          if-no-files-found: error
+      - name: Apply inspected candidate
+        run: cp /tmp/market-engine.candidate.js lib/market-engine.js
+      - name: Validate applied diff
+        run: |
+          git diff --check
+          git diff -- lib/market-engine.js
+      - name: Commit inspected adapter migration
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add lib/market-engine.js
+          git diff --cached --check
+          git commit -m 'refactor: route market-engine technical through canonical adapter'
+          git push origin HEAD:remediation/verified-data-contract
