@@ -3,14 +3,7 @@ import { calculateCanonicalBreakoutLifecycle } from '../lib/canonical-breakout-l
 import { calculateCanonicalTechnical } from '../lib/canonical-technical-engine.js';
 
 function makeRows(closes, volumes = []) {
-  return closes.map((close, index) => ({
-    date: new Date(Date.UTC(2025, 0, 1 + index)).toISOString(),
-    open: close,
-    high: close + 1,
-    low: close - 1,
-    close,
-    volume: volumes[index] ?? 1000,
-  }));
+  return closes.map((close, index) => ({ date: new Date(Date.UTC(2025, 0, 1 + index)).toISOString(), open: close, high: close + 1, low: close - 1, close, volume: volumes[index] ?? 1000 }));
 }
 
 const base = Array.from({ length: 30 }, (_, i) => (i % 2 === 0 ? 101 : 99));
@@ -39,7 +32,7 @@ const prefix = rows.slice(0, 41);
 const beforeFuture = calculateCanonicalBreakoutLifecycle(prefix, { timeframe: '1d' });
 assert.equal(beforeFuture.status, 'PENDING_RETEST');
 assert.equal(beforeFuture.breakoutLevel, 103);
-const futureShock = rows.slice(0, 41).concat({ ...rows[41], close: 90, open: 90, high: 91, low: 89, volume: 3000 });
+const futureShock = rows.slice(0, 41).concat({ ...rows[41], close: 101, open: 101, high: 102, low: 100, volume: 3000 });
 const afterFuture = calculateCanonicalBreakoutLifecycle(futureShock, { timeframe: '1d' });
 assert.equal(afterFuture.status, 'FAILED');
 assert.equal(afterFuture.events.find((event) => event.type === 'BREAKOUT_CONFIRMED').date, beforeFuture.events.find((event) => event.type === 'BREAKOUT_CONFIRMED').date);
