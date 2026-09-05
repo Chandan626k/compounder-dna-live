@@ -55,9 +55,10 @@ assert.equal(future.reason, 'INVALID_OR_FUTURE_TIMESTAMP');
 
 const prefix = base.slice(0, 100);
 const atT = calculateCanonicalTechnical(prefix, { symbol: 'TEST.NS', timeframe: '1d' });
-const priorHigh = Math.max(...prefix.slice(-21, -1).map((row) => row.high));
+const confirmedSwingHigh = atT.structure.pivots.highs.at(-1)?.price;
 assert.equal(atT.provenance.observationTimestamp, prefix.at(-1).date);
-assert.equal(atT.breakout?.level ?? priorHigh, priorHigh);
+assert.equal(atT.breakout?.level ?? confirmedSwingHigh, confirmedSwingHigh);
+assert.equal(atT.structure.evidence.currentExcluded, true);
 const futureBar = { ...base[100], close: 9999, high: 10000, open: 9998, low: 9990 };
 const nextT = calculateCanonicalTechnical([...prefix, futureBar], { symbol: 'TEST.NS', timeframe: '1d' });
 assert.equal(nextT.provenance.observationTimestamp, futureBar.date);
