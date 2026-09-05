@@ -34,6 +34,7 @@ jobs:
             console.log(JSON.stringify({name, severity:v.severity, range:v.range, fixAvailable:v.fixAvailable, via:v.via}, null, 2));
           }
           NODE
+          npm ls fast-uri qs @modelcontextprotocol/sdk --all || true
       - name: Production syntax checks
         run: |
           node --check server.js
