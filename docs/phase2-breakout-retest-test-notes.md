@@ -1,1 +1,0 @@
-Regression note: the breakout fixture uses the latest confirmed swing level and a future-bar shock that does not introduce a simultaneous opposite breakout. This isolates the no-look-ahead false-breakout assertion.
