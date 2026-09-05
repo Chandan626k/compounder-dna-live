@@ -21,18 +21,18 @@ candidate = candidate.replace(
   `function technical(rows) {\n  return technicalCompatibility(rows, {\n    source: 'Yahoo Finance chart',\n    timeframe: '1d',\n  });\n}\n\nasync function fetchChart`,
 );
 
-const retrievalAnchor = "  const rows = [];";
-if ((candidate.match(new RegExp(retrievalAnchor.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&'), 'g')) || []).length !== 1) throw new Error('Expected exactly one fetchChart rows anchor');
+const retrievalAnchor = '  const rows = [];';
+if (candidate.split(retrievalAnchor).length - 1 !== 1) throw new Error('Expected exactly one fetchChart rows anchor');
 candidate = candidate.replace(retrievalAnchor, "  const rows = [];\n  const retrievedAt = new Date().toISOString();");
 
 const objectRow = `          date: new Date(item.date).toISOString(),\n          close, high, low, volume,`;
 const objectReplacement = `          date: new Date(item.date).toISOString(),\n          open: num(item?.open),\n          close, high, low, volume,\n          retrievedAt,`;
-if ((candidate.match(new RegExp(objectRow.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&'), 'g')) || []).length !== 1) throw new Error('Expected exactly one object-format chart row');
+if (candidate.split(objectRow).length - 1 !== 1) throw new Error('Expected exactly one object-format chart row');
 candidate = candidate.replace(objectRow, objectReplacement);
 
 const fallbackRow = `          date: new Date(timestamps[i] * 1000).toISOString(),\n          close, high, low, volume,`;
 const fallbackReplacement = `          date: new Date(timestamps[i] * 1000).toISOString(),\n          open: num(q.open?.[i]),\n          close, high, low, volume,\n          retrievedAt,`;
-if ((candidate.match(new RegExp(fallbackRow.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&'), 'g')) || []).length !== 1) throw new Error('Expected exactly one fallback-format chart row');
+if (candidate.split(fallbackRow).length - 1 !== 1) throw new Error('Expected exactly one fallback-format chart row');
 candidate = candidate.replace(fallbackRow, fallbackReplacement);
 
 fs.writeFileSync('/tmp/market-engine.candidate.js', candidate);
