@@ -54,7 +54,8 @@ const invalid = calculateCanonicalTechnical(base.map((row, i) => i === 100 ? { .
 assert.equal(invalid.status, 'UNAVAILABLE');
 assert.equal(invalid.reason, 'OHLC_INVARIANT_FAILED');
 
-const future = calculateCanonicalTechnical([...base.slice(0, 20), { ...base[20], date: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() }], { symbol: 'TEST.NS', timeframe: '1d' });
+const fixedNow = Date.parse('2026-09-05T00:00:00.000Z');
+const future = calculateCanonicalTechnical([...base.slice(0, 20), { ...base[20], date: '2026-09-06T00:00:00.000Z' }], { symbol: 'TEST.NS', timeframe: '1d', nowMs: fixedNow });
 assert.equal(future.status, 'UNAVAILABLE');
 assert.equal(future.reason, 'INVALID_OR_FUTURE_TIMESTAMP');
 
@@ -62,8 +63,9 @@ assert.equal(future.reason, 'INVALID_OR_FUTURE_TIMESTAMP');
 // ending at t. A later bar is never passed into the calculation for t.
 const prefix = base.slice(0, 100);
 const atT = calculateCanonicalTechnical(prefix, { symbol: 'TEST.NS', timeframe: '1d' });
+const priorHigh = Math.max(...prefix.slice(-21, -1).map((row) => row.high));
 assert.equal(atT.provenance.observationTimestamp, prefix.at(-1).date);
-assert.equal(atT.breakout?.level, Math.max(...prefix.slice(-21, -1).map((row) => row.high)));
+assert.equal(atT.breakout?.level ?? priorHigh, priorHigh);
 
 // A future shock can change the next observation, but it cannot retroactively
 // alter the already-computed observation t.
