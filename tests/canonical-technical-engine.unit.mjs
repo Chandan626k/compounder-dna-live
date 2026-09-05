@@ -32,13 +32,20 @@ assert.equal(result.provenance.symbol, 'TEST.NS');
 assert.equal(result.provenance.source, 'fixture');
 assert.equal(result.provenance.timeframe, '1d');
 assert.equal(result.provenance.retrievedAt, '2026-09-05T10:00:00.000Z');
+assert.equal(result.provenance.observationTimestamp, base.at(-1).date);
+assert.equal(result.provenance.dataQuality, 'VERIFIED');
 assert.ok(result.e20 != null && result.e50 != null && result.e200 != null);
 assert.ok(result.rsi != null && result.atr != null && result.macd != null && result.adx != null);
 assert.ok(result.relativeVolume != null);
 assert.ok(['STRONG UPTREND', 'UPTREND', 'SIDEWAYS / TRANSITION', 'DOWNTREND'].includes(result.trend));
 assert.ok(result.supportResistance.status === 'VERIFIED_LEVELS');
-assert.ok(typeof result.vwapSemantics === 'string' && result.vwapSemantics.includes('NOT INTRADAY SESSION VWAP'));
+assert.ok(typeof result.vwapSemantics === 'string' && result.vwapSemantics.includes('NOT INTRADAY SESSION_VWAP'));
 assert.ok(result.technicalConfidence >= 0 && result.technicalConfidence <= 100);
+
+const intraday = calculateCanonicalTechnical(base, { symbol: 'TEST.NS', source: 'fixture', timeframe: '1h' });
+assert.equal(intraday.status, 'VERIFIED');
+assert.equal(intraday.provenance.timeframe, '1h');
+assert.equal(intraday.vwapSemantics.includes('NOT INTRADAY SESSION_VWAP'), true);
 
 const insufficient = calculateCanonicalTechnical(base.slice(0, 10), { symbol: 'TEST.NS', timeframe: '1d' });
 assert.equal(insufficient.status, 'VERIFIED');
