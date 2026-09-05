@@ -23,7 +23,9 @@ assert.ok(result.e20 != null && result.e50 != null && result.e200 != null);
 assert.ok(result.rsi != null && result.atr != null && result.macd != null && result.adx != null);
 assert.ok(result.relativeVolume != null);
 assert.ok(['STRONG UPTREND', 'UPTREND', 'SIDEWAYS / TRANSITION', 'DOWNTREND'].includes(result.trend));
-assert.equal(result.supportResistance.status, 'VERIFIED_LEVELS');
+assert.equal(result.supportResistance.status, 'VERIFIED_REACTION_ZONES');
+assert.equal(result.supportResistance.evidence.currentExcluded, true);
+assert.ok(Array.isArray(result.supportResistance.zones));
 assert.equal(result.vwapSemantics, 'CUMULATIVE_PERIOD_VWAP; NOT_INTRADAY_SESSION_VWAP');
 assert.ok(result.technicalConfidence >= 0 && result.technicalConfidence <= 100);
 
