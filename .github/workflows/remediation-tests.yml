@@ -133,9 +133,11 @@ jobs:
           node --check api/trading.js
           node --check lib/market-data-provider.js
           node --check lib/verified-analysis.js
+          node --check lib/canonical-technical-engine.js
           node --check lib/scanner-engine-v2.js
           node --check lib/statement-evidence.js
           node --check lib/financial-metric-lineage.js
+          node --check tests/canonical-technical-engine.unit.mjs
           node --check tests/market-data-integrity.unit.mjs
           node --check tests/verified-consumer-audit.unit.mjs
           node --check tests/financial-metric-lineage.unit.mjs
@@ -144,6 +146,7 @@ jobs:
       - name: Core provenance/data-contract tests
         run: |
           node tests/validation-gate.unit.mjs
+          node tests/canonical-technical-engine.unit.mjs
           node tests/statement-evidence.unit.mjs
           node tests/statement-period-qualification.unit.mjs
           node tests/market-engine-period-qualification.unit.mjs
