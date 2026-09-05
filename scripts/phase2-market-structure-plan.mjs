@@ -1,0 +1,11 @@
+import fs from 'node:fs';
+const path = 'lib/canonical-technical-engine.js';
+const source = fs.readFileSync(path, 'utf8');
+const anchor = "import { calculateReactionSupportResistance } from './canonical-support-resistance.js';";
+if (!source.includes(anchor)) throw new Error('Expected support/resistance import anchor missing');
+if (source.includes("./canonical-market-structure.js")) throw new Error('Market structure import already present');
+const pattern = /function structure\(rows, lookback = 20\) \{[\s\S]*?\n\}\nconst supportResistance/;
+if ((source.match(pattern) || []).length !== 1) throw new Error('Expected exactly one legacy structure function');
+let candidate = source.replace(anchor, `${anchor}\nimport { calculateCanonicalMarketStructure } from './canonical-market-structure.js';`);
+candidate = candidate.replace(pattern, "const structure = calculateCanonicalMarketStructure;\nconst supportResistance");
+fs.writeFileSync('/tmp/canonical-technical-engine.structure-candidate.js', candidate);
