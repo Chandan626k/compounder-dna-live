@@ -14,7 +14,7 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Checkout actual repository
         uses: actions/checkout@v4
@@ -101,3 +101,6 @@ jobs:
       - name: Directly affected strategy/data tests
         if: ${{ always() }}
         run: node tests/market-engine.unit.mjs && node tests/sector-framework.unit.mjs && node tests/decision-evidence-gate.unit.mjs && node tests/actionability.unit.mjs
+      - name: Full regression suite
+        if: ${{ always() }}
+        run: npm test
