@@ -143,6 +143,19 @@ jobs:
           node --check tests/financial-metric-lineage.unit.mjs
           node --check tests/financial-metric-lineage-builder.unit.mjs
           node --check tests/statement-period-lineage.unit.mjs
+      - name: Canonical technical diagnostic
+        continue-on-error: true
+        run: |
+          node tests/canonical-technical-engine.unit.mjs > /tmp/canonical-technical.log 2>&1
+          status=$?
+          cat /tmp/canonical-technical.log
+          echo "exit=$status" >> /tmp/canonical-technical.log
+      - name: Upload canonical technical diagnostic
+        uses: actions/upload-artifact@v4
+        with:
+          name: canonical-technical-diagnostic
+          path: /tmp/canonical-technical.log
+          if-no-files-found: error
       - name: Core provenance/data-contract tests
         run: |
           node tests/validation-gate.unit.mjs
