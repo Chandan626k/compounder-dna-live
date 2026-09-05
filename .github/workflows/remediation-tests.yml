@@ -46,8 +46,10 @@ jobs:
           node --check lib/market-data-provider.js
           node --check lib/verified-analysis.js
           node --check lib/scanner-engine-v2.js
+          node --check lib/statement-evidence.js
           node --check tests/market-data-integrity.unit.mjs
           node --check tests/verified-consumer-audit.unit.mjs
+          node --check tests/financial-metric-lineage.unit.mjs
       - name: Core provenance/data-contract tests
         run: |
           node tests/validation-gate.unit.mjs
@@ -61,6 +63,7 @@ jobs:
           node tests/verified-data-contract.unit.mjs
           node tests/market-data-integrity.unit.mjs
           node tests/verified-consumer-audit.unit.mjs
+          node tests/financial-metric-lineage.unit.mjs
       - name: Known bank PDF qualification test
         continue-on-error: true
         run: node tests/bank-ir-pdf-qualification.unit.mjs
