@@ -47,7 +47,7 @@ const afterFuture = calculateCanonicalBreakoutLifecycle(futureShock, { timeframe
 assert.equal(afterFuture.status, 'FAILED');
 assert.equal(afterFuture.events.find((event) => event.type === 'BREAKOUT_CONFIRMED').date, beforeFuture.events.find((event) => event.type === 'BREAKOUT_CONFIRMED').date);
 
-const failedRetest = calculateCanonicalBreakoutLifecycle(rows.slice(0, 43).concat({ ...rows[42], date: new Date(Date.UTC(2025, 0, 44)).toISOString(), close: 104, open: 104, high: 105, low: 103, volume: 1400 }), { timeframe: '1d' });
+const failedRetest = calculateCanonicalBreakoutLifecycle(rows.slice(0, 42).concat({ ...rows[41], date: new Date(Date.UTC(2025, 0, 43)).toISOString(), close: 104, open: 104, high: 105, low: 103, volume: 1400 }), { timeframe: '1d' });
 assert.equal(failedRetest.status, 'FAILED_RETEST');
 assert.equal(failedRetest.failureEvidence.reason, 'RETEST_CLOSE_BACK_ACROSS_BREAKOUT_LEVEL');
 
