@@ -2,47 +2,68 @@
 
 ## Architecture
 
-`verified OHLCV -> canonical technical engine -> compatibility adapter -> legacy technical() contract -> existing consumers`
+The active production data flow is:
+
+`verified OHLCV -> canonical technical engine -> verified analysis -> consumer`
+
+Where a legacy consumer still requires older semantics, the intentional compatibility path is:
+
+`verified OHLCV -> canonical technical engine -> compatibility adapter -> legacy market-engine contract -> legacy consumer`
 
 **Problem owner:** CTO / Principal Architect
+
+## Consumer / provenance audit decision
+
+The audit found one genuine active duplicate boundary: `/api/actionability` was invoking `lib/trading-engine.js`, which independently recalculated EMA/RSI/MACD/ATR/ADX/VWAP/relative-volume and rebuilt trade levels from raw rows. That path could diverge from canonical technical evidence and could discard canonical lifecycle/risk provenance.
+
+The minimum correct fix was to remove that consumer dependency and pass `analysis.technical` directly into actionability. The legacy `lib/trading-engine.js` remains in the repository as historical/dead compatibility code; it is no longer an active production consumer of verified analysis.
+
+Actionability now preserves the canonical technical provenance and breakout lifecycle risk evidence, including invalidation evidence and target evidence, instead of reconstructing those values from raw market rows.
 
 ## Trader Team decision
 
 | Output / concern | Decision | Reason |
 |---|---|---|
-| SMA/EMA 20/50/200 | Canonical | Same calculation and trading meaning as legacy output. |
-| RSI14 | Canonical | Same Wilder-style calculation and meaning. |
-| ATR14 | Canonical | Same Wilder ATR calculation and meaning. |
-| Relative volume / volumeSpike | Canonical | Same latest-volume / 20D-average meaning. |
-| Trend | Preserve legacy semantics | Existing scoring/actionability consume exact strings; canonical `SIDEWAYS / TRANSITION` is not equivalent to legacy `RECOVERING / MIXED`. |
-| Trend strength | Preserve legacy semantics | Legacy field means absolute distance from SMA200; canonical ADX is a fundamentally different metric. ADX is exposed separately in `canonicalEvidence`. |
-| Support / resistance | Preserve legacy semantics | Legacy values are last-20 usable-bar extrema. Canonical levels use a broader level set and must not silently change trading/scoring behavior. |
-| 52-week high/low | Preserve legacy qualification | Requires 252 usable rows; values remain null before that threshold. |
-| Change 1D/20D/3M/6M/1Y | Canonical | Same lookback semantics; no future data is introduced. |
-| Drawdown / range position | Compatibility adapter | Derived from the legacy-qualified 52-week levels. |
-| Volume trend | Compatibility adapter | Legacy-only comparison of current 20D average vs previous 20D average; no canonical equivalent existed. |
-| Breakout/breakdown | Canonical evidence only | New canonical structure is not substituted into legacy fields. It is exposed through `canonicalEvidence` and remains analysis evidence, not a legacy semantic replacement. |
-| ADX/MACD/Bollinger/structure/setup/confidence | Canonical evidence only | New meanings are not mapped onto legacy fields with similar names. |
+| SMA/EMA 20/50/200 | Canonical | Consumers must not recalculate these independently. |
+| RSI14 | Canonical | Consumers must not recalculate or silently reinterpret the canonical value. |
+| ATR14 | Canonical | Canonical risk evidence remains authoritative. |
+| Relative volume / volumeSpike | Canonical | Missing volume remains unavailable; no consumer may manufacture confirmation. |
+| Trend | Preserve legacy semantics only through explicit adapter | Legacy consumers depend on exact strings; canonical trend remains authoritative for new consumers. |
+| Trend strength | Preserve legacy semantics only through explicit adapter | Legacy distance-from-SMA200 meaning must not be confused with canonical ADX. |
+| Support / resistance | Canonical for new consumers; legacy 20-bar extrema only through explicit adapter | Avoid silent semantic replacement. |
+| 52-week high/low | Preserve legacy qualification | Requires 252 usable rows in the compatibility contract. |
+| Breakout/retest lifecycle | Canonical evidence only | Consumers must not reconstruct lifecycle state or promote `BREAKOUT_CONFIRMED`, `RETEST_PENDING`, or `RETEST_CONFIRMED` into stronger claims. |
+| Risk / invalidation / R/R | Canonical risk evidence | Numeric invalidation must remain distinguishable from its evidence and target metadata. |
+| Provenance | Preserve end-to-end | Symbol, source, observation timestamp, retrievedAt, timeframe, data quality and validation state must survive the consumer boundary. |
 
 ## Data-quality boundary
 
-The adapter keeps the legacy usable-row selection for compatibility (`close/high/low/volume` finite), then requires those rows to pass canonical OHLCV validation. Missing/invalid OHLCV therefore fails closed rather than fabricating values. This is an intentional data-quality improvement and does not change valid legacy outputs.
+Canonical technical validation remains fail-closed. Missing or invalid OHLCV produces `UNAVAILABLE`; consumers must not coerce unavailable evidence to zero, neutral confirmation, fabricated targets, or fabricated R/R.
 
-The market-engine chart normalizer now carries `open` and a single retrieval timestamp so canonical validation can operate on verified OHLCV and provenance can preserve freshness context.
+Compatibility adapters may transform field names or legacy semantics, but they must not create new evidence. The adapter records its compatibility semantics and carries canonical provenance alongside the transformed output.
 
-## Provenance
+## Risk-evidence boundary
 
-Every compatibility result contains canonical provenance including symbol, source, retrieval timestamp when available, observation timestamp, timeframe, data-quality status, and validation reason. The adapter also records the exact compatibility semantics used.
+The canonical breakout lifecycle remains the source of truth for technical risk evidence. Downstream consumers preserve `riskEvidence`, including:
 
-## Intentionally deferred
+- invalidation level and directional validation
+- breakout level and retest evidence
+- support/resistance evidence
+- ATR at breakout
+- target price and target provenance (`type`, `touches`, `strength`, `lastDate`)
+- timeframe and provenance
 
-These are later Phase-2 improvements, not part of the compatibility migration:
+A consumer may render or explain this evidence, but must not replace it with a separately calculated stop/target/R/R source of truth.
 
-1. Reaction-based support/resistance zones.
-2. More granular market-structure state machine.
-3. Breakout/retest/failed-breakout lifecycle.
-4. Analysis-only entry/invalidation/target/risk-reward evidence.
-5. Broader multi-timeframe architecture.
-6. Removal/migration of legacy `atr`/`rsi` utility exports if any external contract requires them.
+## No-look-ahead boundary
 
-No strategy parameters, candidate definitions, backtest mathematics, costs/slippage, holdout protocol, or production BUY/SELL authority are changed by this adapter.
+Consumers receive canonical lifecycle state and its provenance. They must not reconstruct historical breakout/retest states from later bars. Canonical `noLookAhead` evidence remains authoritative.
+
+## Intentionally retained / deferred
+
+1. Legacy compatibility calculations remain only where an identified legacy consumer contract requires them.
+2. Historical/dead `lib/trading-engine.js` is retained for now rather than deleted blindly; no active production consumer may import it for canonical technical analysis.
+3. Broader multi-timeframe architecture remains out of scope.
+4. No new indicators, strategies, execution rules, broker integrations, or production BUY/SELL authority are introduced by this audit.
+
+No production BUY/SELL authority was changed.
