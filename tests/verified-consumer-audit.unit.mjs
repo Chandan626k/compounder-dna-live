@@ -42,6 +42,14 @@ assert.match(foundation, /verifiedQuote\(symbol\)/);
 assert.match(foundation, /annualPeriod:'explicit 12M only'/);
 assert.match(foundation, /quarterlyPeriod:'explicit 3M only'/);
 
+// /api/trading is a legacy response-shape compatibility boundary, but it must
+// consume canonical technical evidence rather than the duplicate trading engine.
+assert.doesNotMatch(trading, /trading-engine\.js/);
+assert.match(trading, /buildActionability/);
+assert.match(trading, /analysis\.technical/);
+assert.match(trading, /breakoutLifecycle\?\.riskEvidence/);
+assert.match(trading, /technical\.provenance/);
+
 const productionFiles = walk(path.join(root, 'api')).concat(walk(path.join(root, 'public')), [path.join(root, 'server.js')]);
 for (const file of productionFiles) {
   const relative = path.relative(root, file);
