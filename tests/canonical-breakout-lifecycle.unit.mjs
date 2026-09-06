@@ -16,6 +16,7 @@ const rows = makeRows(breakoutCloses, breakoutVolumes);
 rows[41] = { ...rows[41], low: 102, high: 108 };
 
 const lifecycle = calculateCanonicalBreakoutLifecycle(rows, { timeframe: '1d', symbol: 'TEST.NS', source: 'fixture', retrievedAt: '2025-02-12T00:00:00.000Z', targetLevels: [{ price: 119, type: 'RESISTANCE' }], marketStructure: { state: 'UPTREND_STRUCTURE' }, supportResistance: { support: 102, resistance: 119, status: 'VERIFIED_REACTION_ZONES' } });
+console.log('BREAKOUT_FIXTURE_DIAGNOSTIC', JSON.stringify({ status: lifecycle.status, direction: lifecycle.direction, retestAttempt: lifecycle.retestAttempt, supportResistanceFlip: lifecycle.supportResistanceFlip, invalidationLevel: lifecycle.riskEvidence?.invalidationLevel, riskEvidence: lifecycle.riskEvidence }, null, 2));
 assert.equal(lifecycle.status, 'CONTINUATION');
 assert.equal(lifecycle.direction, 'UP');
 assert.equal(lifecycle.breakoutLevel, 103);
