@@ -39,11 +39,12 @@ assert.equal(noCanonicalRisk.gates.canonicalRiskVerified, false);
 
 const noAtr = buildScannerSetup({ ...base, atr: null, breakoutLifecycle: { ...base.breakoutLifecycle, riskEvidence: { ...base.breakoutLifecycle.riskEvidence, invalidationEvidence: { atrAtBreakout: null } } } }, null);
 assert.equal(noAtr.action, 'WAIT', 'scanner must not create a READY setup without verified ATR');
-assert.equal(noAtr.riskRewardScore, 100, 'canonical R/R may remain evidence-backed even when scanner ATR is unavailable');
-assert.equal(noAtr.buy.stop, 99, 'canonical invalidation may be retained as evidence');
-assert.equal(noAtr.buy.target1, 110, 'canonical target may be retained as evidence');
-assert.equal(noAtr.buy.riskReward, 9, 'canonical R/R may be retained as evidence');
+assert.equal(noAtr.riskRewardScore, null, 'unavailable ATR must keep risk/RR unavailable');
+assert.equal(noAtr.buy.stop, null, 'unavailable ATR must fail closed for trade levels');
+assert.equal(noAtr.buy.target1, null, 'unavailable ATR must fail closed for trade levels');
+assert.equal(noAtr.buy.riskReward, null, 'unavailable ATR must keep R/R unavailable');
 assert.equal(noAtr.gates.atrVerified, false);
+assert.equal(noAtr.gates.riskRewardConfirmed, false);
 
 const weakVolume = buildScannerSetup({ ...base, atr: 1, relativeVolume: 1.0, breakoutLifecycle: { ...base.breakoutLifecycle, confirmationEvidence: { volumeStatus: 'LOW', relativeVolume: 1.0 } } }, null);
 assert.equal(weakVolume.action, 'WAIT', 'below-confirmation volume must not qualify as READY');
