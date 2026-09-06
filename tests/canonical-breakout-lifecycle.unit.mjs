@@ -15,7 +15,7 @@ breakoutVolumes[42] = 1600;
 const rows = makeRows(breakoutCloses, breakoutVolumes);
 rows[41] = { ...rows[41], low: 102, high: 108 };
 
-const lifecycle = calculateCanonicalBreakoutLifecycle(rows, { timeframe: '1d', symbol: 'TEST.NS', source: 'fixture', retrievedAt: '2025-02-12T00:00:00.000Z', targetLevels: [{ price: 119 }] });
+const lifecycle = calculateCanonicalBreakoutLifecycle(rows, { timeframe: '1d', symbol: 'TEST.NS', source: 'fixture', retrievedAt: '2025-02-12T00:00:00.000Z', targetLevels: [{ price: 119, type: 'RESISTANCE' }], marketStructure: { state: 'UPTREND_STRUCTURE' }, supportResistance: { support: 102, resistance: 119, status: 'VERIFIED_REACTION_ZONES' } });
 assert.equal(lifecycle.status, 'CONTINUATION');
 assert.equal(lifecycle.direction, 'UP');
 assert.equal(lifecycle.breakoutLevel, 103);
@@ -25,13 +25,22 @@ assert.equal(lifecycle.supportResistanceFlip.confirmed, true);
 assert.equal(lifecycle.riskEvidence.invalidationLevel, 102);
 assert.equal(lifecycle.riskEvidence.targetZones[0], 119);
 assert.equal(lifecycle.riskEvidence.riskReward > 0, true);
+assert.equal(lifecycle.riskEvidence.basis.marketStructure.state, 'UPTREND_STRUCTURE');
+assert.equal(lifecycle.riskEvidence.basis.atrAtBreakout > 0, true);
 assert.equal(lifecycle.timeframe, '1d');
 assert.equal(lifecycle.provenance.symbol, 'TEST.NS');
+
+const nearestTarget = calculateCanonicalBreakoutLifecycle(rows, { timeframe: '1d', targetLevels: [110, 119] });
+assert.equal(nearestTarget.riskEvidence.riskReward, 7);
 
 const prefix = rows.slice(0, 41);
 const beforeFuture = calculateCanonicalBreakoutLifecycle(prefix, { timeframe: '1d' });
 assert.equal(beforeFuture.status, 'PENDING_RETEST');
 assert.equal(beforeFuture.breakoutLevel, 103);
+const retestPending = calculateCanonicalBreakoutLifecycle(rows.slice(0, 42), { timeframe: '1d' });
+assert.equal(retestPending.status, 'RETEST_PENDING');
+assert.equal(retestPending.events.at(-1).type, 'RETEST_TOUCHED');
+assert.equal(retestPending.supportResistanceFlip.confirmed, false);
 const futureShock = rows.slice(0, 41).concat({ ...rows[41], close: 101, open: 101, high: 102, low: 100, volume: 3000 });
 const afterFuture = calculateCanonicalBreakoutLifecycle(futureShock, { timeframe: '1d' });
 assert.equal(afterFuture.status, 'FAILED');
@@ -49,6 +58,14 @@ assert.equal(weak.confirmationEvidence.volumeStatus, 'LOW');
 
 const noBreakout = calculateCanonicalBreakoutLifecycle(makeRows(base.concat([100, 101, 99, 100, 101])), { timeframe: '1d' });
 assert.equal(noBreakout.status, 'NO_BREAKOUT');
+
+const falseBreakoutRows = makeRows(base.concat([103]));
+falseBreakoutRows.at(-1).high = 105;
+falseBreakoutRows.at(-1).close = 101;
+falseBreakoutRows.at(-1).open = 101;
+falseBreakoutRows.at(-1).low = 100;
+const falseBreakout = calculateCanonicalBreakoutLifecycle(falseBreakoutRows, { timeframe: '1d' });
+assert.equal(falseBreakout.status, 'NO_BREAKOUT');
 
 const insufficient = calculateCanonicalBreakoutLifecycle(makeRows(base.slice(0, 20)), { timeframe: '1d' });
 assert.equal(insufficient.status, 'INSUFFICIENT_DATA');
