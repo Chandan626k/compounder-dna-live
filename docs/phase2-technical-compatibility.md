@@ -6,19 +6,24 @@ The active production data flow is:
 
 `verified OHLCV -> canonical technical engine -> verified analysis -> consumer`
 
-Where a legacy consumer still requires older semantics, the intentional compatibility path is:
+Where a legacy consumer still requires an older response shape, the intentional compatibility path is:
 
-`verified OHLCV -> canonical technical engine -> compatibility adapter -> legacy market-engine contract -> legacy consumer`
+`verified OHLCV -> canonical technical engine -> verified analysis -> compatibility response adapter -> legacy consumer`
 
 **Problem owner:** CTO / Principal Architect
 
 ## Consumer / provenance audit decision
 
-The audit found one genuine active duplicate boundary: `/api/actionability` was invoking `lib/trading-engine.js`, which independently recalculated EMA/RSI/MACD/ATR/ADX/VWAP/relative-volume and rebuilt trade levels from raw rows. That path could diverge from canonical technical evidence and could discard canonical lifecycle/risk provenance.
+The audit found two related active risks. First, `/api/actionability` was invoking `lib/trading-engine.js`, which independently recalculated EMA/RSI/MACD/ATR/ADX/VWAP/relative-volume and rebuilt trade levels from raw rows. Second, `/api/trading` was still directly invoking the same duplicate engine.
 
-The minimum correct fix was to remove that consumer dependency and pass `analysis.technical` directly into actionability. The legacy `lib/trading-engine.js` remains in the repository as historical/dead compatibility code; it is no longer an active production consumer of verified analysis.
+The minimum correct fixes were:
 
-Actionability now preserves the canonical technical provenance and breakout lifecycle risk evidence, including invalidation evidence and target evidence, instead of reconstructing those values from raw market rows.
+1. `/api/actionability` now passes `analysis.technical` directly to the actionability layer.
+2. `/api/trading` now consumes `analysis.technical` through `buildActionability` and maps the result back to its legacy response shape.
+
+`lib/trading-engine.js` is therefore retained only as historical/dead code for now; it is not an active production consumer of verified analysis.
+
+Actionability and the legacy trading response preserve canonical technical provenance and breakout lifecycle risk evidence, including invalidation evidence and target evidence, instead of rebuilding those values from raw market rows.
 
 ## Trader Team decision
 
@@ -40,7 +45,7 @@ Actionability now preserves the canonical technical provenance and breakout life
 
 Canonical technical validation remains fail-closed. Missing or invalid OHLCV produces `UNAVAILABLE`; consumers must not coerce unavailable evidence to zero, neutral confirmation, fabricated targets, or fabricated R/R.
 
-Compatibility adapters may transform field names or legacy semantics, but they must not create new evidence. The adapter records its compatibility semantics and carries canonical provenance alongside the transformed output.
+Compatibility adapters may transform field names or legacy response shape, but they must not create new technical evidence. The adapter records or carries canonical provenance alongside transformed output.
 
 ## Risk-evidence boundary
 
@@ -61,9 +66,10 @@ Consumers receive canonical lifecycle state and its provenance. They must not re
 
 ## Intentionally retained / deferred
 
-1. Legacy compatibility calculations remain only where an identified legacy consumer contract requires them.
+1. Legacy compatibility calculations remain only where an identified legacy contract requires them.
 2. Historical/dead `lib/trading-engine.js` is retained for now rather than deleted blindly; no active production consumer may import it for canonical technical analysis.
-3. Broader multi-timeframe architecture remains out of scope.
-4. No new indicators, strategies, execution rules, broker integrations, or production BUY/SELL authority are introduced by this audit.
+3. `scanner-engine-v2` retains a separate scanner strategy/setup layer above canonical technical evidence. It consumes canonical technical output and produces scanner-specific scoring/readiness; this is intentionally not substituted for canonical lifecycle semantics during this audit.
+4. Broader multi-timeframe architecture remains out of scope.
+5. No new indicators, strategies, execution rules, broker integrations, or production BUY/SELL authority are introduced by this audit.
 
 No production BUY/SELL authority was changed.
