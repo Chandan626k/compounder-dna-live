@@ -1,5 +1,4 @@
 import { analyzeVerified } from '../lib/verified-analysis.js';
-import { buildTrading } from '../lib/trading-engine.js';
 import { buildActionability } from '../lib/actionability.js';
 import { buildScenarios, scenarioEvidenceFromValidation } from '../lib/scenario-engine.js';
 import { validateStrategy } from '../lib/strategy-validation.js';
@@ -24,7 +23,10 @@ export default async function handler(req, res) {
       validateStrategy(symbol, { days: 2500, horizon: 20 }),
     ]);
 
-    const trading = buildTrading(analysis, rows);
+    // Canonical technical evidence is already present on the verified analysis.
+    // Do not recalculate indicators in this consumer; actionability receives the
+    // authoritative technical object and may only derive presentation/stance fields.
+    const trading = { technical: analysis.technical };
     const statementEvidence = analysis.fundamentals?.statementEvidence;
     const result = buildActionability(analysis, trading);
     const historicalEvidence = scenarioEvidenceFromValidation(validation);
@@ -47,6 +49,7 @@ export default async function handler(req, res) {
       currentQuote: analysis.currentQuote || null,
       priceSource: analysis.provenance?.priceSelection || null,
       marketDataProvenance: analysis.provenance?.marketData || null,
+      technicalProvenance: analysis.technical?.provenance || null,
       scenarios,
       scenarioValidation: {
         status: historicalEvidence.status,
