@@ -48,6 +48,8 @@ const authoritative = createImmutableSourceSnapshot({
   payload: payloadA,
   authorityClass: 'NSE_EXCHANGE_FILING',
   accessMode: SOURCE_ACCESS_MODES.AUTHORITATIVE,
+  entitlementVerified: true,
+  historicalReproducibilityVerified: true,
 });
 assert.equal(isProductionAuthoritative(authoritative), true);
 
