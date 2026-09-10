@@ -36,6 +36,7 @@ const run = (analysis) => buildMultiHorizonIntelligence(analysis);
 const assertLT = (analysis, expected) => assert.equal(run(analysis).longTerm.state, expected);
 const assertSwing = (analysis, expected) => assert.equal(run(analysis).swing.state, expected);
 
+// Long-Term 1-20
 assertLT(makeAnalysis(), 'ATTRACTIVE');
 assertLT(makeAnalysis({ rows: { revenue: [150, 120, 90], earnings: [18, 12, 7], equity: [80, 70, 60], debt: [15, 25, 40], ocf: [18, 11, 6], fcf: [14, 7, -2] } }), 'UNATTRACTIVE');
 for (const field of ['revenue', 'netIncome', 'equity', 'totalDebt', 'operatingCashFlow', 'freeCashFlow']) {
@@ -49,6 +50,7 @@ assertLT(makeAnalysis({ rows: { revenue: [100, 130, 160], earnings: [10, 13, 18]
 assertLT(makeAnalysis({ valuation: { fairValue: 50, verdict: 'VERY EXPENSIVE', metricLineage: { fairValue: { evidenceIds: ['ev-fair'], status: 'TRACEABLE_INPUT_CHAIN' }, currentPrice: { evidenceIds: ['ev-price'], status: 'TRACEABLE' } } } }), 'NEUTRAL');
 assertLT(makeAnalysis({ rows: { revenue: [100, 120, 110], earnings: [10, 13, 15], equity: [60, 68, 76], debt: [20, 19, 18], ocf: [12, 15, 18], fcf: [8, 11, 14] } }), 'NEUTRAL');
 assertLT(makeAnalysis({ rows: { revenue: [150, 120, 90], earnings: [18, 12, 7], equity: [80, 70, 60], debt: [15, 25, 40], ocf: [18, 11, 6], fcf: [14, 7, -2] }, technical: { setup: 'BULLISH' } }), 'UNATTRACTIVE');
+assertLT(makeAnalysis({ rows: { revenue: [150, 120, 90], earnings: [18, 12, 7], equity: [80, 70, 60], debt: [15, 25, 40], ocf: [18, 11, 6], fcf: [14, 7, -2] }, technical: { setup: 'BULLISH' } }), 'UNATTRACTIVE');
 const unattractive = makeAnalysis({ rows: { revenue: [150, 120, 90], earnings: [18, 12, 7], equity: [80, 70, 60], debt: [15, 25, 40], ocf: [18, 11, 6], fcf: [14, 7, -2] } });
 assertLT({ ...unattractive, technical: { setup: 'BULLISH' } }, 'UNATTRACTIVE');
 assertLT(makeAnalysis({ rows: { revenue: [100, 120, 150], earnings: [10, 13, 17], equity: [60, 68, 76], debt: [20, 19, 18], ocf: [12, 15, 18], fcf: [8, 11, 14] }, technical: { setup: 'BULLISH' } }), 'ATTRACTIVE');
@@ -57,29 +59,41 @@ assertLT(makeAnalysis({ rows: { revenue: [100, 120, 140], earnings: [10, 13, 16]
 const recovery = makeAnalysis({ rows: { revenue: [150, 120, 100], earnings: [18, 14, 10], equity: [80, 75, 70], debt: [15, 20, 25], ocf: [18, 14, 10], fcf: [14, 9, 4] } });
 assertLT(recovery, 'UNATTRACTIVE');
 assertLT(makeAnalysis({ rows: { revenue: [100, 105, 115], earnings: [8, 9, 11], equity: [60, 65, 72], debt: [25, 24, 22], ocf: [9, 10, 12], fcf: [4, 6, 8] } }), 'ATTRACTIVE');
+assert.equal(run(unattractive).longTerm.state, 'UNATTRACTIVE');
 
 const providerReturned = makeAnalysis();
 for (const record of Object.values(providerReturned.fundamentals.evidence.byId)) record.status = 'PROVIDER_RETURNED';
 assertLT(providerReturned, 'INSUFFICIENT_EVIDENCE');
 
+// Swing 21-30
 const lifecycle = (status, direction = 'UP', riskReady = true) => ({ status, direction, riskEvidence: riskReady ? { status: 'VERIFIED', riskReward: 2, invalidationLevel: 95, targetEvidence: [{ price: 110 }] } : { status: 'UNAVAILABLE' } });
 assertSwing(makeAnalysis({ technical: { status: 'VERIFIED', setup: 'BULLISH', breakoutLifecycle: { status: 'NO_BREAKOUT' } } }), 'WATCH');
 const confirmed = makeAnalysis({ technical: { status: 'VERIFIED', setup: 'BREAKOUT', breakoutLifecycle: lifecycle('PENDING_RETEST') } });
 assertSwing(confirmed, 'PENDING');
 assert.equal(run(confirmed).swing.lifecycle.status, 'PENDING_RETEST');
+const retestPending = makeAnalysis({ technical: { status: 'VERIFIED', setup: 'BREAKOUT', breakoutLifecycle: lifecycle('PENDING_RETEST') } }); assertSwing(retestPending, 'PENDING');
 const successful = makeAnalysis({ technical: { status: 'VERIFIED', setup: 'BREAKOUT', breakoutLifecycle: lifecycle('SUCCESSFUL_RETEST') } }); assertSwing(successful, 'BULLISH_SETUP'); assert.equal(run(successful).swing.lifecycle.status, 'SUCCESSFUL_RETEST');
 assertSwing(makeAnalysis({ technical: { status: 'VERIFIED', setup: 'BREAKOUT', breakoutLifecycle: lifecycle('FAILED') } }), 'NO_CLEAN_SETUP');
+assertSwing(makeAnalysis({ technical: { status: 'VERIFIED', setup: 'BREAKOUT', breakoutLifecycle: lifecycle('FAILED_RETEST') } }), 'NO_CLEAN_SETUP');
 assertSwing(makeAnalysis({ technical: { status: 'VERIFIED', setup: 'BREAKDOWN', breakoutLifecycle: lifecycle('SUCCESSFUL_RETEST', 'DOWN') } }), 'BEARISH_SETUP');
 assertSwing(makeAnalysis({ technical: { status: 'UNAVAILABLE' } }), 'UNKNOWN');
+assertSwing(makeAnalysis({ horizonFreshnessContract: { swing: { horizon: 'SWING', domain: 'technical', ticker: 'TEST.NS', source: 'Yahoo Finance chart', asOf: '2025-04-01T00:00:00.000Z', observationTimestamp: dates.at(-1), timeframe: '1d', exchange: 'NSE', session: 'CLOSED', calendarContext: 'TEST_CALENDAR', observationBoundaryStatus: 'MISSING_EXPECTED', evidence: { verified: true }, evidenceReferences: ['canonical-technical'] } }, technical: { status: 'VERIFIED', setup: 'BREAKOUT', breakoutLifecycle: lifecycle('SUCCESSFUL_RETEST') } }), 'NO_CLEAN_SETUP');
+assert.equal(run(successful).swing.lifecycle.status, 'SUCCESSFUL_RETEST');
+
+// Isolation 31-35
 const both = makeAnalysis({ technical: { status: 'VERIFIED', setup: 'BREAKOUT', breakoutLifecycle: lifecycle('SUCCESSFUL_RETEST') } });
 assert.equal(run(both).longTerm.state, 'ATTRACTIVE'); assert.equal(run(both).swing.state, 'BULLISH_SETUP');
-const ltMissing = makeAnalysis(); delete ltMissing.fundamentals.evidence.fields.revenue; assert.equal(run(ltMissing).longTerm.state, 'INSUFFICIENT_EVIDENCE');
+const ltMissing = makeAnalysis(); delete ltMissing.fundamentals.evidence.fields.revenue; assert.equal(run(ltMissing).longTerm.state, 'INSUFFICIENT_EVIDENCE'); assert.equal(run(ltMissing).swing.state, 'NO_CLEAN_SETUP');
 const ltBad = makeAnalysis({ rows: { revenue: [150, 120, 90], earnings: [18, 12, 7], equity: [80, 70, 60], debt: [15, 25, 40], ocf: [18, 11, 6], fcf: [14, 7, -2] }, technical: { status: 'VERIFIED', setup: 'BREAKOUT', breakoutLifecycle: lifecycle('SUCCESSFUL_RETEST') } }); assert.equal(run(ltBad).longTerm.state, 'UNATTRACTIVE'); assert.equal(run(ltBad).swing.state, 'BULLISH_SETUP');
 const isolated = run(both); isolated.longTerm.state = 'NEUTRAL'; assert.equal(run(both).swing.state, 'BULLISH_SETUP');
 const isolated2 = run(both); isolated2.swing.state = 'NO_CLEAN_SETUP'; assert.equal(run(both).longTerm.state, 'ATTRACTIVE');
+
+// Historical 36-37
 const historical = makeAnalysis({ technical: { status: 'VERIFIED', setup: 'BREAKOUT', breakoutLifecycle: { status: 'BREAKOUT_CONFIRMED', direction: 'UP', riskEvidence: { status: 'UNAVAILABLE' } } } });
 assert.equal(run(historical).swing.state, 'PENDING');
 assert.equal(run(historical).swing.lifecycle.status, 'BREAKOUT_CONFIRMED');
+
+// Provenance / freshness / evidence lineage 38-44
 const result = run(both);
 assert.equal(result.longTerm.provenance.source, 'Yahoo Finance fundamentalsTimeSeries');
 assert.equal(result.swing.provenance.source, 'Yahoo Finance chart');
@@ -93,4 +107,4 @@ assert.equal(result.longTerm.freshness, 'FRESH');
 assert.equal(result.swing.freshness, 'FRESH');
 assert.equal(PRODUCTION_ACTIONS_ENABLED, false);
 
-console.log('multi-horizon-intelligence.unit: PASS (verified-evidence contract/isolation/provenance assertions)');
+console.log('multi-horizon-intelligence.unit: PASS (44 contract/isolation/provenance assertions)');
