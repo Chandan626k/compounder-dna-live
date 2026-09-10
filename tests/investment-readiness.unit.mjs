@@ -20,7 +20,7 @@ const invalidLineage={...valuation,metricLineage:{...valuation.metricLineage,fai
 const mosInvalid=buildInvestmentReadiness({...base,valuation:invalidLineage});
 assert.equal(mosInvalid.verifiedEvidence.valuationScore,null);
 
-const dataLimited=buildInvestmentReadiness({...base,score:{overall:84,dataLimited:true});
+const dataLimited=buildInvestmentReadiness({...base,score:{overall:84,dataLimited:true}});
 assert.equal(dataLimited.classification,'WATCHLIST — EVIDENCE INCOMPLETE'); assert.ok(dataLimited.blockers.includes('Analysis is explicitly data-limited'));
 
 const missingFundamentals=buildInvestmentReadiness({dataQuality:{confidence:88,completeness:82},valuation:base.valuation,technical:base.technical,score:{overall:84,dataLimited:false}});
