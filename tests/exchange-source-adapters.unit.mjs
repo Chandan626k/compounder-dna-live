@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import {
   SOURCE_ACCESS_MODES,
+  assessHistoricalValidity,
+  createImmutableSourceSnapshot,
   isProductionAuthoritative,
+  qualifySourceArtifact,
 } from '../lib/source-authority-adapter.js';
 import {
   PROVIDER_ERROR_CODES,
@@ -25,8 +28,8 @@ for (const adapter of [
   assert.equal(assertExchangeAdapter(adapter), true);
   assert.equal(adapter.accessMode, SOURCE_ACCESS_MODES.DEVELOPMENT_FIXTURE);
   assert.equal(isProductionAuthoritative(adapter), false);
-  assert.deepEqual(adapter.normalizeReportingArtifact({ documentId: 'd1' }).exchange, adapter.exchange);
-  assert.deepEqual(adapter.normalizeCalendarArtifact({ version: 'v1' }).exchange, adapter.exchange);
+  assert.equal(adapter.normalizeReportingArtifact({ documentId: 'd1' }).exchange, adapter.exchange);
+  assert.equal(adapter.normalizeCalendarArtifact({ version: 'v1' }).exchange, adapter.exchange);
   await assert.rejects(() => adapter.fetchReportingArtifacts(), (error) => error.code === 'SOURCE_UNAVAILABLE');
   await assert.rejects(() => adapter.fetchCalendarArtifacts(), (error) => error.code === 'SOURCE_UNAVAILABLE');
 }
@@ -50,18 +53,42 @@ assert.deepEqual(await nse.fetchCalendarArtifacts({ tradingDate: '2026-09-10' })
 const snapshot = nse.snapshot({ a: 1 }, { sourceDocumentId: 'doc-1', publishedAt: '2026-09-10T00:00:00Z', retrievedAt: '2026-09-10T01:00:00Z' });
 assert.equal(snapshot.accessMode, SOURCE_ACCESS_MODES.DEVELOPMENT_FIXTURE);
 assert.equal(isProductionAuthoritative(snapshot), false);
+assert.equal(assessHistoricalValidity(snapshot, '2026-09-10T02:00:00Z').status, 'VALID');
+assert.equal(qualifySourceArtifact({ snapshot, normalized: true, identityValid: true, semanticValid: true, provenanceVerified: true, freshnessEligible: true, horizonUsable: true, evaluationAsOf: '2026-09-10T02:00:00Z' }).status, 'NOT_READY');
+assert.equal(qualifySourceArtifact({ snapshot, normalized: true, identityValid: true, semanticValid: true, provenanceVerified: true, freshnessEligible: true, horizonUsable: true, evaluationAsOf: null }).status, 'BLOCKED');
 
-const authError = createNseReportingAdapter({ transport: { async request() { const error = new Error('bad token'); error.code = '401'; throw error; } } });
-await assert.rejects(() => authError.fetchReportingArtifacts(), (error) => error.code === 'AUTHENTICATION_FAILURE');
-const entitlementError = createNseReportingAdapter({ transport: { async request() { const error = new Error('not entitled'); error.code = '403'; throw error; } } });
-await assert.rejects(() => entitlementError.fetchReportingArtifacts(), (error) => error.code === 'ENTITLEMENT_FAILURE');
-const timeoutError = createNseReportingAdapter({ transport: { async request() { const error = new Error('timed out'); error.code = 'ETIMEDOUT'; throw error; } } });
-await assert.rejects(() => timeoutError.fetchReportingArtifacts(), (error) => error.code === 'TIMEOUT');
-const rateError = createNseReportingAdapter({ transport: { async request() { const error = new Error('rate limited'); error.code = '429'; throw error; } } });
-await assert.rejects(() => rateError.fetchReportingArtifacts(), (error) => error.code === 'RATE_LIMIT');
+const historicalUnknown = createImmutableSourceSnapshot({ source: 'NSE', sourceDocumentId: 'doc-no-time', retrievedAt: '2026-09-10T01:00:00Z', payload: { ok: true }, accessMode: SOURCE_ACCESS_MODES.AUTHORITATIVE, authorityClass: 'NSE_EXCHANGE_FILING', entitlementVerified: true, historicalReproducibilityVerified: true });
+assert.equal(assessHistoricalValidity(historicalUnknown, '2026-09-10T02:00:00Z').status, 'UNKNOWN');
+assert.equal(qualifySourceArtifact({ snapshot: historicalUnknown, normalized: true, identityValid: true, semanticValid: true, provenanceVerified: true, freshnessEligible: true, horizonUsable: true, evaluationAsOf: '2026-09-10T02:00:00Z' }).status, 'BLOCKED');
+
+const makeProviderErrorAdapter = (exchange, code, message) => {
+  const transport = { async request() { const error = new Error(message); error.code = code; throw error; } };
+  return exchange === 'NSE'
+    ? createNseReportingAdapter({ transport })
+    : createBseReportingAdapter({ transport });
+};
+
+for (const exchange of ['NSE', 'BSE']) {
+  const cases = [
+    ['401', 'bad token', 'AUTHENTICATION_FAILURE'],
+    ['403', 'not entitled', 'ENTITLEMENT_FAILURE'],
+    ['ETIMEDOUT', 'timed out', 'TIMEOUT'],
+    ['429', 'rate limited', 'RATE_LIMIT'],
+    ['503', 'source unavailable', 'SOURCE_UNAVAILABLE'],
+    ['ECONNRESET', 'connection reset', 'TRANSPORT_FAILURE'],
+  ];
+  for (const [code, message, expected] of cases) {
+    const adapter = makeProviderErrorAdapter(exchange, code, message);
+    await assert.rejects(() => adapter.fetchReportingArtifacts(), (error) => error.code === expected);
+  }
+}
+
 const malformed = createNseReportingAdapter();
 assert.throws(() => malformed.normalizeReportingArtifact({}), (error) => error.code === 'MALFORMED_SOURCE');
 assert.throws(() => new SourceProviderError('NOT_A_REAL_CODE', 'invalid'), /SOURCE_PROVIDER_ERROR_CODE_INVALID/);
-assert.ok(PROVIDER_ERROR_CODES.includes('AUTHENTICATION_FAILURE'));
+for (const code of [
+  'AUTHENTICATION_FAILURE', 'ENTITLEMENT_FAILURE', 'TRANSPORT_FAILURE', 'TIMEOUT', 'RATE_LIMIT', 'SOURCE_UNAVAILABLE',
+  'MALFORMED_SOURCE', 'IDENTITY_FAILURE', 'SEMANTIC_FAILURE', 'PROVENANCE_FAILURE', 'HISTORICAL_INVALID', 'VALIDATION_FAILURE',
+]) assert.ok(PROVIDER_ERROR_CODES.includes(code));
 
 console.log('exchange-source-adapters.unit: PASS');
