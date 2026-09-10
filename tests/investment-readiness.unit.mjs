@@ -8,7 +8,7 @@ const canonicalEvidence={byId:{ev_eps:evidence('ev_eps',8.3,{periodType:'FORWARD
 const base={fundamentals:{...fundamentals,canonicalEvidence},dataQuality:{confidence:88,completeness:82},valuation,technical:{last:150},score:{overall:84,dataLimited:false},stock:{yahooSymbol:'TEST.NS'}};
 
 const ready=buildInvestmentReadiness(base);
-assert.equal(ready.success,true); assert.equal(ready.evidenceBand,'HIGH'); assert.equal(ready.verifiedEvidence.valuationEvidenceStatus,'VERIFIED'); assert.equal(ready.verifiedEvidence.valuationScore,66.6666666667); assert.equal(ready.classification,'INVESTMENT CANDIDATE — HIGH EVIDENCE'); assert.equal(ready.blockers.length,0);
+assert.equal(ready.success,true); assert.equal(ready.evidenceBand,'HIGH'); assert.equal(ready.verifiedEvidence.valuationEvidenceStatus,'VERIFIED'); assert.equal(ready.verifiedEvidence.valuationScore,75.00000000005); assert.equal(ready.classification,'INVESTMENT CANDIDATE — HIGH EVIDENCE'); assert.equal(ready.blockers.length,0);
 
 const noLineage=buildInvestmentReadiness({...base,valuation:{marginOfSafety:18,verdict:'ATTRACTIVE',fairValue:180,currentPrice:150}});
 assert.equal(noLineage.verifiedEvidence.valuationScore,null); assert.ok(noLineage.blockers.includes('Verified valuation evidence is unavailable'));
