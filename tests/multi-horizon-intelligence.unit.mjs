@@ -21,6 +21,10 @@ const makeAnalysis = (overrides = {}) => {
     valuation: { fairValue: 120, verdict: 'FAIR / REASONABLE', metricLineage: { fairValue: { evidenceIds: ['ev-fair'], status: 'TRACEABLE_INPUT_CHAIN' }, currentPrice: { evidenceIds: ['ev-price'], status: 'TRACEABLE' } } },
     technical,
     provenance: { source: 'Yahoo Finance', annualFundamentals: { source: 'Yahoo Finance fundamentalsTimeSeries', period: '12M/annual', asOf: dates.at(-1), validation: 'provider payload normalized' }, technical: technical.provenance, marketData: { retrievedAt: technical.provenance.retrievedAt } },
+    horizonFreshnessContract: {
+      longTerm: { horizon: 'LONG_TERM', domain: 'financial', ticker: 'TEST.NS', source: 'YAHOO_FINANCE', issuer: 'TEST', asOf: '2025-04-01T00:00:00.000Z', reportingDate: dates.at(-1), reportingPeriod: '2025-03-31', periodType: 'ANNUAL', reportingCycleStatus: 'CURRENT', evidence: { verified: true }, evidenceReferences: ['ev-revenue'] },
+      swing: { horizon: 'SWING', domain: 'technical', ticker: 'TEST.NS', source: 'Yahoo Finance chart', asOf: '2025-04-01T00:00:00.000Z', observationTimestamp: dates.at(-1), timeframe: '1d', exchange: 'NSE', session: 'CLOSED', calendarContext: 'TEST_CALENDAR', observationBoundaryStatus: 'COMPLETED_EXPECTED', evidence: { verified: true }, evidenceReferences: ['canonical-technical'] },
+    },
     ...overrides,
     fundamentals: { current: values, evidence: { fields, byId, history: {} }, statementEvidence: rows, ...(overrides.fundamentals || {}) },
     valuation: { fairValue: 120, verdict: 'FAIR / REASONABLE', metricLineage: { fairValue: { evidenceIds: ['ev-fair'], status: 'TRACEABLE_INPUT_CHAIN' }, currentPrice: { evidenceIds: ['ev-price'], status: 'TRACEABLE' } }, ...(overrides.valuation || {}) },
@@ -69,7 +73,7 @@ assertSwing(makeAnalysis({ technical: { status: 'VERIFIED', setup: 'BREAKOUT', b
 assertSwing(makeAnalysis({ technical: { status: 'VERIFIED', setup: 'BREAKOUT', breakoutLifecycle: lifecycle('FAILED_RETEST') } }), 'NO_CLEAN_SETUP');
 assertSwing(makeAnalysis({ technical: { status: 'VERIFIED', setup: 'BREAKDOWN', breakoutLifecycle: lifecycle('SUCCESSFUL_RETEST', 'DOWN') } }), 'BEARISH_SETUP');
 assertSwing(makeAnalysis({ technical: { status: 'UNAVAILABLE' } }), 'UNKNOWN');
-assertSwing(makeAnalysis({ horizonFreshness: { swing: 'STALE' }, technical: { status: 'VERIFIED', setup: 'BREAKOUT', breakoutLifecycle: lifecycle('SUCCESSFUL_RETEST') } }), 'NO_CLEAN_SETUP');
+assertSwing(makeAnalysis({ horizonFreshnessContract: { swing: { horizon: 'SWING', domain: 'technical', ticker: 'TEST.NS', source: 'Yahoo Finance chart', asOf: '2025-04-01T00:00:00.000Z', observationTimestamp: dates.at(-1), timeframe: '1d', exchange: 'NSE', session: 'CLOSED', calendarContext: 'TEST_CALENDAR', observationBoundaryStatus: 'MISSING_EXPECTED', evidence: { verified: true }, evidenceReferences: ['canonical-technical'] } }, technical: { status: 'VERIFIED', setup: 'BREAKOUT', breakoutLifecycle: lifecycle('SUCCESSFUL_RETEST') } }), 'NO_CLEAN_SETUP');
 assert.equal(run(successful).swing.lifecycle.status, 'SUCCESSFUL_RETEST');
 
 // Isolation 31-35
@@ -95,8 +99,8 @@ assert.equal(result.swing.provenance.retrievedAt, '2025-04-01T00:00:00.000Z');
 assert.ok(result.longTerm.evidenceReferences.includes('ev-revenue'));
 assert.ok(result.longTerm.evidenceReferences.includes('ev-fcf'));
 assert.equal(result.swing.evidenceReferences.includes('ev-revenue'), false);
-assert.equal(result.longTerm.freshness, 'UNKNOWN');
-assert.equal(result.swing.freshness, 'UNKNOWN');
+assert.equal(result.longTerm.freshness, 'FRESH');
+assert.equal(result.swing.freshness, 'FRESH');
 assert.equal(PRODUCTION_ACTIONS_ENABLED, false);
 
 console.log('multi-horizon-intelligence.unit: PASS (44 contract/isolation/provenance assertions)');
