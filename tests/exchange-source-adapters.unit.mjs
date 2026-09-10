@@ -27,8 +27,8 @@ for (const adapter of [
   assert.equal(isProductionAuthoritative(adapter), false);
   assert.deepEqual(adapter.normalizeReportingArtifact({ documentId: 'd1' }).exchange, adapter.exchange);
   assert.deepEqual(adapter.normalizeCalendarArtifact({ version: 'v1' }).exchange, adapter.exchange);
-  assert.throws(() => adapter.fetchReportingArtifacts(), (error) => error.code === 'SOURCE_UNAVAILABLE');
-  assert.throws(() => adapter.fetchCalendarArtifacts(), (error) => error.code === 'SOURCE_UNAVAILABLE');
+  await assert.rejects(() => adapter.fetchReportingArtifacts(), (error) => error.code === 'SOURCE_UNAVAILABLE');
+  await assert.rejects(() => adapter.fetchCalendarArtifacts(), (error) => error.code === 'SOURCE_UNAVAILABLE');
 }
 
 const transport = {
