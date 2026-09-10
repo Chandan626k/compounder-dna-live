@@ -44,8 +44,8 @@ const nse = createNseReportingAdapter({ transport, normalizeReporting, normalize
   historicalAccess: true,
   environment: 'test',
 } });
-assert.deepEqual(await nse.fetchReportingArtifacts({ symbol: 'TEST' }), { kind: 'REPORTING', exchange: 'NSE', symbol: 'TEST', config: nse.config, raw: true });
-assert.deepEqual(await nse.fetchCalendarArtifacts({ tradingDate: '2026-09-10' }), { kind: 'CALENDAR_SESSION', exchange: 'NSE', tradingDate: '2026-09-10', config: nse.config, raw: true });
+assert.deepEqual(await nse.fetchReportingArtifacts({ symbol: 'TEST' }), { kind: 'REPORTING', exchange: 'NSE', raw: true });
+assert.deepEqual(await nse.fetchCalendarArtifacts({ tradingDate: '2026-09-10' }), { kind: 'CALENDAR_SESSION', exchange: 'NSE', raw: true });
 
 const snapshot = nse.snapshot({ a: 1 }, { sourceDocumentId: 'doc-1', publishedAt: '2026-09-10T00:00:00Z', retrievedAt: '2026-09-10T01:00:00Z' });
 assert.equal(snapshot.accessMode, SOURCE_ACCESS_MODES.DEVELOPMENT_FIXTURE);
