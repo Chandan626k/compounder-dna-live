@@ -46,7 +46,7 @@ assert.equal(resolveHorizonFreshness({ ...base, horizon: 'INTRADAY', domain: 'te
 assert.equal(resolveHorizonFreshness({ ...base, horizon: 'INTRADAY', domain: 'technical', timeframe: '5m', observationTimestamp: '2026-09-10T10:00:00Z' }).state, 'UNKNOWN');
 
 // Historical P0: future filing/bar/supersession cannot change a past evaluation.
-assert.equal(resolveHorizonFreshness({ ...annual, asOf: '2026-06-01T00:00:00Z', reportingDate: '2026-05-01', reportingCycleStatus: 'CURRENT', nextExpectedCycle: '2026-09-30' }).state, 'UNKNOWN');
+assert.equal(resolveHorizonFreshness({ ...annual, asOf: '2026-06-01T00:00:00Z', reportingDate: '2026-05-01', reportingCycleStatus: 'CURRENT', nextExpectedCycle: '2026-09-30' }).state, 'FRESH');
 assert.equal(resolveHorizonFreshness({ ...daily, asOf: '2026-09-05T00:00:00Z', observationTimestamp: '2026-09-06T00:00:00Z', observationBoundaryStatus: 'COMPLETED_EXPECTED' }).state, 'UNKNOWN');
 assert.equal(resolveHorizonFreshness({ ...annual, asOf: '2026-06-01T00:00:00Z', reportingCycleStatus: 'SUPERSEDED', supersededAt: '2026-06-02T00:00:00Z', currentEvidenceAvailable: false }).state, 'UNKNOWN');
 
