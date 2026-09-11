@@ -46,7 +46,7 @@ const readyTrading = { technical: { ...canonicalTechnical, last: 1435, rsi: 60, 
 const ready = buildActionability(readyAnalysis, readyTrading);
 assert.equal(ready.horizons.longTerm.action, 'STAGED ACCUMULATION CANDIDATE');
 assert.equal(ready.horizons.swing.action, 'CONDITIONAL BUY SETUP');
-assert.equal(ready.horizons.shortTerm.status, 'MOMENTUM WEAK' === ready.horizons.shortTerm.status ? 'MOMENTUM WEAK' : ready.horizons.shortTerm.status);
+assert.equal(ready.horizons.shortTerm.action, 'WAIT');
 
 const technicalOnlyAnalysis = { ...readyAnalysis, fundamentals: undefined, valuation: { verdict: 'FAIRLY VALUED', fairValue: null }, valuationEvidenceAuthority: { valuationEvidenceStatus: 'INSUFFICIENT_EVIDENCE', eligibleForInvestmentReadiness: false }, horizonFreshness: { SWING: { state: 'FRESH' }, SHORT_TERM: { state: 'FRESH' }, INTRADAY: { state: 'UNKNOWN' } } };
 const technicalOnly = buildActionability(technicalOnlyAnalysis, readyTrading);
