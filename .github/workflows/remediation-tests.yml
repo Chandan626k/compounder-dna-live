@@ -30,7 +30,7 @@ jobs:
           const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
           const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
           const root = lock.packages?.[''] || {};
-          const secure = lock.lockfileVersion === 3 && lock.version === pkg.version && root.version === pkg.version && root.engines?.node === pkg.engines?.node && lock.packages?.['node_modules/fast-uri']?.version === '3.1.7' && lock.packages?.['node_modules/qs']?.version === '6.16.0';
+          const secure = lock.lockfileVersion === 3 && lock.version === pkg.version && root.version === pkg.version && root.engines?.node === pkg.engines?.node && lock.packages?.['node_modules/fast-uri']?.version === '3.1.7' && lock.packages?.['node_modules/qs']?.version === '6.16.0' && lock.packages?.['node_modules/hono']?.version === '4.13.5';
           fs.writeFileSync('/tmp/lock-secure', secure ? 'yes' : 'no');
           NODE
           if [ "$(cat /tmp/lock-secure)" != "yes" ]; then npm install --package-lock-only --ignore-scripts --no-audit; fi
@@ -42,6 +42,7 @@ jobs:
           if (lock.version !== pkg.version || root.version !== pkg.version || root.engines?.node !== pkg.engines?.node) throw new Error('Lock root metadata mismatch');
           if (lock.packages?.['node_modules/fast-uri']?.version !== '3.1.7') throw new Error('fast-uri lock version is not 3.1.7');
           if (lock.packages?.['node_modules/qs']?.version !== '6.16.0') throw new Error('qs lock version is not 6.16.0');
+          if (lock.packages?.['node_modules/hono']?.version !== '4.13.5') throw new Error('hono lock version is not 4.13.5');
           NODE
       - name: Commit generated lockfile when resolver changed it
         run: |
@@ -63,7 +64,7 @@ jobs:
           const details = Object.entries(audit.vulnerabilities || {}).map(([name, item]) => ({ name, severity: item.severity, direct: item.isDirect, range: item.range, fixAvailable: item.fixAvailable }));
           console.log(JSON.stringify(details, null, 2));
           NODE
-          npm ls fast-uri qs @modelcontextprotocol/sdk --all
+          npm ls hono fast-uri qs @modelcontextprotocol/sdk --all
       - name: Yahoo annual provider metadata probe
         run: |
           node --input-type=module - <<'NODE'
