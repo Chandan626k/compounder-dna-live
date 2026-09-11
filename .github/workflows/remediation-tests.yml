@@ -58,7 +58,10 @@ jobs:
         run: |
           npm audit --json > /tmp/npm-audit.json || true
           node - <<'NODE'
-          const fs = require('fs'); const audit = JSON.parse(fs.readFileSync('/tmp/npm-audit.json', 'utf8')); console.log(JSON.stringify(audit.metadata?.vulnerabilities || {}, null, 2));
+          const fs = require('fs'); const audit = JSON.parse(fs.readFileSync('/tmp/npm-audit.json', 'utf8'));
+          console.log(JSON.stringify(audit.metadata?.vulnerabilities || {}, null, 2));
+          const details = Object.entries(audit.vulnerabilities || {}).map(([name, item]) => ({ name, severity: item.severity, direct: item.isDirect, range: item.range, fixAvailable: item.fixAvailable }));
+          console.log(JSON.stringify(details, null, 2));
           NODE
           npm ls fast-uri qs @modelcontextprotocol/sdk --all
       - name: Yahoo annual provider metadata probe
