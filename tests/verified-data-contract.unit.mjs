@@ -18,9 +18,8 @@ const actionabilitySource = fs.readFileSync(new URL('../api/actionability.js', i
 const tradingSource = fs.readFileSync(new URL('../api/trading.js', import.meta.url), 'utf8'); assert.match(tradingSource, /analyzeVerified/); assert.match(tradingSource, /analysis\.verifiedMarketHistory/); assert.doesNotMatch(tradingSource, /verifiedHistory/);
 const verifiedAnalysisSource = fs.readFileSync(new URL('../lib/verified-analysis.js', import.meta.url), 'utf8'); assert.match(verifiedAnalysisSource, /valuation-evidence-authority\.js/); assert.doesNotMatch(verifiedAnalysisSource, /valuation-evidence-authority-safe/); assert.match(verifiedAnalysisSource, /researchDecision/); assert.match(verifiedAnalysisSource, /NO TRADE — VALIDATION REQUIRED/); assert.match(verifiedAnalysisSource, /horizonFreshness/);
 const investmentReadinessSource = fs.readFileSync(new URL('../lib/investment-readiness.js', import.meta.url), 'utf8'); assert.match(investmentReadinessSource, /valuation-evidence-authority\.js/); assert.doesNotMatch(investmentReadinessSource, /valuation-evidence-authority-safe/);
-const authoritySource = fs.readFileSync(new URL('../lib/valuation-evidence-authority.js', import.meta.url), 'utf8'); assert.match(authoritySource, /statusOk=\(s\)=>\['VERIFIED','VERIFIED_COMPATIBLE_STATEMENT_INPUTS'\]/); assert.match(authoritySource, /valuationEvidenceStatus:status/); assert.match(authoritySource, /eligibleForInvestmentReadiness:verified&&cpValid/);
-
-assert.doesNotMatch(authoritySource, /PROVIDER_RETURNED.*VERIFIED/);
+const authoritySource = fs.readFileSync(new URL('../lib/valuation-evidence-authority.js', import.meta.url), 'utf8'); assert.match(authoritySource, /statusOk=\(s\)=>\['VERIFIED','VERIFIED_COMPATIBLE_STATEMENT_INPUTS'\]/); assert.match(authoritySource, /valuationEvidenceStatus:status/); assert.match(authoritySource, /eligibleForInvestmentReadiness:verified&&cpValid/); assert.doesNotMatch(authoritySource, /PROVIDER_RETURNED.*VERIFIED/);
+assert.equal(fs.existsSync(new URL('../lib/valuation-evidence-authority-safe.js', import.meta.url)), false);
 
 globalThis.fetch = originalFetch;
 console.log('verified data contract tests passed');
