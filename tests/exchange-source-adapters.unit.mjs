@@ -41,6 +41,20 @@ assert.equal(bseCalendar.authorityClass, 'BSE_EXCHANGE_CALENDAR');
 assert.notEqual(nseCalendar.authorityClass, nseReporting.authorityClass);
 assert.notEqual(bseCalendar.authorityClass, bseReporting.authorityClass);
 
+// Provider identity is fixed by the factory and cannot be overridden through options.
+assert.equal(createNseReportingAdapter({ exchange: 'BSE', source: 'BSE', authorityClass: 'BSE_EXCHANGE_CALENDAR' }).exchange, 'NSE');
+assert.equal(createNseReportingAdapter({ exchange: 'BSE', source: 'BSE', authorityClass: 'BSE_EXCHANGE_CALENDAR' }).source, 'NSE');
+assert.equal(createNseReportingAdapter({ exchange: 'BSE', source: 'BSE', authorityClass: 'BSE_EXCHANGE_CALENDAR' }).authorityClass, 'NSE_EXCHANGE_FILING');
+assert.equal(createBseReportingAdapter({ exchange: 'NSE', source: 'NSE', authorityClass: 'NSE_EXCHANGE_CALENDAR' }).exchange, 'BSE');
+assert.equal(createBseReportingAdapter({ exchange: 'NSE', source: 'NSE', authorityClass: 'NSE_EXCHANGE_CALENDAR' }).source, 'BSE');
+assert.equal(createBseReportingAdapter({ exchange: 'NSE', source: 'NSE', authorityClass: 'NSE_EXCHANGE_CALENDAR' }).authorityClass, 'BSE_EXCHANGE_FILING');
+assert.equal(createNseCalendarAdapter({ exchange: 'BSE', source: 'BSE', authorityClass: 'BSE_EXCHANGE_FILING' }).exchange, 'NSE');
+assert.equal(createNseCalendarAdapter({ exchange: 'BSE', source: 'BSE', authorityClass: 'BSE_EXCHANGE_FILING' }).source, 'NSE');
+assert.equal(createNseCalendarAdapter({ exchange: 'BSE', source: 'BSE', authorityClass: 'BSE_EXCHANGE_FILING' }).authorityClass, 'NSE_EXCHANGE_CALENDAR');
+assert.equal(createBseCalendarAdapter({ exchange: 'NSE', source: 'NSE', authorityClass: 'NSE_EXCHANGE_FILING' }).exchange, 'BSE');
+assert.equal(createBseCalendarAdapter({ exchange: 'NSE', source: 'NSE', authorityClass: 'NSE_EXCHANGE_FILING' }).source, 'BSE');
+assert.equal(createBseCalendarAdapter({ exchange: 'NSE', source: 'NSE', authorityClass: 'NSE_EXCHANGE_FILING' }).authorityClass, 'BSE_EXCHANGE_CALENDAR');
+
 const transport = {
   async request(request) { return { kind: request.kind, exchange: request.exchange, raw: true }; },
 };
