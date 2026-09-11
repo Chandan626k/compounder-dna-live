@@ -7,6 +7,7 @@ import {
   qualifySourceArtifact,
 } from '../lib/source-authority-adapter.js';
 import {
+  DEFAULT_RETRY_POLICY,
   PROVIDER_ERROR_CODES,
   SourceProviderError,
   assertExchangeAdapter,
@@ -16,8 +17,8 @@ import {
   createNseReportingAdapter,
 } from '../lib/exchange-source-adapters.js';
 
-const normalizeReporting = (artifact, meta) => ({ ...artifact, exchange: meta.exchange, source: meta.source });
-const normalizeCalendar = (artifact, meta) => ({ ...artifact, exchange: meta.exchange, source: meta.source });
+const normalizeReporting = (artifact, meta) => ({ ...artifact, exchange: meta.exchange, source: meta.source, authorityClass: meta.authorityClass });
+const normalizeCalendar = (artifact, meta) => ({ ...artifact, exchange: meta.exchange, source: meta.source, authorityClass: meta.authorityClass });
 
 const nseReporting = createNseReportingAdapter({ normalizeReporting, normalizeCalendar });
 const bseReporting = createBseReportingAdapter({ normalizeReporting, normalizeCalendar });
@@ -41,10 +42,11 @@ assert.equal(bseCalendar.authorityClass, 'BSE_EXCHANGE_CALENDAR');
 assert.notEqual(nseCalendar.authorityClass, nseReporting.authorityClass);
 assert.notEqual(bseCalendar.authorityClass, bseReporting.authorityClass);
 
-// Provider identity is fixed by the factory and cannot be overridden through options.
-assert.equal(createNseReportingAdapter({ exchange: 'BSE', source: 'BSE', authorityClass: 'BSE_EXCHANGE_CALENDAR' }).exchange, 'NSE');
-assert.equal(createNseReportingAdapter({ exchange: 'BSE', source: 'BSE', authorityClass: 'BSE_EXCHANGE_CALENDAR' }).source, 'NSE');
-assert.equal(createNseReportingAdapter({ exchange: 'BSE', source: 'BSE', authorityClass: 'BSE_EXCHANGE_CALENDAR' }).authorityClass, 'NSE_EXCHANGE_FILING');
+// Factory-controlled identity and access mode cannot be overridden through caller options.
+assert.equal(createNseReportingAdapter({ exchange: 'BSE', source: 'BSE', authorityClass: 'BSE_EXCHANGE_CALENDAR', accessMode: SOURCE_ACCESS_MODES.AUTHORITATIVE }).exchange, 'NSE');
+assert.equal(createNseReportingAdapter({ exchange: 'BSE', source: 'BSE', authorityClass: 'BSE_EXCHANGE_CALENDAR', accessMode: SOURCE_ACCESS_MODES.AUTHORITATIVE }).source, 'NSE');
+assert.equal(createNseReportingAdapter({ exchange: 'BSE', source: 'BSE', authorityClass: 'BSE_EXCHANGE_CALENDAR', accessMode: SOURCE_ACCESS_MODES.AUTHORITATIVE }).authorityClass, 'NSE_EXCHANGE_FILING');
+assert.equal(createNseReportingAdapter({ accessMode: SOURCE_ACCESS_MODES.AUTHORITATIVE }).accessMode, SOURCE_ACCESS_MODES.DEVELOPMENT_FIXTURE);
 assert.equal(createBseReportingAdapter({ exchange: 'NSE', source: 'NSE', authorityClass: 'NSE_EXCHANGE_CALENDAR' }).exchange, 'BSE');
 assert.equal(createBseReportingAdapter({ exchange: 'NSE', source: 'NSE', authorityClass: 'NSE_EXCHANGE_CALENDAR' }).source, 'BSE');
 assert.equal(createBseReportingAdapter({ exchange: 'NSE', source: 'NSE', authorityClass: 'NSE_EXCHANGE_CALENDAR' }).authorityClass, 'BSE_EXCHANGE_FILING');
@@ -55,8 +57,9 @@ assert.equal(createBseCalendarAdapter({ exchange: 'NSE', source: 'NSE', authorit
 assert.equal(createBseCalendarAdapter({ exchange: 'NSE', source: 'NSE', authorityClass: 'NSE_EXCHANGE_FILING' }).source, 'BSE');
 assert.equal(createBseCalendarAdapter({ exchange: 'NSE', source: 'NSE', authorityClass: 'NSE_EXCHANGE_FILING' }).authorityClass, 'BSE_EXCHANGE_CALENDAR');
 
+let lastRequest = null;
 const transport = {
-  async request(request) { return { kind: request.kind, exchange: request.exchange, raw: true }; },
+  async request(request) { lastRequest = request; return { kind: request.kind, exchange: request.exchange, raw: true }; },
 };
 const nse = createNseReportingAdapter({ transport, normalizeReporting, normalizeCalendar, config: {
   endpoint: null,
@@ -68,15 +71,39 @@ const nse = createNseReportingAdapter({ transport, normalizeReporting, normalize
   historicalAccess: true,
   environment: 'test',
 } });
-assert.deepEqual(await nse.fetchReportingArtifacts({ symbol: 'TEST' }), { kind: 'REPORTING', exchange: 'NSE', raw: true });
-assert.deepEqual(await nse.fetchCalendarArtifacts({ tradingDate: '2026-09-10' }), { kind: 'CALENDAR_SESSION', exchange: 'NSE', raw: true });
+assert.deepEqual(await nse.fetchReportingArtifacts({ symbol: 'TEST', kind: 'ATTACK', exchange: 'BSE' }), { kind: 'REPORTING', exchange: 'NSE', raw: true });
+assert.equal(lastRequest.kind, 'REPORTING');
+assert.equal(lastRequest.exchange, 'NSE');
+assert.equal(lastRequest.config.credentialReference, 'NSE_CREDENTIAL_REF');
+assert.equal(lastRequest.config.retryPolicy.maxAttempts, 2);
+assert.deepEqual(await nse.fetchCalendarArtifacts({ tradingDate: '2026-09-10', kind: 'ATTACK', exchange: 'BSE' }), { kind: 'CALENDAR_SESSION', exchange: 'NSE', raw: true });
+assert.equal(lastRequest.kind, 'CALENDAR_SESSION');
+assert.equal(lastRequest.exchange, 'NSE');
+assert.deepEqual(DEFAULT_RETRY_POLICY, { maxAttempts: 1, baseDelayMs: 0, maxDelayMs: 0 });
 
-const snapshot = nse.snapshot({ a: 1 }, { sourceDocumentId: 'doc-1', publishedAt: '2026-09-10T00:00:00Z', retrievedAt: '2026-09-10T01:00:00Z' });
+// Normalizer metadata is controlled by the factory, not caller metadata.
+assert.equal(nse.normalizeReportingArtifact({}, { exchange: 'BSE', source: 'BSE', authorityClass: 'BSE_EXCHANGE_FILING' }).exchange, 'NSE');
+assert.equal(nse.normalizeReportingArtifact({}, { exchange: 'BSE', source: 'BSE', authorityClass: 'BSE_EXCHANGE_FILING' }).source, 'NSE');
+assert.equal(nse.normalizeReportingArtifact({}, { exchange: 'BSE', source: 'BSE', authorityClass: 'BSE_EXCHANGE_FILING' }).authorityClass, 'NSE_EXCHANGE_FILING');
+
+const snapshot = nse.snapshot({ a: 1 }, { source: 'BSE', authorityClass: 'BSE_EXCHANGE_FILING', accessMode: SOURCE_ACCESS_MODES.AUTHORITATIVE, sourceDocumentId: 'doc-1', publishedAt: '2026-09-10T00:00:00Z', retrievedAt: '2026-09-10T01:00:00Z' });
+assert.equal(snapshot.source, 'NSE');
+assert.equal(snapshot.authorityClass, 'NSE_EXCHANGE_FILING');
 assert.equal(snapshot.accessMode, SOURCE_ACCESS_MODES.DEVELOPMENT_FIXTURE);
 assert.equal(isProductionAuthoritative(snapshot), false);
 assert.equal(assessHistoricalValidity(snapshot, '2026-09-10T02:00:00Z').status, 'VALID');
 assert.equal(qualifySourceArtifact({ snapshot, normalized: true, identityValid: true, semanticValid: true, provenanceVerified: true, freshnessEligible: true, horizonUsable: true, evaluationAsOf: '2026-09-10T02:00:00Z' }).status, 'NOT_READY');
 assert.equal(qualifySourceArtifact({ snapshot, normalized: true, identityValid: true, semanticValid: true, provenanceVerified: true, freshnessEligible: true, horizonUsable: true, evaluationAsOf: null }).status, 'BLOCKED');
+
+// Reporting/calendar constructors retain factory-controlled identity and access mode.
+const event = nse.toReportingEvent({ exchange: 'BSE', source: 'BSE', authorityClass: 'BSE_EXCHANGE_FILING', accessMode: SOURCE_ACCESS_MODES.AUTHORITATIVE, issuer: 'TEST', reportingPeriod: '2026-Q2', periodType: 'QUARTER', eventType: 'ORIGINAL', publishedAt: '2026-09-10T00:00:00Z', retrievedAt: '2026-09-10T01:00:00Z', sourceDocumentId: 'doc-event' });
+assert.equal(event.exchange, 'NSE');
+assert.equal(event.source, 'NSE');
+assert.equal(event.authorityClass, 'NSE_EXCHANGE_FILING');
+assert.equal(event.accessMode, SOURCE_ACCESS_MODES.DEVELOPMENT_FIXTURE);
+const session = nse.toCalendarSession({ exchange: 'BSE', accessMode: SOURCE_ACCESS_MODES.AUTHORITATIVE, timezone: 'Asia/Kolkata', tradingDate: '2026-09-10', calendarDocumentId: 'cal-1', calendarVersion: 'v1', retrievedAt: '2026-09-10T01:00:00Z' });
+assert.equal(session.exchange, 'NSE');
+assert.equal(session.accessMode, SOURCE_ACCESS_MODES.DEVELOPMENT_FIXTURE);
 
 const historicalUnknown = createImmutableSourceSnapshot({ source: 'NSE', sourceDocumentId: 'doc-no-time', retrievedAt: '2026-09-10T01:00:00Z', payload: { ok: true }, accessMode: SOURCE_ACCESS_MODES.AUTHORITATIVE, authorityClass: 'NSE_EXCHANGE_FILING', entitlementVerified: true, historicalReproducibilityVerified: true });
 assert.equal(assessHistoricalValidity(historicalUnknown, '2026-09-10T02:00:00Z').status, 'UNKNOWN');
@@ -112,12 +139,39 @@ for (const exchange of ['NSE', 'BSE']) {
   }
 }
 
+// Retry only transient failures; authentication/entitlement failures are never retried.
+let attempts = 0;
+const retrying = createNseReportingAdapter({
+  transport: { async request() { attempts += 1; if (attempts < 3) { const error = new Error('temporary'); error.code = '503'; throw error; } return { ok: true }; } },
+  config: { retryPolicy: { maxAttempts: 3, baseDelayMs: 0, maxDelayMs: 0 } },
+});
+assert.deepEqual(await retrying.fetchReportingArtifacts(), { ok: true });
+assert.equal(attempts, 3);
+
+attempts = 0;
+const noRetryAuth = createNseReportingAdapter({
+  transport: { async request() { attempts += 1; const error = new Error('bad token'); error.code = '401'; throw error; } },
+  config: { retryPolicy: { maxAttempts: 3, baseDelayMs: 0, maxDelayMs: 0 } },
+});
+await assert.rejects(() => noRetryAuth.fetchReportingArtifacts(), (error) => error.code === 'AUTHENTICATION_FAILURE');
+assert.equal(attempts, 1);
+
+let slowAttempts = 0;
+const timeoutAdapter = createNseReportingAdapter({
+  transport: { async request() { slowAttempts += 1; return new Promise(() => {}); } },
+  config: { requestTimeoutMs: 5 },
+});
+await assert.rejects(() => timeoutAdapter.fetchReportingArtifacts(), (error) => error.code === 'TIMEOUT');
+assert.equal(slowAttempts, 1);
+
 const explicit = createNseReportingAdapter({ transport: { async request() { throw new SourceProviderError('ENTITLEMENT_FAILURE', 'license missing'); } } });
 await assert.rejects(() => explicit.fetchReportingArtifacts(), (error) => error.code === 'ENTITLEMENT_FAILURE' && error.message === 'license missing');
 
 const malformed = createNseReportingAdapter();
 assert.throws(() => malformed.normalizeReportingArtifact({}), (error) => error.code === 'MALFORMED_SOURCE');
 assert.throws(() => new SourceProviderError('NOT_A_REAL_CODE', 'invalid'), /SOURCE_PROVIDER_ERROR_CODE_INVALID/);
+assert.throws(() => createNseReportingAdapter({ config: { retryPolicy: { maxAttempts: 0 } } }), /SOURCE_RETRY_POLICY_INVALID_MAX_ATTEMPTS/);
+assert.throws(() => createNseReportingAdapter({ config: { requestTimeoutMs: 0 } }), /SOURCE_REQUEST_TIMEOUT_INVALID/);
 for (const code of [
   'AUTHENTICATION_FAILURE', 'ENTITLEMENT_FAILURE', 'TRANSPORT_FAILURE', 'TIMEOUT', 'RATE_LIMIT', 'SOURCE_UNAVAILABLE',
   'MALFORMED_SOURCE', 'IDENTITY_FAILURE', 'SEMANTIC_FAILURE', 'PROVENANCE_FAILURE', 'HISTORICAL_INVALID', 'VALIDATION_FAILURE',
