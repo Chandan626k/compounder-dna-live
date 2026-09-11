@@ -7,7 +7,7 @@ globalThis.fetch = async () => ({ ok: true, status: 200, async json() { return {
 const { verifiedHistory } = await import('../lib/market-data-provider.js');
 const { buildVerifiedDataQualityProvenance } = await import('../lib/verified-analysis.js');
 const history = await verifiedHistory('TCS.NS', { interval: '1d', days: 10, minBars: 2 });
-assert.equal(history.verified, true); assert.equal(history.source, 'Yahoo Finance chart API'); assert.equal(history.status, 'PRIMARY'); assert.equal(history.rows.length, 2); assert.equal(history.rows.at(-1).c, 102); assert.equal(history.rows.at(-1).v, 1_100_000); assert.ok(history.latest); assert.ok(history.retrievedAt);
+assert.equal(history.verified, true); assert.equal(history.payloadValidated, true); assert.equal(history.source, 'Yahoo Finance chart API'); assert.equal(history.status, 'SECONDARY'); assert.equal(history.authority, 'NON_AUTHORITATIVE_SECONDARY'); assert.equal(history.rows.length, 2); assert.equal(history.rows.at(-1).c, 102); assert.equal(history.rows.at(-1).v, 1_100_000); assert.ok(history.latest); assert.ok(history.retrievedAt);
 const normalizedHistory = await verifiedHistory('TCS', { interval: '1d', days: 10, minBars: 2 }); assert.equal(normalizedHistory.rows.at(-1).c, 102);
 await assert.rejects(verifiedHistory('TCS.NS', { interval: '1d', days: 10, minBars: 3 }), /^(?:Error: )?(?:INSUFFICIENT_VERIFIED_PRICE_HISTORY:2\/3|VERIFIED_PRICE_PROVIDER_FAILED:)/, 'short provider history must not become verified history');
 
