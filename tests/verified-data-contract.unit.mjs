@@ -19,7 +19,6 @@ assert.ok(history.retrievedAt);
 
 const normalizedHistory = await verifiedHistory('TCS', { interval: '1d', days: 10, minBars: 2 });
 assert.equal(normalizedHistory.rows.at(-1).c, 102);
-
 await assert.rejects(verifiedHistory('TCS.NS', { interval: '1d', days: 10, minBars: 3 }), /^(?:Error: )?(?:INSUFFICIENT_VERIFIED_PRICE_HISTORY:2\/3|VERIFIED_PRICE_PROVIDER_FAILED:)/, 'short provider history must not become verified history');
 
 const provenance = buildVerifiedDataQualityProvenance({ dataQuality: { confidence: 65, completeness: 72, confidenceModel: { components: { freshness: 90 } } }, marketAsOf: '2026-08-21T10:00:00.000Z', fundamentalsAsOf: '2026-08-20T10:00:00.000Z' });
@@ -34,9 +33,11 @@ assert.match(tradingSource, /analyzeVerified/);
 assert.match(tradingSource, /analysis\.verifiedMarketHistory/);
 assert.doesNotMatch(tradingSource, /verifiedHistory/);
 const verifiedAnalysisSource = fs.readFileSync(new URL('../lib/verified-analysis.js', import.meta.url), 'utf8');
-assert.match(verifiedAnalysisSource, /PROVIDER_RETURNED/);
-assert.match(verifiedAnalysisSource, /INSUFFICIENT_EVIDENCE/);
-assert.match(verifiedAnalysisSource, /eligibleForInvestmentReadiness: false/);
+assert.match(verifiedAnalysisSource, /valuation-evidence-authority-safe/);
+const safeAuthoritySource = fs.readFileSync(new URL('../lib/valuation-evidence-authority-safe.js', import.meta.url), 'utf8');
+assert.match(safeAuthoritySource, /PROVIDER_RETURNED/);
+assert.match(safeAuthoritySource, /INSUFFICIENT_EVIDENCE/);
+assert.match(safeAuthoritySource, /eligibleForInvestmentReadiness: false/);
 
 globalThis.fetch = originalFetch;
 console.log('verified data contract tests passed');
