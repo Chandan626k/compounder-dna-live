@@ -33,13 +33,13 @@ assert.equal(make({valuationMetricLineage:wrongValueLineage}).valuationEvidenceS
 
 assert.equal(make({ticker:'OTHER.NS'}).valuationEvidenceStatus,'INSUFFICIENT_EVIDENCE');
 assert.equal(make({issuer:'OTHER LTD'}).valuationEvidenceStatus,'INSUFFICIENT_EVIDENCE');
-assert.equal(make({financials:{canonicalEvidence:{byId:{ev_forward:forward({reportingPeriod:'FY2026'}),ev_price:price()}}}}).valuationEvidenceStatus,'INSUFFICIENT_EVIDENCE');
+const wrongPeriodLineage = valuationMetricLineage(); wrongPeriodLineage.fairValue.inputLineage.forwardEPS.reportingPeriod = 'FY2027E';
+assert.equal(make({valuationMetricLineage:wrongPeriodLineage,financials:{canonicalEvidence:{byId:{ev_forward:forward({reportingPeriod:'FY2026'}),ev_price:price()}}}}).valuationEvidenceStatus,'INSUFFICIENT_EVIDENCE');
 
 const trailingLineage = valuationMetricLineage();
 trailingLineage.fairValue.inputMetrics = ['trailingEPS'];
 trailingLineage.fairValue.inputLineage = { trailingEPS:{value:7.5,evidenceIds:['ev_ttm'],qualification:'TTM',periodSemantics:{periodType:'TTM'}} };
-trailingLineage.trailingEPS = {value:7.5,evidenceIds:['ev_ttm'],qualification:'TTM',periodSemantics:{type:'TTM'}};
-trailingLineage.trailingEPS.periodSemantics = {periodType:'TTM'};
+trailingLineage.trailingEPS = {value:7.5,evidenceIds:['ev_ttm'],qualification:'TTM',periodSemantics:{periodType:'TTM'}};
 assert.equal(make({valuationMetricLineage:trailingLineage,financials:{canonicalEvidence:{byId:{ev_ttm:record('ev_ttm',7.5,{periodType:'TTM',reportingPeriod:'TTM'})}}}}).valuationEvidenceStatus,'VERIFIED');
 
 const annualPeriodLineage = valuationMetricLineage();
