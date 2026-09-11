@@ -12,7 +12,10 @@ assert.equal(ready.success,true); assert.equal(ready.evidenceBand,'HIGH'); asser
 
 const providerReturnedAuthority={valuationEvidenceStatus:'VERIFIED',eligibleForInvestmentReadiness:true,inputs:[{evidenceRecords:[evidence('ev_eps',8.3,{status:'PROVIDER_RETURNED',periodType:'FORWARD',reportingPeriod:'FY2027E'})]}]};
 const providerReturned=buildInvestmentReadiness({...base,valuationEvidenceAuthority:providerReturnedAuthority});
-assert.equal(providerReturned.verifiedEvidence.valuationScore,75.00000000005, 'authority object is trusted by this compatibility layer');
+assert.equal(providerReturned.verifiedEvidence.valuationScore,null, 'PROVIDER_RETURNED evidence must not be promoted to valuation readiness');
+assert.ok(providerReturned.blockers.includes('Verified valuation evidence is unavailable'));
+assert.equal(providerReturned.valuationEvidenceAuthority.valuationEvidenceStatus,'INSUFFICIENT_EVIDENCE');
+assert.equal(providerReturned.valuationEvidenceAuthority.eligibleForInvestmentReadiness,false);
 
 const noLineage=buildInvestmentReadiness({...base,valuation:{marginOfSafety:18,verdict:'ATTRACTIVE',fairValue:180,currentPrice:150}});
 assert.equal(noLineage.verifiedEvidence.valuationScore,null); assert.ok(noLineage.blockers.includes('Verified valuation evidence is unavailable'));
