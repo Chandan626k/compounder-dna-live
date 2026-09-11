@@ -19,12 +19,12 @@ import {
 const normalizeReporting = (artifact, meta) => ({ ...artifact, exchange: meta.exchange, source: meta.source });
 const normalizeCalendar = (artifact, meta) => ({ ...artifact, exchange: meta.exchange, source: meta.source });
 
-for (const adapter of [
-  createNseReportingAdapter({ normalizeReporting, normalizeCalendar }),
-  createBseReportingAdapter({ normalizeReporting, normalizeCalendar }),
-  createNseCalendarAdapter({ normalizeReporting, normalizeCalendar }),
-  createBseCalendarAdapter({ normalizeReporting, normalizeCalendar }),
-]) {
+const nseReporting = createNseReportingAdapter({ normalizeReporting, normalizeCalendar });
+const bseReporting = createBseReportingAdapter({ normalizeReporting, normalizeCalendar });
+const nseCalendar = createNseCalendarAdapter({ normalizeReporting, normalizeCalendar });
+const bseCalendar = createBseCalendarAdapter({ normalizeReporting, normalizeCalendar });
+
+for (const adapter of [nseReporting, bseReporting, nseCalendar, bseCalendar]) {
   assert.equal(assertExchangeAdapter(adapter), true);
   assert.equal(adapter.accessMode, SOURCE_ACCESS_MODES.DEVELOPMENT_FIXTURE);
   assert.equal(isProductionAuthoritative(adapter), false);
@@ -33,6 +33,13 @@ for (const adapter of [
   await assert.rejects(() => adapter.fetchReportingArtifacts(), (error) => error.code === 'SOURCE_UNAVAILABLE');
   await assert.rejects(() => adapter.fetchCalendarArtifacts(), (error) => error.code === 'SOURCE_UNAVAILABLE');
 }
+
+assert.equal(nseReporting.authorityClass, 'NSE_EXCHANGE_FILING');
+assert.equal(bseReporting.authorityClass, 'BSE_EXCHANGE_FILING');
+assert.equal(nseCalendar.authorityClass, 'NSE_EXCHANGE_CALENDAR');
+assert.equal(bseCalendar.authorityClass, 'BSE_EXCHANGE_CALENDAR');
+assert.notEqual(nseCalendar.authorityClass, nseReporting.authorityClass);
+assert.notEqual(bseCalendar.authorityClass, bseReporting.authorityClass);
 
 const transport = {
   async request(request) { return { kind: request.kind, exchange: request.exchange, raw: true }; },
@@ -61,6 +68,14 @@ const historicalUnknown = createImmutableSourceSnapshot({ source: 'NSE', sourceD
 assert.equal(assessHistoricalValidity(historicalUnknown, '2026-09-10T02:00:00Z').status, 'UNKNOWN');
 assert.equal(qualifySourceArtifact({ snapshot: historicalUnknown, normalized: true, identityValid: true, semanticValid: true, provenanceVerified: true, freshnessEligible: true, horizonUsable: true, evaluationAsOf: '2026-09-10T02:00:00Z' }).status, 'BLOCKED');
 
+const authorityBase = { source: 'NSE', sourceDocumentId: 'authority-doc', publishedAt: '2026-09-10T00:00:00Z', retrievedAt: '2026-09-10T01:00:00Z', payload: { ok: true }, accessMode: SOURCE_ACCESS_MODES.AUTHORITATIVE, authorityClass: 'NSE_EXCHANGE_FILING', entitlementVerified: true, historicalReproducibilityVerified: true };
+assert.equal(isProductionAuthoritative(createImmutableSourceSnapshot(authorityBase)), true);
+assert.equal(isProductionAuthoritative(createImmutableSourceSnapshot({ ...authorityBase, entitlementVerified: false })), false);
+assert.equal(isProductionAuthoritative(createImmutableSourceSnapshot({ ...authorityBase, historicalReproducibilityVerified: false })), false);
+assert.equal(isProductionAuthoritative(createImmutableSourceSnapshot({ ...authorityBase, authorityClass: null })), false);
+assert.equal(isProductionAuthoritative(createImmutableSourceSnapshot({ ...authorityBase, accessMode: SOURCE_ACCESS_MODES.DEVELOPMENT_FIXTURE })), false);
+assert.equal(qualifySourceArtifact({ snapshot: createImmutableSourceSnapshot(authorityBase), normalized: true, identityValid: true, semanticValid: true, provenanceVerified: false, freshnessEligible: true, horizonUsable: true, evaluationAsOf: '2026-09-10T02:00:00Z' }).status, 'NOT_READY');
+
 const makeProviderErrorAdapter = (exchange, code, message) => {
   const transport = { async request() { const error = new Error(message); error.code = code; throw error; } };
   return exchange === 'NSE'
@@ -82,6 +97,9 @@ for (const exchange of ['NSE', 'BSE']) {
     await assert.rejects(() => adapter.fetchReportingArtifacts(), (error) => error.code === expected);
   }
 }
+
+const explicit = createNseReportingAdapter({ transport: { async request() { throw new SourceProviderError('ENTITLEMENT_FAILURE', 'license missing'); } } });
+await assert.rejects(() => explicit.fetchReportingArtifacts(), (error) => error.code === 'ENTITLEMENT_FAILURE' && error.message === 'license missing');
 
 const malformed = createNseReportingAdapter();
 assert.throws(() => malformed.normalizeReportingArtifact({}), (error) => error.code === 'MALFORMED_SOURCE');
