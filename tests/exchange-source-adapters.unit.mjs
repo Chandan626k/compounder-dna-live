@@ -164,6 +164,9 @@ const timeoutAdapter = createNseReportingAdapter({
 await assert.rejects(() => timeoutAdapter.fetchReportingArtifacts(), (error) => error.code === 'TIMEOUT');
 assert.equal(slowAttempts, 1);
 
+const emptyResponse = createNseReportingAdapter({ transport: { async request() { return null; } } });
+await assert.rejects(() => emptyResponse.fetchReportingArtifacts(), (error) => error.code === 'MALFORMED_SOURCE');
+
 const explicit = createNseReportingAdapter({ transport: { async request() { throw new SourceProviderError('ENTITLEMENT_FAILURE', 'license missing'); } } });
 await assert.rejects(() => explicit.fetchReportingArtifacts(), (error) => error.code === 'ENTITLEMENT_FAILURE' && error.message === 'license missing');
 
