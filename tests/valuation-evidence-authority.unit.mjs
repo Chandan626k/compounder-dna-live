@@ -1,14 +1,17 @@
 import assert from 'node:assert/strict';
 import { resolveValuationEvidence } from '../lib/valuation-evidence-authority.js';
 
-const record = (id, value, extra = {}) => ({ evidenceId:id, value, source:'TEST_PROVIDER', sourceKey:`key.${id}`, ticker:'TEST.NS', issuer:'TEST LTD', reportingDate:'2026-03-31', reportingPeriod:'FY2026', periodType:'ANNUAL', statementScope:'CONSOLIDATED', unit:'INR', currency:'INR', reportedOrDerived:'REPORTED', status:'PROVIDER_RETURNED', retrievedAt:'2026-09-01T00:00:00.000Z', ...extra });
+const record = (id, value, extra = {}) => ({ evidenceId:id, value, source:'TEST_PROVIDER', sourceKey:`key.${id}`, ticker:'TEST.NS', issuer:'TEST LTD', reportingDate:'2026-03-31', reportingPeriod:'FY2026', periodType:'ANNUAL', statementScope:'CONSOLIDATED', unit:'INR', currency:'INR', reportedOrDerived:'REPORTED', status:'VERIFIED', retrievedAt:'2026-09-01T00:00:00.000Z', ...extra });
 const make = (overrides = {}) => {
   const forward = record('ev_forward', 8.3, { periodType:'FORWARD', reportingPeriod:'FY2027E' });
   const price = record('ev_price', 150, { periodType:'CURRENT', reportingDate:'2026-09-01', reportingPeriod:'CURRENT' });
   return resolveValuationEvidence({ valuation:{fairValue:180,currentPrice:150,verdict:'ATTRACTIVE'}, valuationMetricLineage:{ fairValue:{value:180,inputMetrics:['forwardEPS'],inputLineage:{forwardEPS:{value:8.3,evidenceIds:['ev_forward'],qualification:'FORWARD',periodSemantics:{periodType:'FORWARD'}}}}, forwardEPS:{value:8.3,evidenceIds:['ev_forward'],qualification:'FORWARD',periodSemantics:{periodType:'FORWARD'}}, currentPrice:{evidence:price}}, financials:{canonicalEvidence:{byId:{ev_forward:forward,ev_price:price}}}, ticker:'TEST.NS', ...overrides });
 };
+
 assert.equal(make().valuationEvidenceStatus,'VERIFIED');
 assert.equal(make().eligibleForInvestmentReadiness,true);
+assert.equal(make({financials:{canonicalEvidence:{byId:{ev_forward:record('ev_forward',8.3,{status:'PROVIDER_RETURNED',periodType:'FORWARD',reportingPeriod:'FY2027E'}),ev_price:record('ev_price',150,{periodType:'CURRENT',reportingDate:'2026-09-01',reportingPeriod:'CURRENT'})}}}}).valuationEvidenceStatus,'INSUFFICIENT_EVIDENCE');
+assert.equal(make({financials:{canonicalEvidence:{byId:{ev_forward:record('ev_forward',8.3,{status:'PROVIDER_RETURNED',periodType:'FORWARD',reportingPeriod:'FY2027E'}),ev_price:record('ev_price',150,{periodType:'CURRENT',reportingDate:'2026-09-01',reportingPeriod:'CURRENT'})}}}}).eligibleForInvestmentReadiness,false);
 assert.equal(make({financials:{canonicalEvidence:{byId:{}}}}).valuationEvidenceStatus,'INSUFFICIENT_EVIDENCE');
 assert.equal(make({valuationMetricLineage:{...make().valuationMetricLineage,fairValue:{...make().valuationMetricLineage.fairValue,inputLineage:{forwardEPS:{value:9,evidenceIds:['ev_forward'],qualification:'FORWARD',periodSemantics:{periodType:'FORWARD'}}}}}}).valuationEvidenceStatus,'INSUFFICIENT_EVIDENCE');
 assert.equal(make({financials:{canonicalEvidence:{byId:{ev_forward:record('ev_forward',8.3,{ticker:'OTHER.NS',periodType:'FORWARD',reportingPeriod:'FY2027E'}),ev_price:record('ev_price',150,{periodType:'CURRENT',reportingDate:'2026-09-01',reportingPeriod:'CURRENT'})}}}}).valuationEvidenceStatus,'INSUFFICIENT_EVIDENCE');
@@ -21,4 +24,10 @@ const metadataLineage={...make().valuationMetricLineage,fairValue:{...make().val
 assert.equal(make({valuationMetricLineage:metadataLineage}).valuationEvidenceStatus,'INSUFFICIENT_EVIDENCE');
 assert.equal(make({financials:{canonicalEvidence:{byId:{ev_forward:record('ev_forward',8.3,{periodType:'FORWARD',reportingPeriod:'FY2027E',statementScope:'CONSOLIDATED',unit:'USD',currency:'USD'}),ev_price:record('ev_price',150,{periodType:'CURRENT',reportingDate:'2026-09-01',reportingPeriod:'CURRENT'})}}}}).valuationEvidenceStatus,'VERIFIED');
 assert.equal(make({valuation:{fairValue:180,currentPrice:151,verdict:'ATTRACTIVE'}}).eligibleForInvestmentReadiness,false);
+
+const incompleteLineage = {...make().valuationMetricLineage,fairValue:{...make().valuationMetricLineage.fairValue,inputLineage:{forwardEPS:{value:8.3,evidenceIds:['ev_forward'],qualification:'FORWARD',periodSemantics:{periodType:'FORWARD'},statementScope:'CONSOLIDATED',unit:'INR',currency:'INR'}}}};
+assert.equal(make({valuationMetricLineage:incompleteLineage,financials:{canonicalEvidence:{byId:{ev_forward:record('ev_forward',8.3,{retrievedAt:null}),ev_price:record('ev_price',150,{periodType:'CURRENT',reportingDate:'2026-09-01',reportingPeriod:'CURRENT'})}}}}).valuationEvidenceStatus,'INSUFFICIENT_EVIDENCE');
+assert.equal(make({financials:{canonicalEvidence:{byId:{ev_forward:record('ev_forward',8.3,{reportingDate:'2026-09-02',periodType:'FORWARD',reportingPeriod:'FY2027E'}),ev_price:record('ev_price',150,{periodType:'CURRENT',reportingDate:'2026-09-01',reportingPeriod:'CURRENT'})}}}}).valuationEvidenceStatus,'INSUFFICIENT_EVIDENCE');
+assert.equal(make({financials:{canonicalEvidence:{byId:{ev_forward:record('ev_forward',8.3,{statementScope:null,periodType:'FORWARD',reportingPeriod:'FY2027E'}),ev_price:record('ev_price',150,{periodType:'CURRENT',reportingDate:'2026-09-01',reportingPeriod:'CURRENT'})}}}}).valuationEvidenceStatus,'VERIFIED');
+
 console.log('valuation-evidence-authority.unit: PASS');
