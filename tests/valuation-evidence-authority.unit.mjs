@@ -19,6 +19,7 @@ const make = (overrides = {}) => resolveValuationEvidence({
 
 assert.equal(make().valuationEvidenceStatus,'VERIFIED');
 assert.equal(make().eligibleForInvestmentReadiness,true);
+assert.equal(make().fairValue.value,180);
 
 const providerReturned = forward({status:'PROVIDER_RETURNED'});
 const providerAuthority = make({financials:{canonicalEvidence:{byId:{ev_forward:providerReturned,ev_price:price()}}}});
@@ -30,8 +31,8 @@ assert.equal(make({financials:{canonicalEvidence:{byId:{}}}}).valuationEvidenceS
 const wrongValueLineage = valuationMetricLineage(); wrongValueLineage.fairValue.inputLineage.forwardEPS.value = 9;
 assert.equal(make({valuationMetricLineage:wrongValueLineage}).valuationEvidenceStatus,'INSUFFICIENT_EVIDENCE');
 
-assert.equal(make({financials:{canonicalEvidence:{byId:{ev_forward:forward({ticker:'OTHER.NS'}),ev_price:price()}}}}).valuationEvidenceStatus,'INSUFFICIENT_EVIDENCE');
-assert.equal(make({financials:{canonicalEvidence:{byId:{ev_forward:forward({issuer:'OTHER LTD'}),ev_price:price()}}}}).valuationEvidenceStatus,'INSUFFICIENT_EVIDENCE');
+assert.equal(make({ticker:'OTHER.NS'}).valuationEvidenceStatus,'INSUFFICIENT_EVIDENCE');
+assert.equal(make({issuer:'OTHER LTD'}).valuationEvidenceStatus,'INSUFFICIENT_EVIDENCE');
 assert.equal(make({financials:{canonicalEvidence:{byId:{ev_forward:forward({reportingPeriod:'FY2026'}),ev_price:price()}}}}).valuationEvidenceStatus,'INSUFFICIENT_EVIDENCE');
 
 const trailingLineage = valuationMetricLineage();
