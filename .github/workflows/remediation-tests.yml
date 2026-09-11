@@ -112,6 +112,7 @@ jobs:
       - name: Directly affected strategy/data tests
         if: ${{ always() }}
         run: node tests/market-engine.unit.mjs && node tests/sector-framework.unit.mjs && node tests/decision-evidence-gate.unit.mjs && node tests/actionability.unit.mjs
+      # Exact-head canonical valuation closure regression.
       - name: Full repository regression
         if: ${{ always() }}
         run: npm test
