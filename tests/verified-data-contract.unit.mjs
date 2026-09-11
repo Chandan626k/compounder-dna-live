@@ -23,17 +23,7 @@ assert.equal(normalizedHistory.rows.at(-1).c, 102);
 await assert.rejects(verifiedHistory('TCS.NS', { interval: '1d', days: 10, minBars: 3 }), /^(?:Error: )?(?:INSUFFICIENT_VERIFIED_PRICE_HISTORY:2\/3|VERIFIED_PRICE_PROVIDER_FAILED:)/, 'short provider history must not become verified history');
 
 const provenance = buildVerifiedDataQualityProvenance({ dataQuality: { confidence: 65, completeness: 72, confidenceModel: { components: { freshness: 90 } } }, marketAsOf: '2026-08-21T10:00:00.000Z', fundamentalsAsOf: '2026-08-20T10:00:00.000Z' });
-assert.deepEqual(provenance, {
-  asOf: '2026-08-21T10:00:00.000Z',
-  freshness: 'UNKNOWN',
-  freshnessScore: null,
-  coveragePct: 72,
-  confidence: 65,
-  provider: 'Yahoo Finance',
-  source: 'Yahoo Finance chart API + quoteSummary + fundamentalsTimeSeries',
-  marketRetrievedAt: null,
-  freshnessReason: 'Canonical horizon freshness requires explicit exchange/reporting-cycle/session semantics; a numeric age heuristic is not promoted to a canonical freshness state.',
-});
+assert.deepEqual(provenance, { asOf: '2026-08-21T10:00:00.000Z', freshness: 'UNKNOWN', freshnessScore: null, coveragePct: 72, confidence: 65, provider: 'Yahoo Finance', source: 'Yahoo Finance chart API + quoteSummary + fundamentalsTimeSeries', marketRetrievedAt: null, freshnessReason: 'Canonical horizon freshness requires explicit exchange/reporting-cycle/session semantics; a numeric age heuristic is not promoted to a canonical freshness state.' });
 
 const actionabilitySource = fs.readFileSync(new URL('../api/actionability.js', import.meta.url), 'utf8');
 assert.match(actionabilitySource, /analyzeVerified/);
@@ -43,6 +33,10 @@ const tradingSource = fs.readFileSync(new URL('../api/trading.js', import.meta.u
 assert.match(tradingSource, /analyzeVerified/);
 assert.match(tradingSource, /analysis\.verifiedMarketHistory/);
 assert.doesNotMatch(tradingSource, /verifiedHistory/);
+const verifiedAnalysisSource = fs.readFileSync(new URL('../lib/verified-analysis.js', import.meta.url), 'utf8');
+assert.match(verifiedAnalysisSource, /PROVIDER_RETURNED/);
+assert.match(verifiedAnalysisSource, /INSUFFICIENT_EVIDENCE/);
+assert.match(verifiedAnalysisSource, /eligibleForInvestmentReadiness: false/);
 
 globalThis.fetch = originalFetch;
 console.log('verified data contract tests passed');
