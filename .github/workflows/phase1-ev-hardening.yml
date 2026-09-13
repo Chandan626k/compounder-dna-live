@@ -3,6 +3,7 @@ name: Phase 1 EV hardening runner
 on:
   push:
     branches: [phase1-provider-monetary-semantics]
+    paths: ['.github/workflows/phase1-ev-hardening.yml']
 
 permissions:
   contents: write
@@ -10,7 +11,6 @@ permissions:
 jobs:
   harden:
     runs-on: ubuntu-latest
-    if: ${{ !contains(github.event.head_commit.message, 'gate provider EV monetary semantics') && !contains(github.event.head_commit.message, 'remove one-shot') }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -48,16 +48,7 @@ function assessProviderMonetarySemantics(raw, statementEvidence) {
   const ratioCompatible=currencyCompatible && observationEstablished && ebitdaPeriodEstablished && revenuePeriodEstablished && provenanceEstablished;
   const evCompatible=currencyStatus==='MATCH' && observationEstablished && provenanceEstablished;
   const blockedReason=!currencyCompatible || !observationEstablished || !ebitdaPeriodEstablished || !revenuePeriodEstablished || !provenanceEstablished ? 'CURRENCY_OR_PERIOD_SEMANTICS_UNVERIFIED' : null;
-  return {
-    source:'Yahoo Finance quoteSummary.defaultKeyStatistics + quoteSummary.price + fundamentalsTimeSeries', tradingCurrency, financialCurrency, currencyStatus,
-    evCurrencyBasis:financialCurrency, observationAt,
-    ebitda:{source:'Yahoo Finance fundamentalsTimeSeries',currency:ebitdaCurrency,period:ebitdaPeriod,periodType:ebitdaRow?.periodType||null},
-    revenue:{source:'Yahoo Finance fundamentalsTimeSeries',currency:revenueCurrency,period:revenuePeriod,periodType:revenueRow?.periodType||null},
-    enterpriseValue:{evidenceStatus:evCompatible?'PROVIDER':'NOT_AVAILABLE',verification:'UNKNOWN',reason:evCompatible?null:blockedReason},
-    evToEbitda:{evidenceStatus:ratioCompatible?'PROVIDER':'NOT_AVAILABLE',verification:'UNKNOWN',reason:ratioCompatible?null:blockedReason},
-    evToRevenue:{evidenceStatus:ratioCompatible?'PROVIDER':'NOT_AVAILABLE',verification:'UNKNOWN',reason:ratioCompatible?null:blockedReason},
-    compatible:{enterpriseValue:evCompatible,evToEbitda:ratioCompatible,evToRevenue:ratioCompatible}, provenanceEstablished,
-  };
+  return {source:'Yahoo Finance quoteSummary.defaultKeyStatistics + quoteSummary.price + fundamentalsTimeSeries',tradingCurrency,financialCurrency,currencyStatus,evCurrencyBasis:financialCurrency,observationAt,ebitda:{source:'Yahoo Finance fundamentalsTimeSeries',currency:ebitdaCurrency,period:ebitdaPeriod,periodType:ebitdaRow?.periodType||null},revenue:{source:'Yahoo Finance fundamentalsTimeSeries',currency:revenueCurrency,period:revenuePeriod,periodType:revenueRow?.periodType||null},enterpriseValue:{evidenceStatus:evCompatible?'PROVIDER':'NOT_AVAILABLE',verification:'UNKNOWN',reason:evCompatible?null:blockedReason},evToEbitda:{evidenceStatus:ratioCompatible?'PROVIDER':'NOT_AVAILABLE',verification:'UNKNOWN',reason:ratioCompatible?null:blockedReason},evToRevenue:{evidenceStatus:ratioCompatible?'PROVIDER':'NOT_AVAILABLE',verification:'UNKNOWN',reason:ratioCompatible?null:blockedReason},compatible:{enterpriseValue:evCompatible,evToEbitda:ratioCompatible,evToRevenue:ratioCompatible},provenanceEstablished};
 }
 """
           if 'function assessProviderMonetarySemantics(' not in s: s=s.replace(anchor,anchor+helper,1)
@@ -70,10 +61,7 @@ function assessProviderMonetarySemantics(raw, statementEvidence) {
           oldexp='export { atr, rsi, normalizeDebtToEquity, technical, buildFinancials, buildValuation, buildDataQuality, scoreStock, decision, SCORE_MODEL, buildSectorFramework, classifySector };'
           newexp='export { atr, rsi, normalizeDebtToEquity, technical, buildFinancials, buildValuation, buildDataQuality, scoreStock, decision, SCORE_MODEL, buildSectorFramework, classifySector, assessProviderMonetarySemantics };'
           s=s.replace(oldexp,newexp,1); p.write_text(s)
-
-          t=Path('tests/market-engine.unit.mjs'); ts=t.read_text()
-          ts=ts.replace('  buildValuation,\n','  buildValuation,\n  assessProviderMonetarySemantics,\n',1)
-          marker="console.log('market-engine.unit: PASS');"
+          t=Path('tests/market-engine.unit.mjs'); ts=t.read_text(); ts=ts.replace('  buildValuation,\n','  buildValuation,\n  assessProviderMonetarySemantics,\n',1); marker="console.log('market-engine.unit: PASS');"
           tests="""
 
 // Phase 1: provider monetary semantics for EV / EV-EBITDA / EV-Revenue.
