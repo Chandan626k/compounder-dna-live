@@ -60,12 +60,11 @@ export default async function handler(req, res) {
     const analysis = await analyzeStock(symbol);
     const [rows, validation] = await Promise.all([
       fetchChart(symbol),
-      // Fixed default validation parameters. No parameter tuning is performed here.
       validateStrategy(symbol, { days: 2500, horizon: 20 }),
     ]);
 
     const trading = buildTrading(analysis, rows);
-    const statementEvidence = analysis.fundamentals?.statementEvidence;
+    const statementEvidence = analysis.fundamentals?.statementEvidence || null;
     const result = buildActionability(analysis, trading);
     const historicalEvidence = scenarioEvidenceFromValidation(validation);
     const scenarios = buildScenarios({
@@ -93,14 +92,14 @@ export default async function handler(req, res) {
         confidenceIntervals95: historicalEvidence.confidenceIntervals95 || null,
         limitations: historicalEvidence.limitations || [],
       },
-      statementEvidence: {
-        provider: statementEvidence.provider,
-        period: statementEvidence.period,
-        coverage: statementEvidence.coverage,
-        history: statementEvidence.history,
-        errors: statementEvidence.errors,
-        validation: statementEvidence.validation,
-      },
+      statementEvidence: statementEvidence ? {
+        provider: statementEvidence.provider || null,
+        period: statementEvidence.period || null,
+        coverage: statementEvidence.coverage || null,
+        history: statementEvidence.history || null,
+        errors: statementEvidence.errors || null,
+        validation: statementEvidence.validation || null,
+      } : null,
       productionDecisionBlocked,
       productionActionsEnabled,
       productionBlockReasons,
