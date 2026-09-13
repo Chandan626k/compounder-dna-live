@@ -1,0 +1,83 @@
+name: Phase 1 monetary semantics hardening
+
+on:
+  push:
+    branches: [phase1-provider-monetary-semantics]
+
+permissions:
+  contents: write
+
+jobs:
+  harden:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: phase1-provider-monetary-semantics
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Apply deterministic semantic gate
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          p = Path('lib/market-engine.js')
+          s = p.read_text()
+          anchor = "function value(obj, key) {\n  return num(obj?.[key]);\n}\n"
+          helper = r'''\nfunction assessProviderMonetarySemantics(raw, statementEvidence) {\n  const price = raw?.summary?.price || {};\n  const tradingCurrency = statementEvidence?.currency?.tradingCurrency || price.currency || null;\n  const financialCurrency = statementEvidence?.currency?.financialCurrency || price.financialCurrency || null;\n  const currencyStatus = tradingCurrency && financialCurrency\n    ? (tradingCurrency === financialCurrency ? 'MATCH' : 'MISMATCH')\n    : 'UNKNOWN';\n\n  const snapshotSeconds = num(price.regularMarketTime);\n  const observationAt = snapshotSeconds != null ? new Date(snapshotSeconds * 1000).toISOString() : null;\n  const ttmRows = (raw?.trailing || []).filter((r) => String(r?.periodType || '').toUpperCase() === 'TTM');\n  const latestTtm = (key) => {\n    const rows = ttmRows.filter((r) => num(r?.[key]) != null && r?.date);\n    return rows.length ? rows.at(-1) : null;\n  };\n  const ebitdaRow = latestTtm('EBITDA');\n  const revenueRow = latestTtm('totalRevenue');\n  const ebitdaCurrency = ebitdaRow?.currencyCode || ebitdaRow?.currency || financialCurrency || null;\n  const revenueCurrency = revenueRow?.currencyCode || revenueRow?.currency || financialCurrency || null;\n  const ebitdaPeriod = ebitdaRow?.date || null;\n  const revenuePeriod = revenueRow?.date || null;\n\n  const currencyCompatible = currencyStatus === 'MATCH' &&\n    ebitdaCurrency === financialCurrency && revenueCurrency === financialCurrency;\n  const observationEstablished = observationAt != null;\n  const ebitdaPeriodEstablished = ebitdaPeriod != null && ebitdaRow?.periodType === 'TTM';\n  const revenuePeriodEstablished = revenuePeriod != null && revenueRow?.periodType === 'TTM';\n  const provenanceEstablished = Boolean(raw?.summary?.defaultKeyStatistics) &&\n    Boolean(raw?.summary?.financialData || raw?.trailing?.length);\n\n  const ratioCompatible = currencyCompatible && observationEstablished &&\n    ebitdaPeriodEstablished && revenuePeriodEstablished && provenanceEstablished;\n  const evCompatible = currencyStatus === 'MATCH' && observationEstablished && provenanceEstablished;\n\n  const blockedReason = !currencyCompatible || !observationEstablished ||\n    !ebitdaPeriodEstablished || !revenuePeriodEstablished || !provenanceEstablished\n    ? 'CURRENCY_OR_PERIOD_SEMANTICS_UNVERIFIED'\n    : null;\n\n  return {\n    source: 'Yahoo Finance quoteSummary.defaultKeyStatistics + quoteSummary.price + fundamentalsTimeSeries',\n    tradingCurrency,\n    financialCurrency,\n    currencyStatus,\n    evCurrencyBasis: financialCurrency,\n    observationAt,\n    ebitda: {\n      source: 'Yahoo Finance fundamentalsTimeSeries',\n      currency: ebitdaCurrency,\n      period: ebitdaPeriod,\n      periodType: ebitdaRow?.periodType || null,\n    },\n    revenue: {\n      source: 'Yahoo Finance fundamentalsTimeSeries',\n      currency: revenueCurrency,\n      period: revenuePeriod,\n      periodType: revenueRow?.periodType || null,\n    },\n    enterpriseValue: {\n      evidenceStatus: evCompatible ? 'PROVIDER' : 'NOT_AVAILABLE',\n      verification: evCompatible ? 'UNKNOWN' : 'UNKNOWN',\n      reason: evCompatible ? null : blockedReason,\n    },\n    evToEbitda: {\n      evidenceStatus: ratioCompatible ? 'PROVIDER' : 'NOT_AVAILABLE',\n      verification: ratioCompatible ? 'UNKNOWN' : 'UNKNOWN',\n      reason: ratioCompatible ? null : blockedReason,\n    },\n    evToRevenue: {\n      evidenceStatus: ratioCompatible ? 'PROVIDER' : 'NOT_AVAILABLE',\n      verification: ratioCompatible ? 'UNKNOWN' : 'UNKNOWN',\n      reason: ratioCompatible ? null : blockedReason,\n    },\n    compatible: { enterpriseValue: evCompatible, evToEbitda: ratioCompatible, evToRevenue: ratioCompatible },\n    provenanceEstablished,\n  };\n}\n'''
+          if 'function assessProviderMonetarySemantics(' not in s:
+              if anchor not in s:
+                  raise SystemExit('market-engine anchor not found')
+              s = s.replace(anchor, anchor + helper, 1)
+          s = s.replace('function buildValuation(raw, price) {', 'function buildValuation(raw, price, statementEvidence = null) {', 1)
+          old = "  const enterpriseValue = value(k, 'enterpriseValue');\n  const evToEbitda = value(k, 'enterpriseToEbitda');\n  const evToRevenue = value(k, 'enterpriseToRevenue');"
+          new = "  const providerMonetarySemantics = assessProviderMonetarySemantics(raw, statementEvidence);\n  const rawEnterpriseValue = value(k, 'enterpriseValue');\n  const rawEvToEbitda = value(k, 'enterpriseToEbitda');\n  const rawEvToRevenue = value(k, 'enterpriseToRevenue');\n  const enterpriseValue = providerMonetarySemantics.compatible.enterpriseValue ? rawEnterpriseValue : null;\n  const evToEbitda = providerMonetarySemantics.compatible.evToEbitda ? rawEvToEbitda : null;\n  const evToRevenue = providerMonetarySemantics.compatible.evToRevenue ? rawEvToRevenue : null;"
+          if old not in s:
+              raise SystemExit('valuation field anchor not found')
+          s = s.replace(old, new, 1)
+          old_return = "    enterpriseValue,\n    evToEbitda,\n    evToRevenue,"
+          new_return = "    enterpriseValue,\n    evToEbitda,\n    evToRevenue,\n    providerMonetarySemantics,"
+          if old_return not in s:
+              raise SystemExit('valuation return anchor not found')
+          s = s.replace(old_return, new_return, 1)
+          old_call = 'const valuation = buildValuation(raw, market.price);'
+          new_call = 'const valuation = buildValuation(raw, market.price, statementEvidence);'
+          if old_call not in s:
+              raise SystemExit('valuation call anchor not found')
+          s = s.replace(old_call, new_call, 1)
+          old_export = 'export { atr, rsi, normalizeDebtToEquity, technical, buildFinancials, buildValuation, buildDataQuality, scoreStock, decision, SCORE_MODEL, buildSectorFramework, classifySector };'
+          new_export = 'export { atr, rsi, normalizeDebtToEquity, technical, buildFinancials, buildValuation, buildDataQuality, scoreStock, decision, SCORE_MODEL, buildSectorFramework, classifySector, assessProviderMonetarySemantics };'
+          if old_export not in s:
+              raise SystemExit('export anchor not found')
+          s = s.replace(old_export, new_export, 1)
+          p.write_text(s)
+
+          t = Path('tests/market-engine.unit.mjs')
+          ts = t.read_text()
+          ts = ts.replace('  buildValuation,\n', '  buildValuation,\n  assessProviderMonetarySemantics,\n', 1)
+          marker = "console.log('market-engine.unit: PASS');"
+          tests = r'''\n\n// Phase 1: provider monetary semantics for EV / EV-EBITDA / EV-Revenue.\nconst compatibleProviderFixture = {\n  summary: {\n    price: { currency: 'INR', financialCurrency: 'INR', regularMarketTime: 1750000000 },\n    financialData: { ebitda: 500 },\n    defaultKeyStatistics: { enterpriseValue: 5000, enterpriseToEbitda: 10, enterpriseToRevenue: 2 },\n  },\n  trailing: [{ date: '2025-03-31T00:00:00.000Z', periodType: 'TTM', TYPE: 'FINANCIALS', currencyCode: 'INR', EBITDA: 500, totalRevenue: 2500 }],\n  annual: [],\n};\nconst compatibleSemantics = assessProviderMonetarySemantics(compatibleProviderFixture, {\n  provider: 'Yahoo Finance fundamentalsTimeSeries',\n  currency: { tradingCurrency: 'INR', financialCurrency: 'INR', status: 'MATCH' },\n});\nassert.equal(compatibleSemantics.compatible.enterpriseValue, true);\nassert.equal(compatibleSemantics.compatible.evToEbitda, true);\nassert.equal(compatibleSemantics.compatible.evToRevenue, true);\nassert.equal(compatibleSemantics.ebitda.periodType, 'TTM');\nassert.equal(compatibleSemantics.verification, undefined);\n\nfor (const [name, mutate] of [\n  ['unknown currency', (x) => { x.summary.price.currency = null; x.summary.price.financialCurrency = null; }],\n  ['mismatched currency', (x) => { x.summary.price.financialCurrency = 'USD'; }],\n  ['missing observation', (x) => { delete x.summary.price.regularMarketTime; }],\n  ['missing provenance', (x) => { delete x.summary.defaultKeyStatistics; }],\n  ['incompatible periods', (x) => { x.trailing[0].periodType = '12M'; }],\n  ['incompatible EBITDA currency', (x) => { x.trailing[0].currencyCode = 'USD'; }],\n]) {\n  const fixture = structuredClone(compatibleProviderFixture);\n  mutate(fixture);\n  const semantics = assessProviderMonetarySemantics(fixture, {\n    provider: 'Yahoo Finance fundamentalsTimeSeries',\n    currency: { tradingCurrency: 'INR', financialCurrency: fixture.summary.price.financialCurrency, status: fixture.summary.price.currency && fixture.summary.price.financialCurrency === fixture.summary.price.currency ? 'MATCH' : 'UNKNOWN' },\n  });\n  assert.equal(semantics.compatible.enterpriseValue, false, `${name}: EV must be blocked`);\n  assert.equal(semantics.compatible.evToEbitda, false, `${name}: EV/EBITDA must be blocked`);\n  assert.equal(semantics.compatible.evToRevenue, false, `${name}: EV/Revenue must be blocked`);\n}\n\nconst blockedValuation = buildValuation({\n  ...compatibleProviderFixture,\n  summary: { ...compatibleProviderFixture.summary, price: { currency: 'INR', financialCurrency: 'USD', regularMarketTime: 1750000000 } },\n}, 1000, { currency: { tradingCurrency: 'INR', financialCurrency: 'USD', status: 'MISMATCH' } });\nassert.equal(blockedValuation.enterpriseValue, null);\nassert.equal(blockedValuation.evToEbitda, null);\nassert.equal(blockedValuation.evToRevenue, null);\nassert.equal(blockedValuation.providerMonetarySemantics.enterpriseValue.reason, 'CURRENCY_OR_PERIOD_SEMANTICS_UNVERIFIED');\n\nconst allowedValuation = buildValuation(compatibleProviderFixture, 1000, { currency: { tradingCurrency: 'INR', financialCurrency: 'INR', status: 'MATCH' } });\nassert.equal(allowedValuation.enterpriseValue, 5000);\nassert.equal(allowedValuation.evToEbitda, 10);\nassert.equal(allowedValuation.evToRevenue, 2);\n\n// Blocking EV metrics must not change the primary fair-value formula.\nassert.equal(blockedValuation.fairValue, allowedValuation.fairValue);\n\n// A blocked EV metric must not improve the score or investment evidence.\nconst scoreWithoutEv = scoreStock(financials, { ...valuation, evToEbitda: null }, tech, quality);\nconst scoreWithBlockedEv = scoreStock(financials, { ...valuation, evToEbitda: null }, tech, quality);\nassert.equal(scoreWithBlockedEv.overall, scoreWithoutEv.overall);\n\n'''
+          if tests.strip() not in ts:
+              ts = ts.replace(marker, tests + marker, 1)
+          t.write_text(ts)
+          PY
+      - name: Run full regression
+        run: npm test
+      - name: Commit hardened implementation
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add lib/market-engine.js tests/market-engine.unit.mjs
+          git diff --cached --check
+          git commit -m 'fix: gate provider EV monetary semantics'
+          git push origin phase1-provider-monetary-semantics
+      - name: Remove one-shot workflow
+        if: success()
+        run: |
+          git rm .github/workflows/phase1-monetary-semantics.yml
+          git commit -m 'chore: remove one-shot hardening workflow'
+          git push origin phase1-provider-monetary-semantics
