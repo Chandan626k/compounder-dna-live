@@ -59,7 +59,7 @@ assert.equal(mismatched.rawAvailability.annualStatements, false);
 assert.equal(mismatched.rawAvailability.annualBalanceSheet, false);
 assert.equal(mismatched.rawAvailability.annualCashFlow, false);
 assert.equal(mismatched.statementEvidence.currency.status, 'MISMATCH');
-assert.match(mismatched.sourceNote, /currency.*differs from trading currency/i);
+assert.match(mismatched.sourceNote, /currency.*not promoted.*canonical/i);
 
 const matched = mergeStatementEvidence(
   { current: { totalDebt: null, cash: null, freeCashFlow: null }, derived: {}, rawAvailability: {} },
