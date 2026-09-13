@@ -125,6 +125,7 @@ assert.ok(financials.derived.fcfConversion > 0);
 
 const statementEvidence = {
   provider: 'fixture provider',
+  currency: { tradingCurrency: 'INR', financialCurrency: 'INR', status: 'MATCH' },
   coverage: { income: true, balanceSheet: true, cashFlow: true },
   evidence: {
     balance: {
