@@ -15,19 +15,11 @@ const result = buildTrading({
 
 assert.equal(result.technical.canonicalEvidence.status, 'VERIFIED');
 assert.equal(result.technical.canonicalEvidence.provenance.timeframe, '1d');
-assert.equal(result.technical.s20, canonical.s20);
-assert.equal(result.technical.s50, canonical.s50);
-assert.equal(result.technical.s200, canonical.s200);
-assert.equal(result.technical.e20, canonical.e20);
-assert.equal(result.technical.e50, canonical.e50);
-assert.equal(result.technical.e200, canonical.e200);
-assert.equal(result.technical.rsi, canonical.rsi);
-assert.equal(result.technical.atr, canonical.atr);
+for (const field of ['s20', 's50', 's200', 'e20', 'e50', 'e200', 'rsi', 'atr', 'adx', 'relativeVolume', 'volumeTrend', 'support', 'resistance', 'high52Week', 'low52Week', 'trend', 'trendStrength']) {
+  assert.deepEqual(result.technical[field], canonical[field], `${field} must come from canonical engine`);
+}
 assert.deepEqual(result.technical.macd, canonical.macd);
-assert.equal(result.technical.adx, canonical.adx);
-assert.equal(result.technical.relativeVolume, canonical.relativeVolume);
-assert.equal(result.technical.high52Week, Math.max(...rows.slice(-252).map((row) => row.high)));
-assert.equal(result.technical.low52Week, Math.min(...rows.slice(-252).map((row) => row.low)));
+assert.deepEqual(result.technical.canonicalEvidence.macd, canonical.macd);
 assert.equal(result.technical.canonicalEvidence.vwapSemantics, 'CUMULATIVE_PERIOD_VWAP; NOT_INTRADAY_SESSION_VWAP');
 assert.equal(result.trade.action, 'NO TRADE');
 assert.ok(!['BUY', 'SELL', 'BUY ON PULLBACK'].includes(result.trade.action));
