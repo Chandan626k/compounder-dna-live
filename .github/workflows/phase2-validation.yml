@@ -10,6 +10,7 @@ on:
       - phase2/data-foundation-identity-pit
       - phase2/data-foundation-canonical-adapter
       - phase2/data-foundation-financial-strength
+      - phase2/recommendation-readiness
   pull_request:
     branches:
       - phase2/vertical-research-slice
