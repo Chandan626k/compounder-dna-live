@@ -31,7 +31,7 @@ const validAnalysis = {
   fundamentals: {
     current: { revenue: 100, ebitda: 20, netIncome: 10, cash: 10, totalDebt: 20, equity: 100, currentAssets: 50, currentLiabilities: 25, operatingCashFlow: 15, freeCashFlow: 12 },
     ratios: { roe: 10, roa: 5, debtToEquity: 0.2, currentRatio: 2, earningsGrowth: 10 },
-    derived: { netDebtToEbitda: 0.5, fcfGrowth: 10 },
+    derived: { netDebtToEbitda: 0.5, fcfGrowth: 10, fcfMargin: 12, fcfConversion: 120 },
     growth: { latestEPSGrowth: 10 },
     canonicalFinancialEvidence: baseCanonical(),
   },
