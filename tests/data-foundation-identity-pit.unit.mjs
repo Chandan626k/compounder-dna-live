@@ -67,6 +67,20 @@ const future = createFinancialEvidence({ ...baseInput, publicationTimestamp: '20
 assert.equal(determinePitEligibility(future.evidence, '2025-06-01T00:00:00Z'), PIT_STATES.PIT_INELIGIBLE);
 assert.equal(determinePitEligibility(base.evidence, '2025-05-01T00:00:00Z'), PIT_STATES.PIT_INELIGIBLE);
 
+const providerOnly = createFinancialEvidence({
+  ...baseInput,
+  provider: 'yahoo',
+  providerRecordId: 'YF-1',
+  sourceAuthority: 'SECONDARY_PROVIDER',
+  sourceDocumentId: null,
+  sourceDocumentVersion: null,
+  publicationTimestamp: null,
+  availabilityTimestamp: null,
+});
+assert.equal(determinePitEligibility(providerOnly.evidence, '2025-05-21T00:00:00Z'), PIT_STATES.PIT_UNKNOWN);
+assert.equal(providerOnly.evidence.sourceAuthority, 'SECONDARY_PROVIDER');
+assert.notEqual(providerOnly.evidence.sourceAuthority, 'COMPANY_FILING');
+
 const fixture = createFinancialEvidence({ ...baseInput, fixtureStatus: 'DEVELOPMENT_FIXTURE', sourceAuthority: 'DEVELOPMENT_FIXTURE' });
 assert.equal(fixture.evidence.fixtureStatus, 'DEVELOPMENT_FIXTURE');
 assert.equal(fixture.evidence.sourceAuthority, 'DEVELOPMENT_FIXTURE');
