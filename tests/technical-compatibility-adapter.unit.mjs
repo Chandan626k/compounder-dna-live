@@ -69,4 +69,5 @@ assert.throws(() => technicalCompatibility(malformed, { symbol: 'TEST', source: 
 
 console.log('technical-compatibility-adapter.unit: PASS');
 
-assert.equal(result.e100 != null, true, 'compatibility adapter must expose canonical EMA100');
+assert.equal(tech.e100, longCanonical.e100, 'compatibility adapter must expose canonical EMA100');
+assert.equal(tech.canonicalEvidence.e100, longCanonical.e100, 'canonical evidence must expose EMA100');
