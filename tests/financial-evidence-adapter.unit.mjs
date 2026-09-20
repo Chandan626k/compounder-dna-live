@@ -24,6 +24,8 @@ assert.equal(revenue.evidence.value, 1000);
 assert.equal(revenue.evidence.periodType, 'ANNUAL');
 assert.equal(revenue.evidence.fixtureStatus, 'DEVELOPMENT_FIXTURE');
 assert.equal(revenue.evidence.sourceAuthority, 'SECONDARY_PROVIDER');
+const roe = mapped.records.find((r) => r.evidence.metric === 'roe' && r.evidence.reportingPeriodEnd.startsWith('2025-03-31'));
+assert.equal(roe.evidence.value, 20, 'ROE canonical percent semantics must match the existing scoring input');
 assert.equal(revenue.pitEligibility, PIT_STATES.PIT_UNKNOWN);
 const retrievalOnly = adaptStatementEvidenceToCanonical({ ...fixture, income: fixture.income.map((r) => ({ ...r, retrievedAt: '2026-09-20T06:00:00Z' })) }, { evaluationTimestamp: '2026-09-20T06:01:00Z' });
 const rr = retrievalOnly.records.find((r) => r.evidence.metric === 'revenue' && r.evidence.reportingPeriodEnd.startsWith('2025-03-31'));
