@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 const html = fs.readFileSync(new URL('../public/terminal.html', import.meta.url), 'utf8');
-const ui = fs.readFileSync(new URL('../public/recommendation-readiness-ui.js', import.meta.url), 'utf8');
+const ui = fs.readFileSync(fileURLToPath(new URL('../public/recommendation-readiness-ui.js', import.meta.url)), 'utf8');
 assert.match(html, /Recommendation readiness/);
 assert.match(html, /Evidence readiness by horizon/);
 assert.match(html, /recommendation-readiness-ui\.js/);
