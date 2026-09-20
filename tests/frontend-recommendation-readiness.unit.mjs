@@ -15,6 +15,6 @@ assert.match(ui, /SHORT_TERM:'Short Term'/);
 assert.match(ui, /INTRADAY:'Intraday'/);
 assert.match(html, /RECOMMENDATION ENGINE OFF/);
 assert.equal(/BUY|SELL/i.test(ui), false, 'readiness renderer must not generate BUY/SELL');
-const check = spawnSync(process.execPath, ['--check', new URL('../public/recommendation-readiness-ui.js', import.meta.url)], { encoding: 'utf8' });
+const check = spawnSync(process.execPath, ['--check', fileURLToPath(new URL('../public/recommendation-readiness-ui.js', import.meta.url))], { encoding: 'utf8' });
 assert.equal(check.status, 0, check.stderr || 'readiness UI syntax failed');
 console.log('frontend recommendation readiness: PASS');
