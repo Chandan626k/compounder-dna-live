@@ -68,3 +68,5 @@ delete malformed.at(-1).open;
 assert.throws(() => technicalCompatibility(malformed, { symbol: 'TEST', source: 'fixture', timeframe: '1d' }), /No usable market prices returned by provider: INVALID_OHLCV/);
 
 console.log('technical-compatibility-adapter.unit: PASS');
+
+assert.equal(result.e100 != null, true, 'compatibility adapter must expose canonical EMA100');
