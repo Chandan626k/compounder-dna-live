@@ -92,6 +92,6 @@
       event.preventDefault();
       box.querySelectorAll('.stock-search-item')[active]?.click();
     }
-  });
+  },true);
   document.addEventListener('click',event=>{if(!row.contains(event.target))close();});
 })();
