@@ -14,6 +14,7 @@ assert.match(search,/input\.placeholder='Search company or stock'/);
 assert.match(search,/localStorage/);
 assert.match(search,/ArrowDown/);
 assert.match(search,/ArrowUp/);
+assert.match(search,/},true\);/);
 assert.match(search,/No matching company or stock found/);
 assert.match(search,/input\.value=item\.symbol/);
 assert.match(search,/KeyboardEvent\('keydown'/);
