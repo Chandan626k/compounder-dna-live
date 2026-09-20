@@ -10,7 +10,7 @@ assert.match(html, /id="researchRisk"/, 'risk evidence status must be visible');
 assert.match(html, /id="researchQuality"/, 'data quality must be visible');
 assert.match(html, /id="researchWatch"/, 'watch-next guidance must be visible');
 assert.match(html, /canonicalEvidence\?\.breakoutLifecycle/, 'UI must consume canonical lifecycle evidence');
-assert.match(html, /riskEvidence\?\.status/, 'UI must consume canonical risk evidence');
+assert.match(html, /riskEvidence\.status/, 'UI must consume canonical risk evidence');
 assert.match(html, /d\?\.decision\?\.gate\?\.status/, 'UI must consume the backend evidence gate');
 assert.match(html, /productionBlocked=tr\?\.productionDecisionBlocked===true/, 'production gate must remain backend-controlled');
 assert.match(html, /backendAction=a=>productionBlocked\?'NO TRADE'/, 'blocked production actions must remain NO TRADE');
