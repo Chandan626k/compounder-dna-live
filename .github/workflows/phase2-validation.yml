@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - phase2/frozen-phase1-integration
+      - phase2/vertical-research-slice
   workflow_dispatch:
 
 jobs:
