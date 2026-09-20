@@ -25,7 +25,7 @@ assert.match(html, /evidenceTextRow\('Technical provenance'/, 'drill-down must e
 assert.match(html, /no new calculation is performed/, 'drill-down must remain explanatory only');
 assert.match(html, /Back to research state/, 'user must be able to return to research state');
 assert.match(html, /canonicalEvidence\?\.provenance/, 'drill-down must consume canonical evidence provenance');
-assert.match(html, /riskEvidence\?\.invalidationLevel/, 'drill-down must not invent risk invalidation');
+assert.match(html, /re\.invalidationLevel/, 'drill-down must not invent risk invalidation');
 assert.match(html, /productionBlocked=tr\?\.productionDecisionBlocked===true/, 'production gate must remain backend-controlled');
 assert.match(html, /backendAction=a=>productionBlocked\?'NO TRADE'/, 'blocked production actions must remain NO TRADE');
 
