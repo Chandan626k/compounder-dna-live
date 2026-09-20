@@ -21,6 +21,6 @@ assert.match(html, /id="evidencePanel"/, 'evidence drill-down regression must re
 assert.match(html, /canonicalEvidence\?\.breakoutLifecycle/, 'canonical evidence remains authoritative');
 assert.match(html, /productionBlocked=tr\?\.productionDecisionBlocked===true/, 'production gate must remain backend-controlled');
 assert.match(html, /backendAction=a=>productionBlocked\?'NO TRADE'/, 'blocked production actions must remain NO TRADE');
-assert.doesNotMatch(html, /renderEvidenceTimeline[\\s\\S]*Date\.now\(/, 'timeline must not synthesize event time from current time');
+assert.doesNotMatch(html, /renderEvidenceTimeline[\s\S]*Date\.now\(/, 'timeline must not synthesize event time from current time');
 
 console.log('evidence-timeline.unit: PASS');
