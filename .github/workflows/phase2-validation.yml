@@ -9,6 +9,7 @@ on:
       - phase2/stock-search-ux
       - phase2/data-foundation-identity-pit
       - phase2/data-foundation-canonical-adapter
+      - phase2/data-foundation-financial-strength
   pull_request:
     branches:
       - phase2/vertical-research-slice
