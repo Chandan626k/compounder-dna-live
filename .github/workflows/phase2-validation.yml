@@ -7,6 +7,7 @@ on:
       - phase2/vertical-research-slice
       - phase2/evidence-timeline
       - phase2/stock-search-ux
+      - phase2/data-foundation-identity-pit
   pull_request:
     branches:
       - phase2/vertical-research-slice
