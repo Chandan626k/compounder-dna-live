@@ -72,6 +72,7 @@ const ready = evaluateRecommendationReadiness({
 });
 assert.equal(ready.horizons.LONG_TERM.state, STATES.PARTIALLY_READY);
 assert.ok(ready.horizons.LONG_TERM.blockers.some((b) => b.key === 'missing_evidence' || b.key === 'unverified_evidence'));
+console.log('DEBUG_SWING', JSON.stringify({state: ready.horizons.SWING.state, blockers: ready.horizons.SWING.blockers, req: ready.horizons.SWING.requirements}));
 assert.equal(ready.horizons.SWING.state, STATES.READY);
 assert.equal(ready.horizons.SWING.recommendationEligible, false);
 assert.equal(ready.policy.noBuySellGenerated, true);
