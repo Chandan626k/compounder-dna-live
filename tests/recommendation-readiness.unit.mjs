@@ -71,7 +71,7 @@ const ready = evaluateRecommendationReadiness({
   trading: { technical: validTechnical },
 });
 assert.equal(ready.horizons.LONG_TERM.state, STATES.PARTIALLY_READY);
-assert.ok(ready.horizons.LONG_TERM.blockers.some((b) => b.key === 'missing_evidence' || b.key === 'earnings_growth'));
+assert.ok(ready.horizons.LONG_TERM.blockers.some((b) => b.key === 'missing_evidence' || b.key === 'unverified_evidence'));
 assert.equal(ready.horizons.SWING.state, STATES.READY);
 assert.equal(ready.horizons.SWING.recommendationEligible, false);
 assert.equal(ready.policy.noBuySellGenerated, true);
