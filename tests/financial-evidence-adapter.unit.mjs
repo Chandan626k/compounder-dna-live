@@ -8,11 +8,11 @@ const fixture = {
   validationState: 'VALID',
   currency: { tradingCurrency: 'INR', financialCurrency: 'INR', status: 'MATCH' },
   income: [
-    { date: '2025-03-31T00:00:00Z', periodType: '12M', totalRevenue: 1000, EBITDA: 220, dilutedEPS: 15, netIncomeFromContinuingAndDiscontinuedOperation: 150, returnOnEquity: 0.20, returnOnAssets: 0.10, currencyCode: 'INR' },
-    { date: '2024-03-31T00:00:00Z', periodType: '12M', totalRevenue: 900, dilutedEPS: 12, netIncomeFromContinuingAndDiscontinuedOperation: 120, currencyCode: 'INR' },
+    { date: '2025-03-31T00:00:00Z', periodType: '12M', totalRevenue: 1000, EBITDA: 220, dilutedEPS: 15, netIncomeFromContinuingAndDiscontinuedOperation: 150, returnOnEquity: 0.20, returnOnAssets: 0.10, currencyCode: 'INR', validationState: 'VALID' },
+    { date: '2024-03-31T00:00:00Z', periodType: '12M', totalRevenue: 900, dilutedEPS: 12, netIncomeFromContinuingAndDiscontinuedOperation: 120, currencyCode: 'INR', validationState: 'VALID' },
   ],
-  balance: [{ date: '2025-03-31T00:00:00Z', periodType: '12M', totalDebt: 200, cashAndCashEquivalents: 50, stockholdersEquity: 1000, currentAssets: 500, currentLiabilities: 250, currencyCode: 'INR' }],
-  cash: [{ date: '2025-03-31T00:00:00Z', periodType: '12M', operatingCashFlow: 180, freeCashFlow: 150, capitalExpenditure: -30, currencyCode: 'INR' }],
+  balance: [{ date: '2025-03-31T00:00:00Z', periodType: '12M', totalDebt: 200, cashAndCashEquivalents: 50, stockholdersEquity: 1000, currentAssets: 500, currentLiabilities: 250, currencyCode: 'INR', validationState: 'VALID' }],
+  cash: [{ date: '2025-03-31T00:00:00Z', periodType: '12M', operatingCashFlow: 180, freeCashFlow: 150, capitalExpenditure: -30, currencyCode: 'INR', validationState: 'VALID' }],
 };
 const mapped = adaptStatementEvidenceToCanonical(fixture, { evaluationTimestamp: '2026-09-20T06:01:00Z' });
 assert.equal(mapped.status, 'MAPPED');
