@@ -3,10 +3,15 @@
   "version": "3.1.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=20" },
-  "dependencies": { "express": "^5.1.0", "yahoo-finance2": "4.0.2" },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "yahoo-finance2": "4.0.2"
+  },
   "scripts": {
-    "test": "node tests/market-engine.unit.mjs && node tests/provider-monetary-semantics.unit.mjs && node tests/currency-evidence.unit.mjs && node tests/canonical-technical-engine.unit.mjs && node tests/technical-compatibility-adapter.unit.mjs && node tests/canonical-breakout-lifecycle.unit.mjs && node tests/trading-engine-canonical-consumer.unit.mjs && node tests/phase1-smoke.mjs && node tests/frontend-syntax.mjs && node tests/frontend-production-decision.unit.mjs && node tests/research-journey-ui.unit.mjs && node tests/sector-framework.unit.mjs && node tests/validation-gate.unit.mjs && node tests/actionability.unit.mjs && node tests/decision-evidence-gate.unit.mjs && node tests/scenario-engine.unit.mjs && node --check api/trading.js && node --check api/actionability.js && node --check api/validate-strategy.js && node --check lib/validation-gate.js && node --check lib/actionability.js && node --check lib/decision-evidence-gate.js && node --check lib/trading-engine.js && node --check lib/scenario-engine.js && node --check api/data-foundation.js && node --check lib/canonical-technical-engine.js && node --check lib/canonical-support-resistance.js && node --check lib/canonical-market-structure.js && node --check lib/canonical-breakout-lifecycle.js && node --check lib/technical-compatibility-adapter.js",
+    "test": "node tests/market-engine.unit.mjs && node tests/provider-monetary-semantics.unit.mjs && node tests/currency-evidence.unit.mjs && node tests/canonical-technical-engine.unit.mjs && node tests/technical-compatibility-adapter.unit.mjs && node tests/canonical-breakout-lifecycle.unit.mjs && node tests/trading-engine-canonical-consumer.unit.mjs && node tests/phase1-smoke.mjs && node tests/frontend-syntax.mjs && node tests/frontend-production-decision.unit.mjs && node tests/research-journey-ui.unit.mjs && node tests/evidence-timeline.unit.mjs && node tests/sector-framework.unit.mjs && node tests/validation-gate.unit.mjs && node tests/actionability.unit.mjs && node tests/decision-evidence-gate.unit.mjs && node tests/scenario-engine.unit.mjs && node --check api/trading.js && node --check api/actionability.js && node --check api/validate-strategy.js && node --check lib/validation-gate.js && node --check lib/actionability.js && node --check lib/decision-evidence-gate.js && node --check lib/trading-engine.js && node --check lib/scenario-engine.js && node --check api/data-foundation.js && node --check lib/canonical-technical-engine.js && node --check lib/canonical-support-resistance.js && node --check lib/canonical-market-structure.js && node --check lib/canonical-breakout-lifecycle.js && node --check lib/technical-compatibility-adapter.js",
     "verify": "npm test",
     "frontend:check": "node tests/frontend-syntax.mjs && node tests/frontend-production-decision.unit.mjs",
     "phase2:breakout": "node tests/canonical-technical-engine.unit.mjs && node tests/technical-compatibility-adapter.unit.mjs && node tests/canonical-breakout-lifecycle.unit.mjs",
