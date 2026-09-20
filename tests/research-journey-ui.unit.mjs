@@ -22,7 +22,7 @@ assert.match(html, /id="evidenceRisk"/, 'risk evidence explanation section must 
 assert.match(html, /evidenceTextRow\('Primary source'/, 'drill-down must expose source when available');
 assert.match(html, /evidenceTextRow\('Analysis as-of'/, 'drill-down must expose observation time when available');
 assert.match(html, /evidenceTextRow\('Technical provenance'/, 'drill-down must expose canonical technical provenance when available');
-assert.match(html, /No new calculation is performed/, 'drill-down must remain explanatory only');
+assert.match(html, /no new calculation is performed/, 'drill-down must remain explanatory only');
 assert.match(html, /Back to research state/, 'user must be able to return to research state');
 assert.match(html, /canonicalEvidence\?\.provenance/, 'drill-down must consume canonical evidence provenance');
 assert.match(html, /riskEvidence\?\.invalidationLevel/, 'drill-down must not invent risk invalidation');
