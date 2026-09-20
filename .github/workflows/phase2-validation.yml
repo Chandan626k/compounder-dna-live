@@ -5,6 +5,15 @@ on:
     branches:
       - phase2/frozen-phase1-integration
       - phase2/vertical-research-slice
+      - phase2/evidence-timeline
+      - phase2/stock-search-ux
+      - phase2/data-foundation-identity-pit
+      - phase2/data-foundation-canonical-adapter
+      - phase2/data-foundation-financial-strength
+      - phase2/recommendation-readiness
+  pull_request:
+    branches:
+      - phase2/vertical-research-slice
   workflow_dispatch:
 
 jobs:
