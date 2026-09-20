@@ -8,6 +8,7 @@ on:
       - phase2/evidence-timeline
       - phase2/stock-search-ux
       - phase2/data-foundation-identity-pit
+      - phase2/data-foundation-canonical-adapter
   pull_request:
     branches:
       - phase2/vertical-research-slice
