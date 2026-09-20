@@ -4,7 +4,7 @@ import { evaluateRecommendationReadiness, STATES } from '../lib/recommendation-r
 const baseCanonical = (overrides = {}) => ({
   currencyStatus: 'MATCH',
   records: [
-    'revenue','ebitda','netIncome','eps','cash','debt','equity','currentAssets','currentLiabilities','operatingCashFlow','freeCashFlow','roe','roa'
+    'revenue','ebitda','netIncome','eps','cash','debt','equity','currentAssets','currentLiabilities','operatingCashFlow','capitalExpenditure','freeCashFlow','roe','roa'
   ].map((metric) => ({
     evidence: {
       metric,
