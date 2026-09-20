@@ -6,6 +6,7 @@ on:
       - phase2/frozen-phase1-integration
       - phase2/vertical-research-slice
       - phase2/evidence-timeline
+      - phase2/stock-search-ux
   pull_request:
     branches:
       - phase2/vertical-research-slice
