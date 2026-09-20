@@ -5,6 +5,7 @@ import { PIT_STATES } from '../lib/financial-evidence-contract.js';
 const fixture = {
   fetchedAt: '2026-09-20T06:00:00Z',
   fixtureStatus: 'DEVELOPMENT_FIXTURE', provider: 'Yahoo Finance fundamentalsTimeSeries',
+  validationState: 'VALID',
   currency: { tradingCurrency: 'INR', financialCurrency: 'INR', status: 'MATCH' },
   income: [
     { date: '2025-03-31T00:00:00Z', periodType: '12M', totalRevenue: 1000, EBITDA: 220, dilutedEPS: 15, netIncomeFromContinuingAndDiscontinuedOperation: 150, returnOnEquity: 0.20, returnOnAssets: 0.10, currencyCode: 'INR' },
@@ -68,6 +69,12 @@ assert.equal(strengthReady.financials.derived.netDebtToEbitda, 150 / 220);
 assert.equal(strengthReady.evidence.source, 'canonicalFinancialEvidence');
 assert.ok(strengthReady.evidence.selected.every((e) => e.issuerIdentity === 'ISS:INFOSYS' && e.securityIdentity === 'SEC:INFY:NSE'));
 assert.ok(strengthReady.evidence.pitStates.includes(PIT_STATES.PIT_UNKNOWN));
+
+const unknownValidation = buildFinancialStrengthInputFromCanonical(
+  adaptStatementEvidenceToCanonical({ ...fixture, validationState: undefined, income: fixture.income.map(({ validationState, ...row }) => row), balance: fixture.balance.map(({ validationState, ...row }) => row), cash: fixture.cash.map(({ validationState, ...row }) => row) }, { issuerIdentity: 'ISS:INFOSYS', securityIdentity: 'SEC:INFY:NSE' }),
+  { sectorKey: 'MANUFACTURING', baseFinancials: { ratios: {}, derived: {}, current: {} } },
+);
+assert.equal(unknownValidation.status, 'UNAVAILABLE');
 
 const missingCanonical = buildFinancialStrengthInputFromCanonical(
   { ...strengthCanonical, records: strengthCanonical.records.filter((r) => r.evidence.metric !== 'ebitda') },
