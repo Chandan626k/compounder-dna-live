@@ -14,6 +14,19 @@ assert.match(html, /riskEvidence\.status/, 'UI must consume canonical risk evide
 assert.match(html, /d\?\.decision\?\.gate\?\.status/, 'UI must consume the backend evidence gate');
 assert.match(html, /productionBlocked=tr\?\.productionDecisionBlocked===true/, 'production gate must remain backend-controlled');
 assert.match(html, /backendAction=a=>productionBlocked\?'NO TRADE'/, 'blocked production actions must remain NO TRADE');
-assert.match(html, /Research state is based on the existing evidence gate; no new calculation is performed/, 'UI must not introduce a second decision engine');
+assert.match(html, /id="evidencePanel"/, 'evidence drill-down panel must be present');
+assert.match(html, /id="evidenceSupport"/, 'supporting evidence section must be present');
+assert.match(html, /id="evidenceProvenance"/, 'evidence provenance section must be present');
+assert.match(html, /id="evidenceMissing"/, 'missing evidence section must be present');
+assert.match(html, /id="evidenceRisk"/, 'risk evidence explanation section must be present');
+assert.match(html, /evidenceTextRow\('Primary source'/, 'drill-down must expose source when available');
+assert.match(html, /evidenceTextRow\('Analysis as-of'/, 'drill-down must expose observation time when available');
+assert.match(html, /evidenceTextRow\('Technical provenance'/, 'drill-down must expose canonical technical provenance when available');
+assert.match(html, /no new calculation is performed/, 'drill-down must remain explanatory only');
+assert.match(html, /Back to research state/, 'user must be able to return to research state');
+assert.match(html, /canonicalEvidence\?\.provenance/, 'drill-down must consume canonical evidence provenance');
+assert.match(html, /re\.invalidationLevel/, 'drill-down must not invent risk invalidation');
+assert.match(html, /productionBlocked=tr\?\.productionDecisionBlocked===true/, 'production gate must remain backend-controlled');
+assert.match(html, /backendAction=a=>productionBlocked\?'NO TRADE'/, 'blocked production actions must remain NO TRADE');
 
 console.log('research-journey-ui.unit: PASS');
