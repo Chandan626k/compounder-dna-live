@@ -1,0 +1,40 @@
+/* Canonical frontend security master for StockSamjho search UX.
+ * This is a deliberately small, explicit NSE research universe already used by the app.
+ * It is not a live exchange master and must not be treated as historical membership.
+ */
+window.StockSamjhoUniverse = Object.freeze([
+  Object.freeze({symbol:'RELIANCE',name:'Reliance Industries',exchange:'NSE'}),
+  Object.freeze({symbol:'TCS',name:'Tata Consultancy Services',exchange:'NSE'}),
+  Object.freeze({symbol:'HDFCBANK',name:'HDFC Bank',exchange:'NSE'}),
+  Object.freeze({symbol:'ICICIBANK',name:'ICICI Bank',exchange:'NSE'}),
+  Object.freeze({symbol:'INFY',name:'Infosys Ltd',exchange:'NSE'}),
+  Object.freeze({symbol:'ITC',name:'ITC Ltd',exchange:'NSE'}),
+  Object.freeze({symbol:'LT',name:'Larsen & Toubro',exchange:'NSE'}),
+  Object.freeze({symbol:'BHARTIARTL',name:'Bharti Airtel',exchange:'NSE'}),
+  Object.freeze({symbol:'AXISBANK',name:'Axis Bank',exchange:'NSE'}),
+  Object.freeze({symbol:'MARUTI',name:'Maruti Suzuki',exchange:'NSE'}),
+  Object.freeze({symbol:'SUNPHARMA',name:'Sun Pharma',exchange:'NSE'}),
+  Object.freeze({symbol:'M&M',name:'Mahindra & Mahindra',exchange:'NSE'}),
+  Object.freeze({symbol:'TITAN',name:'Titan Company',exchange:'NSE'}),
+  Object.freeze({symbol:'BAJFINANCE',name:'Bajaj Finance',exchange:'NSE'}),
+  Object.freeze({symbol:'KOTAKBANK',name:'Kotak Mahindra Bank',exchange:'NSE'}),
+  Object.freeze({symbol:'ASIANPAINT',name:'Asian Paints',exchange:'NSE'}),
+  Object.freeze({symbol:'TRENT',name:'Trent',exchange:'NSE'}),
+  Object.freeze({symbol:'HAL',name:'HAL',exchange:'NSE'}),
+  Object.freeze({symbol:'BEL',name:'Bharat Electronics',exchange:'NSE'}),
+  Object.freeze({symbol:'POLYCAB',name:'Polycab India',exchange:'NSE'}),
+  Object.freeze({symbol:'HAVELLS',name:'Havells India',exchange:'NSE'}),
+  Object.freeze({symbol:'PIDILITIND',name:'Pidilite Industries',exchange:'NSE'}),
+  Object.freeze({symbol:'DIXON',name:'Dixon Technologies',exchange:'NSE'}),
+  Object.freeze({symbol:'POWERGRID',name:'Power Grid Corporation',exchange:'NSE'}),
+  Object.freeze({symbol:'NTPC',name:'NTPC Ltd',exchange:'NSE'}),
+  Object.freeze({symbol:'COALINDIA',name:'Coal India',exchange:'NSE'}),
+  Object.freeze({symbol:'TATASTEEL',name:'Tata Steel',exchange:'NSE'}),
+  Object.freeze({symbol:'JSWSTEEL',name:'JSW Steel',exchange:'NSE'}),
+  Object.freeze({symbol:'HCLTECH',name:'HCLTech',exchange:'NSE'}),
+  Object.freeze({symbol:'TECHM',name:'Tech Mahindra',exchange:'NSE'}),
+  Object.freeze({symbol:'PERSISTENT',name:'Persistent Systems',exchange:'NSE'}),
+  Object.freeze({symbol:'DRREDDY',name:'Dr Reddy’s Laboratories',exchange:'NSE'}),
+  Object.freeze({symbol:'CIPLA',name:'Cipla',exchange:'NSE'}),
+  Object.freeze({symbol:'APOLLOHOSP',name:'Apollo Hospitals',exchange:'NSE'})
+]);

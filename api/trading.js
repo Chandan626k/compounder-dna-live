@@ -2,6 +2,7 @@ import YahooFinance from 'yahoo-finance2';
 import { analyze as analyzeStock } from '../lib/market-engine.js';
 import { buildTrading } from '../lib/trading-engine.js';
 import { gateTradingAction, productionDecisionPolicy } from '../lib/production-decision-gate.js';
+import { evaluateRecommendationReadiness } from '../lib/recommendation-readiness.js';
 const yahooFinance=new YahooFinance();
 const HEADERS={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Methods':'GET,OPTIONS','Cache-Control':'no-store'};
 const num=v=>{if(typeof v==='number'&&Number.isFinite(v))return v;if(v&&typeof v==='object'&&Number.isFinite(v.raw))return v.raw;return null};
@@ -13,4 +14,5 @@ export default async function handler(req,res){Object.entries(HEADERS).forEach((
 const productionSafeTechnical=decisionPolicy.productionActionsEnabled
   ? result.technical
   : {...result.technical,score:analysis?.score?.technical??null,productionDecisionBlocked:true};
-return res.status(200).json({...result,technical:productionSafeTechnical,trade:gatedTrade,longTerm:gatedLongTerm,decisionPolicy})}catch(e){if(unavailable(e)){console.warn('[TRADING DATA UNAVAILABLE]',{symbol,message:e?.message});return res.status(404).json({success:false,error:'Verified market data is unavailable for this symbol.'})}console.error('[TRADING ERROR]',{symbol,message:e?.message,stack:e?.stack});return res.status(502).json({error:'Trading data temporarily unavailable. Please try again.'})}}
+const readiness = evaluateRecommendationReadiness({ analysis, trading: { ...result, technical: productionSafeTechnical, trade: gatedTrade, longTerm: gatedLongTerm } });
+return res.status(200).json({...result,technical:productionSafeTechnical,trade:gatedTrade,longTerm:gatedLongTerm,decisionPolicy,recommendationReadiness:readiness})}catch(e){if(unavailable(e)){console.warn('[TRADING DATA UNAVAILABLE]',{symbol,message:e?.message});return res.status(404).json({success:false,error:'Verified market data is unavailable for this symbol.'})}console.error('[TRADING ERROR]',{symbol,message:e?.message,stack:e?.stack});return res.status(502).json({error:'Trading data temporarily unavailable. Please try again.'})}}
