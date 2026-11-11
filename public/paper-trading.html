@@ -22,7 +22,7 @@ h2{font-size:16px;margin:0 0 10px}.hint{color:var(--muted);font-size:11px;line-h
 form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;align-items:end}
 .field{display:grid;gap:5px}.field.full{grid-column:1/-1}
 label{font-size:11px;color:#526174;font-weight:700}
-input,select,textarea{width:100%;min-width:0;border:1px solid #cfd8e3;border-radius:8px;background:#fff;padding:10px 11px;color:var(--ink);font:13px inherit}
+input,select,textarea{width:100%;min-width:0;border:1px solid #cfd8e3;border-radius:8px;background:#fff;padding:10px 11px;color:var(--ink);font:inherit;font-size:13px}
 input:focus,select:focus,textarea:focus{outline:2px solid #bfd3ff;border-color:var(--blue)}
 button{border:0;border-radius:8px;background:var(--blue);color:#fff;padding:11px 14px;font-weight:800;font-size:12px;cursor:pointer}
 button.secondary{background:#eef2f7;color:#26364a;border:1px solid var(--line)}
@@ -311,14 +311,19 @@ $('analysisForm').addEventListener('submit', async event => {
   setMessage('analysisStatus', 'Loading read-only analysis and trading status…');
   try {
     const query = '?symbol=' + encodeURIComponent(symbol);
-    const [analysisResponse, tradingResponse] = await Promise.all([
-      fetch('/api/analyze' + query, { headers: { Accept: 'application/json' } }),
-      fetch('/api/trading' + query, { headers: { Accept: 'application/json' } })
+    const getJson = async url => {
+      const response = await fetch(url, { headers: { Accept: 'application/json' } });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'API request failed.');
+      return data;
+    };
+    const [analysisResult, tradingResult] = await Promise.allSettled([
+      getJson('/api/analyze' + query),
+      getJson('/api/trading' + query)
     ]);
-    const analysis = await analysisResponse.json().catch(() => ({}));
-    const trading = await tradingResponse.json().catch(() => ({}));
-    if (!analysisResponse.ok) throw new Error(analysis.error || 'Analysis API unavailable.');
-    if (!tradingResponse.ok) throw new Error(trading.error || 'Trading data API unavailable.');
+    if (analysisResult.status !== 'fulfilled') throw analysisResult.reason;
+    const analysis = analysisResult.value;
+    const trading = tradingResult.status === 'fulfilled' ? tradingResult.value : null;
     const quality = analysis.dataQuality || {};
     setText('analysisName', (analysis.stock && analysis.stock.name ? analysis.stock.name + ' • ' : '') + symbol);
     setText('analysisPrice', analysis.stock && analysis.stock.price != null
@@ -327,17 +332,19 @@ $('analysisForm').addEventListener('submit', async event => {
     setText('analysisDecision', analysis.decision && analysis.decision.action ? analysis.decision.action : 'UNKNOWN');
     setText('analysisScore', analysis.score && analysis.score.overall != null ? analysis.score.overall : 'Not available');
     setText('analysisConfidence', quality.confidence == null ? 'Not available' : quality.confidence);
-    setText('analysisTrend', trading.technical && trading.technical.trend ? trading.technical.trend : 'Not available');
-    setText('analysisAction', trading.trade && trading.trade.action ? trading.trade.action : 'NO TRADE');
-    const gateEnabled = trading.decisionPolicy && trading.decisionPolicy.productionActionsEnabled === true;
-    const blocked = trading.productionDecisionBlocked === true || (trading.decisionPolicy && trading.decisionPolicy.productionActionsEnabled === false);
-    setText('analysisGate', blocked ? 'Disabled / blocked' : gateEnabled ? 'Enabled by API policy' : 'Not confirmed');
+    setText('analysisTrend', trading && trading.technical && trading.technical.trend ? trading.technical.trend : 'Not available');
+    setText('analysisAction', trading && trading.trade && trading.trade.action ? trading.trade.action : 'NO TRADE — API UNAVAILABLE');
+    const gateEnabled = trading && trading.decisionPolicy && trading.decisionPolicy.productionActionsEnabled === true;
+    const blocked = trading && (trading.productionDecisionBlocked === true || (trading.decisionPolicy && trading.decisionPolicy.productionActionsEnabled === false));
+    setText('analysisGate', !trading ? 'Unavailable — no action' : blocked ? 'Disabled / blocked' : gateEnabled ? 'Enabled by API policy (display only)' : 'Not confirmed');
     const sourceBits = [quality.provider, quality.source, quality.asOf].filter(Boolean);
     setText('analysisSource', sourceBits.length ? 'Data metadata: ' + sourceBits.join(' • ') : 'Data source / as-of metadata unavailable.');
     setText('analysisWarnings', Array.isArray(quality.warnings) && quality.warnings.length
       ? 'Data warnings: ' + quality.warnings.join(' • ')
       : 'No data warnings reported by this response; this is not proof of authoritative evidence.');
-    setMessage('analysisStatus', 'Read-only snapshot loaded for ' + symbol + '. It did not create a paper trade.');
+    setMessage('analysisStatus', trading
+      ? 'Read-only snapshot loaded for ' + symbol + '. It did not create a paper trade.'
+      : 'Analysis loaded; trading data unavailable. No paper trade was created.');
   } catch (error) {
     setMessage('analysisStatus', error.message, true);
   }
