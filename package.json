@@ -16,5 +16,10 @@
     "frontend:check": "node tests/frontend-syntax.mjs && node tests/frontend-production-decision.unit.mjs",
     "phase2:breakout": "node tests/canonical-technical-engine.unit.mjs && node tests/technical-compatibility-adapter.unit.mjs && node tests/canonical-breakout-lifecycle.unit.mjs",
     "phase2:technical-consumer": "node tests/trading-engine-canonical-consumer.unit.mjs"
+  },
+  "overrides": {
+    "body-parser": "2.4.0",
+    "proxy-addr": "2.0.8",
+    "qs": "6.17.1"
   }
 }

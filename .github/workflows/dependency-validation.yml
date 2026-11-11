@@ -54,7 +54,10 @@ jobs:
           NODE
       - name: Full test suite
         run: npm test
+      - name: Enforce clean dependency audit
+        run: npm audit --audit-level=low
       - name: Upload lockfile and audit report
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: dependency-validation-artifacts
