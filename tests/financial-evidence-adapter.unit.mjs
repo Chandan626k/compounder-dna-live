@@ -102,7 +102,7 @@ assert.deepEqual(verifiedStrength.evidence.pitStates, [PIT_STATES.PIT_VERIFIED])
 
 const unknownPitRows = (row) => {
   const { publicationTimestamp, availabilityTimestamp, sourceDocumentId, sourceDocumentVersion, ...rest } = row;
-  return { ...rest, pitEligibility: PIT_STATES.PIT_VERIFIED };
+  return rest;
 };
 const unknownPitFixture = {
   ...verifiedFixture,
@@ -120,6 +120,23 @@ assert.equal(buildFinancialStrengthInputFromCanonical(unknownPitCanonical, {
   sectorKey: 'MANUFACTURING',
   baseFinancials: { ratios: {}, derived: {}, current: {} },
 }).status, 'UNAVAILABLE', 'PIT_UNKNOWN must never be promoted into financial strength');
+
+const forgedPitFixture = {
+  ...verifiedFixture,
+  income: verifiedFixture.income.map((row) => ({ ...unknownPitRows(row), pitEligibility: PIT_STATES.PIT_VERIFIED })),
+  balance: verifiedFixture.balance.map((row) => ({ ...unknownPitRows(row), pitEligibility: PIT_STATES.PIT_VERIFIED })),
+  cash: verifiedFixture.cash.map((row) => ({ ...unknownPitRows(row), pitEligibility: PIT_STATES.PIT_VERIFIED })),
+};
+const forgedPitCanonical = adaptStatementEvidenceToCanonical(forgedPitFixture, {
+  issuerIdentity: 'ISS:INFOSYS',
+  securityIdentity: 'SEC:INFY:NSE',
+  evaluationTimestamp: '2026-09-20T06:01:00Z',
+});
+assert.ok(forgedPitCanonical.records.some((record) => record.validationState === VALIDATION_STATES.INVALID));
+assert.equal(buildFinancialStrengthInputFromCanonical(forgedPitCanonical, {
+  sectorKey: 'MANUFACTURING',
+  baseFinancials: { ratios: {}, derived: {}, current: {} },
+}).status, 'UNAVAILABLE', 'provider-supplied PIT_VERIFIED cannot replace required source timestamps and document identity');
 
 const fixtureBlocked = adaptStatementEvidenceToCanonical({
   ...verifiedFixture,
