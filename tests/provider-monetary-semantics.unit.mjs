@@ -21,6 +21,14 @@ assert.equal(deriveFinancialCurrency([
   { date: '2025-03-31', currencyCode: 'INR', EBITDA: 20 },
 ]), null, 'mixed statement currencies must remain UNKNOWN');
 assert.equal(deriveFinancialCurrency([{ date: '2025-03-31', totalRevenue: 100 }]), null, 'missing statement currency must remain UNKNOWN');
+assert.equal(deriveFinancialCurrency([
+  { date: '2025-03-31', currencyCode: 'USD', totalRevenue: 100 },
+  { date: '2025-03-31', totalRevenue: 50 },
+]), null, 'known plus missing statement currency metadata must remain UNKNOWN');
+assert.equal(deriveFinancialCurrency([
+  { date: '2025-03-31', currencyCode: '', currency: 'USD', totalRevenue: 100 },
+]), 'USD', 'blank primary metadata must not mask an explicit fallback currency');
+assert.equal(deriveFinancialCurrency([]), null, 'empty statement evidence must remain UNKNOWN');
 
 const matchingEvidence = (fixture) => ({
   currency: {
@@ -97,6 +105,29 @@ assert.equal(infyBlocked.enterpriseValue, null);
 assert.equal(infyBlocked.evToEbitda, null);
 assert.equal(infyBlocked.evToRevenue, null);
 assert.equal(infyBlocked.fairValue, buildValuation(base(), 1000, matchingEvidence(base())).fairValue, 'fair value methodology must remain unchanged');
+
+const mixedKnownMissingRows = [
+  { date: '2025-03-31', currencyCode: 'USD', totalRevenue: 2500 },
+  { date: '2024-03-31', totalRevenue: 2200 },
+];
+const mixedFinancialCurrency = deriveFinancialCurrency(mixedKnownMissingRows);
+const mixedEvidence = {
+  currency: {
+    tradingCurrency: 'USD',
+    financialCurrency: mixedFinancialCurrency,
+    status: mixedFinancialCurrency ? 'MATCH' : 'UNKNOWN',
+  },
+};
+const mixedSemantics = assessProviderMonetarySemantics(runtimeLikeInfy, mixedEvidence);
+const mixedBlocked = buildValuation(runtimeLikeInfy, 1000, mixedEvidence);
+assert.equal(mixedFinancialCurrency, null, 'mixed known/missing statement currency must not infer a canonical currency');
+assert.equal(mixedSemantics.currencyStatus, 'UNKNOWN');
+assert.equal(mixedSemantics.compatible.enterpriseValue, false);
+assert.equal(mixedSemantics.compatible.evToEbitda, false);
+assert.equal(mixedSemantics.compatible.evToRevenue, false);
+assert.equal(mixedBlocked.enterpriseValue, null);
+assert.equal(mixedBlocked.evToEbitda, null);
+assert.equal(mixedBlocked.evToRevenue, null);
 
 const allowed = buildValuation(base(), 1000, matchingEvidence(base()));
 assert.equal(allowed.enterpriseValue, 5000);
