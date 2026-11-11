@@ -33,5 +33,30 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
+      - name: Report dependency audit (non-blocking)
+        shell: bash
+        run: |
+          npm audit --json > npm-audit.json || true
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          let report;
+          try {
+            report = JSON.parse(fs.readFileSync('npm-audit.json', 'utf8'));
+          } catch {
+            console.log('npm audit report unavailable; no dependency changes were made.');
+            process.exit(0);
+          }
+          const entries = Object.entries(report.vulnerabilities || {});
+          console.log(`npm audit: ${entries.length} vulnerable packages`);
+          for (const [name, item] of entries) {
+            const fix = typeof item.fixAvailable === 'object'
+              ? `${item.fixAvailable.name || name}@${item.fixAvailable.version || 'available'}`
+              : String(item.fixAvailable);
+            console.log(`${String(item.severity || 'unknown').toUpperCase()} ${name} range=${item.range || 'unknown'} fixAvailable=${fix}`);
+            for (const advisory of (item.via || []).filter((value) => value && typeof value === 'object')) {
+              console.log(`  - ${advisory.title || 'Advisory'} ${advisory.url || ''}`);
+            }
+          }
+          NODE
       - name: Full test suite
         run: npm test
