@@ -33,6 +33,27 @@ const base = createFinancialEvidence(baseInput);
 assert.equal(base.validationState, VALIDATION_STATES.VALID);
 assert.equal(determinePitEligibility(base.evidence, '2025-05-21T00:00:00Z'), PIT_STATES.PIT_VERIFIED);
 
+const preEpochEvidence = createFinancialEvidence({
+  ...baseInput,
+  reportingPeriodStart: '1960-04-01T00:00:00Z',
+  reportingPeriodEnd: '1961-03-31T00:00:00Z',
+  publicationTimestamp: '1961-05-15T10:00:00Z',
+  availabilityTimestamp: '1961-05-15T10:05:00Z',
+  effectiveTimestamp: '1961-05-15T10:05:00Z',
+  retrievedAt: '1961-05-20T10:00:00Z',
+});
+assert.equal(preEpochEvidence.validationState, VALIDATION_STATES.VALID);
+assert.equal(determinePitEligibility(preEpochEvidence.evidence, null), PIT_STATES.PIT_UNKNOWN,
+  'null evaluation timestamp must not be coerced to the Unix epoch');
+assert.equal(determinePitEligibility(preEpochEvidence.evidence, undefined), PIT_STATES.PIT_UNKNOWN,
+  'missing evaluation timestamp must remain PIT_UNKNOWN');
+assert.equal(determinePitEligibility(preEpochEvidence.evidence, ''), PIT_STATES.PIT_UNKNOWN,
+  'empty evaluation timestamp must remain PIT_UNKNOWN');
+assert.equal(determinePitEligibility(preEpochEvidence.evidence, false), PIT_STATES.PIT_UNKNOWN,
+  'boolean evaluation timestamps must be rejected');
+assert.equal(determinePitEligibility(preEpochEvidence.evidence, 0), PIT_STATES.PIT_VERIFIED,
+  'an explicit finite Unix-epoch timestamp remains valid');
+
 const missingRevisionStatus = createFinancialEvidence({ ...baseInput, revisionStatus: null });
 assert.equal(missingRevisionStatus.evidence.revisionStatus, REVISION_STATES.UNKNOWN);
 assert.equal(determinePitEligibility(missingRevisionStatus.evidence, '2025-05-21T00:00:00Z'), PIT_STATES.PIT_UNKNOWN,
