@@ -1,0 +1,65 @@
+name: Dependency Remediation Validation
+
+on:
+  push:
+    branches:
+      - fix/security-dependency-audit-2026-11
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Regenerate lockfile for pinned dependency
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Install exact locked dependencies
+        run: npm ci
+      - name: Report dependency audit
+        shell: bash
+        run: |
+          npm audit --json > npm-audit.json || true
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          let report;
+          try {
+            report = JSON.parse(fs.readFileSync('npm-audit.json', 'utf8'));
+          } catch {
+            console.log('npm audit report unavailable.');
+            process.exit(0);
+          }
+          const counts = report.metadata?.vulnerabilities || {};
+          const entries = Object.entries(report.vulnerabilities || {});
+          console.log('npm audit severity counts:', JSON.stringify(counts));
+          for (const [name, item] of entries) {
+            const fix = typeof item.fixAvailable === 'object'
+              ? `${item.fixAvailable.name || name}@${item.fixAvailable.version || 'available'}`
+              : String(item.fixAvailable);
+            console.log(`${String(item.severity || 'unknown').toUpperCase()} ${name} installedPaths=${(item.nodes || []).join(',') || 'unknown'} fixAvailable=${fix}`);
+            for (const advisory of (item.via || []).filter((value) => value && typeof value === 'object')) {
+              console.log(`  - ${advisory.title || 'Advisory'} ${advisory.url || ''}`);
+            }
+          }
+          NODE
+      - name: Full test suite
+        run: npm test
+      - name: Upload lockfile and audit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-validation-artifacts
+          path: |
+            package-lock.json
+            npm-audit.json
+          if-no-files-found: error
+          retention-days: 3
