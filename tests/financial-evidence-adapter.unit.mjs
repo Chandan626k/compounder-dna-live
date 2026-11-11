@@ -166,7 +166,7 @@ const retrievalOnly = adaptStatementEvidenceToCanonical({
 }, { evaluationTimestamp });
 const retrievalRevenue = retrievalOnly.records.find((r) => r.evidence.metric === 'revenue' && r.evidence.reportingPeriodEnd.startsWith('2025-03-31'));
 assert.equal(retrievalRevenue.evidence.publicationTimestamp, null);
-assert.equal(retrievalRevenue.evidence.retrievedAt, fetchedAt);
+assert.equal(retrievalRevenue.evidence.retrievedAt, '2026-09-20T06:00:00.000Z');
 assert.equal(retrievalRevenue.pitEligibility, PIT_STATES.PIT_UNKNOWN);
 
 const quarterly = adaptStatementEvidenceToCanonical({
