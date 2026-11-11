@@ -21,7 +21,9 @@ assert.match(search,/KeyboardEvent\('keydown'/);
 assert.match(terminal,/stock-universe\.js/);
 assert.match(terminal,/stock-search\.js/);
 assert.match(terminal,/id="symbol"/);
-assert.match(terminal,/fetch\('\/api\/analyze\?symbol=/);
-assert.match(terminal,/fetch\('\/api\/trading\?symbol=/);
+assert.match(terminal,/StockSamjhoStockDataLoader\.loadStockData\(sym\)/);
+const loader=fs.readFileSync('public/stock-data-loader.js','utf8');
+assert.match(loader,/\/api\/analyze\?symbol=/);
+assert.match(loader,/\/api\/trading\?symbol=/);
 
 console.log('stock-search.unit: PASS');

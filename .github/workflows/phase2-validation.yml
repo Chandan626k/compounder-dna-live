@@ -11,6 +11,7 @@ on:
       - phase2/data-foundation-canonical-adapter
       - phase2/data-foundation-financial-strength
       - phase2/recommendation-readiness
+      - fix/phase2-partial-analysis-rendering
   pull_request:
     branches:
       - phase2/vertical-research-slice

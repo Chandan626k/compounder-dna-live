@@ -12,7 +12,7 @@ assert.match(html, /id="researchWatch"/, 'watch-next guidance must be visible');
 assert.match(html, /canonicalEvidence\?\.breakoutLifecycle/, 'UI must consume canonical lifecycle evidence');
 assert.match(html, /riskEvidence\.status/, 'UI must consume canonical risk evidence');
 assert.match(html, /d\?\.decision\?\.gate\?\.status/, 'UI must consume the backend evidence gate');
-assert.match(html, /productionBlocked=tr\?\.productionDecisionBlocked===true/, 'production gate must remain backend-controlled');
+assert.match(html, /productionBlocked=!tradingAvailable\|\|tr\?\.productionDecisionBlocked===true/, 'missing trading data must also keep production actions blocked');
 assert.match(html, /backendAction=a=>productionBlocked\?'NO TRADE'/, 'blocked production actions must remain NO TRADE');
 assert.match(html, /id="evidencePanel"/, 'evidence drill-down panel must be present');
 assert.match(html, /id="evidenceSupport"/, 'supporting evidence section must be present');
@@ -26,7 +26,7 @@ assert.match(html, /no new calculation is performed/, 'drill-down must remain ex
 assert.match(html, /Back to research state/, 'user must be able to return to research state');
 assert.match(html, /canonicalEvidence\?\.provenance/, 'drill-down must consume canonical evidence provenance');
 assert.match(html, /re\.invalidationLevel/, 'drill-down must not invent risk invalidation');
-assert.match(html, /productionBlocked=tr\?\.productionDecisionBlocked===true/, 'production gate must remain backend-controlled');
+assert.match(html, /productionBlocked=!tradingAvailable\|\|tr\?\.productionDecisionBlocked===true/, 'missing trading data must also keep production actions blocked');
 assert.match(html, /backendAction=a=>productionBlocked\?'NO TRADE'/, 'blocked production actions must remain NO TRADE');
 
 console.log('research-journey-ui.unit: PASS');
