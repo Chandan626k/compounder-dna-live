@@ -34,8 +34,11 @@ assert.equal(rr.evidence.publicationTimestamp, null);
 assert.equal(rr.evidence.retrievedAt, '2026-09-20T06:00:00.000Z');
 assert.equal(rr.pitEligibility, PIT_STATES.PIT_UNKNOWN);
 const documented = { ...fixture, income: [{ ...fixture.income[0], reportingPeriodStart: '2024-04-01T00:00:00Z', publicationTimestamp: '2025-05-15T10:00:00Z', availabilityTimestamp: '2025-05-15T10:05:00Z', sourceDocumentId: 'DOC-2025', sourceDocumentVersion: 'v1', providerRecordId: 'REC-2025', retrievedAt: '2025-05-20T10:00:00Z', revisionStatus: 'ORIGINAL' }] };
-const verified = adaptStatementEvidenceToCanonical(documented, { evaluationTimestamp: '2025-05-21T00:00:00Z' });
-assert.equal(verified.records.find((r) => r.evidence.metric === 'revenue').pitEligibility, PIT_STATES.PIT_VERIFIED);
+const providerDocumented = adaptStatementEvidenceToCanonical(documented, { evaluationTimestamp: '2025-05-21T00:00:00Z' });
+const providerDocumentedRevenue = providerDocumented.records.find((r) => r.evidence.metric === 'revenue');
+assert.equal(providerDocumentedRevenue.pitEligibility, PIT_STATES.PIT_UNKNOWN);
+assert.equal(providerDocumentedRevenue.evidence.sourceDocumentId, null);
+assert.equal(providerDocumentedRevenue.evidence.publicationTimestamp, null);
 const quarterly = adaptStatementEvidenceToCanonical({ ...fixture, income: [{ ...fixture.income[0], periodType: '3M' }] });
 assert.equal(quarterly.records.find((r) => r.evidence.metric === 'revenue').evidence.periodType, 'QUARTERLY');
 const ttm = adaptStatementEvidenceToCanonical({ ...fixture, income: [{ ...fixture.income[0], periodType: 'TTM' }] });
@@ -82,11 +85,57 @@ const verifiedFixture = {
   balance: fixture.balance.map((row) => filingRow(row, 'BALANCE')),
   cash: fixture.cash.map((row) => filingRow(row, 'CASH')),
 };
+const trustedFilingSourceContext = Object.freeze({
+  sourceType: 'FILING',
+  sourceAuthority: 'COMPANY_FILING',
+  validationState: VALIDATION_STATES.VALID,
+});
 const verifiedCanonical = adaptStatementEvidenceToCanonical(verifiedFixture, {
   issuerIdentity: 'ISS:INFOSYS',
   securityIdentity: 'SEC:INFY:NSE',
   evaluationTimestamp: '2026-09-20T06:01:00Z',
+  trustedSourceContext: trustedFilingSourceContext,
 });
+const providerForgeryCanonical = adaptStatementEvidenceToCanonical({
+  ...verifiedFixture,
+  provider: 'Yahoo Finance fundamentalsTimeSeries',
+}, {
+  issuerIdentity: 'ISS:INFOSYS',
+  securityIdentity: 'SEC:INFY:NSE',
+  evaluationTimestamp: '2026-09-20T06:01:00Z',
+});
+const providerForgeryDebt = providerForgeryCanonical.records.find((r) => r.evidence.metric === 'debt');
+assert.equal(providerForgeryDebt.evidence.sourceType, 'provider');
+assert.equal(providerForgeryDebt.evidence.sourceAuthority, 'SECONDARY_PROVIDER');
+assert.equal(providerForgeryDebt.evidence.validationState, VALIDATION_STATES.UNKNOWN);
+assert.equal(providerForgeryDebt.evidence.sourceDocumentId, null);
+assert.equal(providerForgeryDebt.evidence.sourceDocumentVersion, null);
+assert.equal(providerForgeryDebt.evidence.publicationTimestamp, null);
+assert.equal(providerForgeryDebt.evidence.availabilityTimestamp, null);
+assert.equal(providerForgeryDebt.pitEligibility, PIT_STATES.PIT_UNKNOWN);
+assert.equal(buildFinancialStrengthInputFromCanonical(providerForgeryCanonical, {
+  sectorKey: 'MANUFACTURING',
+  baseFinancials: { ratios: {}, derived: {}, current: {} },
+}).status, 'UNAVAILABLE', 'provider-controlled filing metadata must never establish authoritative evidence');
+const rejectedTrustedContext = adaptStatementEvidenceToCanonical(verifiedFixture, {
+  issuerIdentity: 'ISS:INFOSYS',
+  securityIdentity: 'SEC:INFY:NSE',
+  evaluationTimestamp: '2026-09-20T06:01:00Z',
+  trustedSourceContext: {
+    sourceType: 'FILING',
+    sourceAuthority: 'UNVERIFIED_PROVIDER',
+    validationState: VALIDATION_STATES.VALID,
+  },
+});
+const rejectedTrustedDebt = rejectedTrustedContext.records.find((r) => r.evidence.metric === 'debt');
+assert.equal(rejectedTrustedDebt.evidence.sourceType, 'provider');
+assert.equal(rejectedTrustedDebt.evidence.sourceAuthority, 'SECONDARY_PROVIDER');
+assert.equal(rejectedTrustedDebt.evidence.validationState, VALIDATION_STATES.UNKNOWN);
+assert.equal(rejectedTrustedDebt.pitEligibility, PIT_STATES.PIT_UNKNOWN);
+assert.equal(buildFinancialStrengthInputFromCanonical(rejectedTrustedContext, {
+  sectorKey: 'MANUFACTURING',
+  baseFinancials: { ratios: {}, derived: {}, current: {} },
+}).status, 'UNAVAILABLE', 'unallowlisted trusted-source authority must not promote provider rows');
 const verifiedStrength = buildFinancialStrengthInputFromCanonical(verifiedCanonical, {
   sectorKey: 'MANUFACTURING',
   baseFinancials: { ratios: {}, derived: {}, current: {} },
@@ -114,6 +163,7 @@ const unknownPitCanonical = adaptStatementEvidenceToCanonical(unknownPitFixture,
   issuerIdentity: 'ISS:INFOSYS',
   securityIdentity: 'SEC:INFY:NSE',
   evaluationTimestamp: '2026-09-20T06:01:00Z',
+  trustedSourceContext: trustedFilingSourceContext,
 });
 assert.equal(unknownPitCanonical.records.find((r) => r.evidence.metric === 'debt').pitEligibility, PIT_STATES.PIT_UNKNOWN);
 assert.equal(buildFinancialStrengthInputFromCanonical(unknownPitCanonical, {
@@ -131,8 +181,11 @@ const forgedPitCanonical = adaptStatementEvidenceToCanonical(forgedPitFixture, {
   issuerIdentity: 'ISS:INFOSYS',
   securityIdentity: 'SEC:INFY:NSE',
   evaluationTimestamp: '2026-09-20T06:01:00Z',
+  trustedSourceContext: trustedFilingSourceContext,
 });
-assert.ok(forgedPitCanonical.records.some((record) => record.validationState === VALIDATION_STATES.INVALID));
+const forgedPitDebt = forgedPitCanonical.records.find((record) => record.evidence.metric === 'debt');
+assert.equal(forgedPitDebt.pitEligibility, PIT_STATES.PIT_UNKNOWN);
+assert.equal(forgedPitDebt.evidence.pitEligibility, PIT_STATES.PIT_UNKNOWN);
 assert.equal(buildFinancialStrengthInputFromCanonical(forgedPitCanonical, {
   sectorKey: 'MANUFACTURING',
   baseFinancials: { ratios: {}, derived: {}, current: {} },
@@ -145,6 +198,7 @@ const fixtureBlocked = adaptStatementEvidenceToCanonical({
   issuerIdentity: 'ISS:INFOSYS',
   securityIdentity: 'SEC:INFY:NSE',
   evaluationTimestamp: '2026-09-20T06:01:00Z',
+  trustedSourceContext: trustedFilingSourceContext,
 });
 assert.equal(buildFinancialStrengthInputFromCanonical(fixtureBlocked, {
   sectorKey: 'MANUFACTURING',
@@ -190,6 +244,7 @@ const invalidPeriod = adaptStatementEvidenceToCanonical({
   issuerIdentity: 'ISS:INFOSYS',
   securityIdentity: 'SEC:INFY:NSE',
   evaluationTimestamp: '2026-09-20T06:01:00Z',
+  trustedSourceContext: trustedFilingSourceContext,
 });
 assert.ok(invalidPeriod.records.some((record) => record.validationState === VALIDATION_STATES.INVALID));
 assert.equal(buildFinancialStrengthInputFromCanonical(invalidPeriod, {
@@ -208,7 +263,7 @@ assert.equal(missingCanonical.financials.current.totalDebt, null);
 
 const unknownCurrency = buildFinancialStrengthInputFromCanonical(
   adaptStatementEvidenceToCanonical({ ...verifiedFixture, currency: { tradingCurrency: 'INR', financialCurrency: null, status: 'UNKNOWN' } }, {
-    issuerIdentity: 'ISS:INFOSYS', securityIdentity: 'SEC:INFY:NSE', evaluationTimestamp: '2026-09-20T06:01:00Z',
+    issuerIdentity: 'ISS:INFOSYS', securityIdentity: 'SEC:INFY:NSE', evaluationTimestamp: '2026-09-20T06:01:00Z', trustedSourceContext: trustedFilingSourceContext,
   }),
   { sectorKey: 'MANUFACTURING', baseFinancials: { ratios: {}, derived: {}, current: {} } },
 );
@@ -216,7 +271,7 @@ assert.equal(unknownCurrency.status, 'UNAVAILABLE');
 
 const mismatchedCurrency = buildFinancialStrengthInputFromCanonical(
   adaptStatementEvidenceToCanonical({ ...verifiedFixture, currency: { tradingCurrency: 'INR', financialCurrency: 'USD', status: 'MISMATCH' } }, {
-    issuerIdentity: 'ISS:INFOSYS', securityIdentity: 'SEC:INFY:NSE', evaluationTimestamp: '2026-09-20T06:01:00Z',
+    issuerIdentity: 'ISS:INFOSYS', securityIdentity: 'SEC:INFY:NSE', evaluationTimestamp: '2026-09-20T06:01:00Z', trustedSourceContext: trustedFilingSourceContext,
   }),
   { sectorKey: 'MANUFACTURING', baseFinancials: { ratios: {}, derived: {}, current: {} } },
 );
@@ -231,6 +286,7 @@ const ttmCanonical = adaptStatementEvidenceToCanonical(ttmFixture, {
   issuerIdentity: 'ISS:INFOSYS',
   securityIdentity: 'SEC:INFY:NSE',
   evaluationTimestamp: '2026-09-20T06:01:00Z',
+  trustedSourceContext: trustedFilingSourceContext,
 });
 const ttmStrength = buildFinancialStrengthInputFromCanonical(ttmCanonical, {
   sectorKey: 'MANUFACTURING',
