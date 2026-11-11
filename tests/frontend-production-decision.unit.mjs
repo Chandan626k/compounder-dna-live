@@ -8,7 +8,7 @@ assert.equal(html.includes("const shortAction=t.score>=72"), false, 'frontend mu
 assert.equal(html.includes("t.score<=30?'SELL'"), false, 'frontend must not calculate SELL from technical score');
 
 // Production action authority must be backend-only and fail closed when blocked.
-assert.match(html, /const productionBlocked=tr\?\.productionDecisionBlocked===true\|\|tr\?\.decisionPolicy\?\.productionActionsEnabled===false\|\|t\?\.productionDecisionBlocked===true/);
+assert.match(html, /const productionBlocked=!tradingAvailable\|\|tr\?\.productionDecisionBlocked===true\|\|tr\?\.decisionPolicy\?\.productionActionsEnabled===false\|\|t\?\.productionDecisionBlocked===true/);
 assert.match(html, /const backendAction=a=>productionBlocked\?'NO TRADE':String\(a\|\|'NO TRADE'\)/);
 assert.match(html, /const shortAction=backendAction\(tr\.trade\?\.action\)/);
 
