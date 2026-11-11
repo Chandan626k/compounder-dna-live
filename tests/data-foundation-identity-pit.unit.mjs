@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { IDENTITY_VALIDATION, createSecurityIdentity, resolveProviderMapping, sameSecurityIdentity, symbolWasValid } from '../lib/security-identity.js';
-import { ACCESS_STATES, PIT_STATES, VALIDATION_STATES, buildDerivedFinancialEvidence, createFinancialEvidence, determinePitEligibility, isEconomicallyCompatible, isPeriodCompatible, isSupersessionCandidate } from '../lib/financial-evidence-contract.js';
+import { ACCESS_STATES, PIT_STATES, REVISION_STATES, VALIDATION_STATES, buildDerivedFinancialEvidence, createFinancialEvidence, determinePitEligibility, isEconomicallyCompatible, isPeriodCompatible, isSupersessionCandidate } from '../lib/financial-evidence-contract.js';
 
 const identity = createSecurityIdentity({
   securityId: 'SEC:INFY:NSE', issuerId: 'ISS:INFOSYS', ISIN: 'INE009A01021',
@@ -26,11 +26,20 @@ const baseInput = {
   effectiveTimestamp: '2025-05-15T10:05:00Z', sourceType: 'FILING', sourceAuthority: 'COMPANY_FILING',
   sourceDocumentId: 'DOC-2025-01', sourceDocumentVersion: 'v1', provider: 'company_filing',
   providerRecordId: 'REC-1', retrievedAt: '2025-05-20T10:00:00Z',
+  revisionStatus: REVISION_STATES.ORIGINAL,
   validationState: VALIDATION_STATES.VALID, entitlementStatus: ACCESS_STATES.ALLOWED,
 };
 const base = createFinancialEvidence(baseInput);
 assert.equal(base.validationState, VALIDATION_STATES.VALID);
 assert.equal(determinePitEligibility(base.evidence, '2025-05-21T00:00:00Z'), PIT_STATES.PIT_VERIFIED);
+
+const missingRevisionStatus = createFinancialEvidence({ ...baseInput, revisionStatus: null });
+assert.equal(missingRevisionStatus.evidence.revisionStatus, REVISION_STATES.UNKNOWN);
+assert.equal(determinePitEligibility(missingRevisionStatus.evidence, '2025-05-21T00:00:00Z'), PIT_STATES.PIT_UNKNOWN,
+  'missing revision status must not default to ORIGINAL');
+const unknownRevisionStatus = createFinancialEvidence({ ...baseInput, revisionStatus: 'UNRECOGNIZED_REVISION' });
+assert.equal(determinePitEligibility(unknownRevisionStatus.evidence, '2025-05-21T00:00:00Z'), PIT_STATES.PIT_UNKNOWN,
+  'unrecognized revision status must fail closed');
 
 const missingPublication = createFinancialEvidence({ ...baseInput, publicationTimestamp: null });
 assert.equal(determinePitEligibility(missingPublication.evidence, '2025-05-21T00:00:00Z'), PIT_STATES.PIT_UNKNOWN);
@@ -61,8 +70,27 @@ assert.equal(isPeriodCompatible(createFinancialEvidence({ ...baseInput, statemen
 assert.equal(isPeriodCompatible(createFinancialEvidence({ ...baseInput, metricScope: null }), base), false,
   'period compatibility requires an explicit metric scope');
 
-const revised = createFinancialEvidence({ ...baseInput, sourceDocumentId: 'DOC-2025-02', sourceDocumentVersion: 'v2', providerRecordId: 'REC-2', publicationTimestamp: '2025-06-01T10:00:00Z', availabilityTimestamp: '2025-06-01T10:05:00Z', revisionStatus: 'REVISED', supersedes: { documentId: 'DOC-2025-01', documentVersion: 'v1' } });
+const revised = createFinancialEvidence({ ...baseInput, sourceDocumentId: 'DOC-2025-02', sourceDocumentVersion: 'v2', providerRecordId: 'REC-2', publicationTimestamp: '2025-06-01T10:00:00Z', availabilityTimestamp: '2025-06-01T10:05:00Z', revisionStatus: REVISION_STATES.REVISED, supersedes: { documentId: 'DOC-2025-01', documentVersion: 'v1' } });
 assert.equal(isSupersessionCandidate(revised, base), true);
+assert.equal(determinePitEligibility(revised, '2025-06-02T00:00:00Z'), PIT_STATES.PIT_VERIFIED,
+  'a revised filing with explicit prior document lineage may be PIT-verified');
+const revisedWithoutLineage = createFinancialEvidence({ ...baseInput, revisionStatus: REVISION_STATES.REVISED, supersedes: null });
+assert.equal(determinePitEligibility(revisedWithoutLineage, '2025-06-02T00:00:00Z'), PIT_STATES.PIT_UNKNOWN,
+  'a revised filing without a prior document/version pointer must remain PIT_UNKNOWN');
+const selfReferentialRevision = createFinancialEvidence({ ...baseInput, revisionStatus: REVISION_STATES.REVISED,
+  supersedes: { documentId: baseInput.sourceDocumentId, documentVersion: baseInput.sourceDocumentVersion } });
+assert.equal(determinePitEligibility(selfReferentialRevision, '2025-06-02T00:00:00Z'), PIT_STATES.PIT_UNKNOWN,
+  'a revision cannot supersede its own source document/version');
+const supersededWithoutTimestamp = createFinancialEvidence({ ...baseInput, revisionStatus: REVISION_STATES.SUPERSEDED });
+assert.equal(determinePitEligibility(supersededWithoutTimestamp, '2025-06-02T00:00:00Z'), PIT_STATES.PIT_UNKNOWN,
+  'a superseded filing without a supersededAt timestamp must remain PIT_UNKNOWN');
+const supersededBeforeEvaluation = createFinancialEvidence({ ...baseInput, revisionStatus: REVISION_STATES.SUPERSEDED,
+  supersededAt: '2025-05-20T00:00:00Z' });
+assert.equal(determinePitEligibility(supersededBeforeEvaluation, '2025-06-02T00:00:00Z'), PIT_STATES.SUPERSEDED);
+const supersededAfterEvaluation = createFinancialEvidence({ ...baseInput, revisionStatus: REVISION_STATES.SUPERSEDED,
+  supersededAt: '2025-06-03T00:00:00Z' });
+assert.equal(determinePitEligibility(supersededAfterEvaluation, '2025-06-02T00:00:00Z'), PIT_STATES.PIT_VERIFIED,
+  'a document superseded after the evaluation time remains valid for that earlier point in time');
 assert.equal(isSupersessionCandidate(createFinancialEvidence({ ...revised.evidence, revisionStatus: 'ORIGINAL', supersedes: null }), base), false);
 const newerOnly = createFinancialEvidence({ ...baseInput, providerRecordId: 'REC-NEW', retrievedAt: '2025-06-10T10:00:00Z' });
 assert.equal(isSupersessionCandidate(newerOnly, base), false);
