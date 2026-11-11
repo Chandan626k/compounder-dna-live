@@ -38,6 +38,15 @@ const retrievalOnly = createFinancialEvidence({ ...baseInput, publicationTimesta
 assert.equal(determinePitEligibility(retrievalOnly.evidence, '2025-05-21T00:00:00Z'), PIT_STATES.PIT_UNKNOWN);
 assert.notEqual(retrievalOnly.evidence.retrievedAt, retrievalOnly.evidence.publicationTimestamp);
 
+const invalidPeriodContract = createFinancialEvidence({
+  ...baseInput,
+  reportingPeriodStart: '2025-04-01T00:00:00Z',
+  reportingPeriodEnd: '2024-03-31T00:00:00Z',
+});
+assert.equal(invalidPeriodContract.validationState, VALIDATION_STATES.INVALID);
+assert.equal(determinePitEligibility(invalidPeriodContract, '2025-05-21T00:00:00Z'), PIT_STATES.INVALID,
+  'PIT evaluation must respect an invalid outer contract state');
+
 const fy2026 = createFinancialEvidence({ ...baseInput, reportingPeriodStart: '2025-04-01T00:00:00Z', reportingPeriodEnd: '2026-03-31T00:00:00Z', sourceDocumentId: 'DOC-2026-01' });
 assert.equal(isPeriodCompatible(base, fy2026), false);
 const q1 = createFinancialEvidence({ ...baseInput, periodType: 'QUARTERLY', reportingPeriodStart: '2025-04-01T00:00:00Z', reportingPeriodEnd: '2025-06-30T00:00:00Z' });
@@ -45,6 +54,12 @@ const q2 = createFinancialEvidence({ ...baseInput, periodType: 'QUARTERLY', repo
 assert.equal(isPeriodCompatible(q1, q2), false);
 assert.equal(isPeriodCompatible(base, q1), false);
 assert.equal(isPeriodCompatible(createFinancialEvidence({ ...baseInput, periodType: 'TTM' }), base), false);
+assert.equal(isPeriodCompatible(createFinancialEvidence({ ...baseInput, accountingBasis: null }), base), false,
+  'period compatibility requires an explicit accounting basis');
+assert.equal(isPeriodCompatible(createFinancialEvidence({ ...baseInput, statementScope: null }), base), false,
+  'period compatibility requires an explicit statement scope');
+assert.equal(isPeriodCompatible(createFinancialEvidence({ ...baseInput, metricScope: null }), base), false,
+  'period compatibility requires an explicit metric scope');
 
 const revised = createFinancialEvidence({ ...baseInput, sourceDocumentId: 'DOC-2025-02', sourceDocumentVersion: 'v2', providerRecordId: 'REC-2', publicationTimestamp: '2025-06-01T10:00:00Z', availabilityTimestamp: '2025-06-01T10:05:00Z', revisionStatus: 'REVISED', supersedes: { documentId: 'DOC-2025-01', documentVersion: 'v1' } });
 assert.equal(isSupersessionCandidate(revised, base), true);
