@@ -216,6 +216,25 @@ export function derivePaperPortfolio(portfolio) {
   };
 }
 
+export function parsePaperPortfolioBackup(raw) {
+  if (typeof raw !== 'string') throw new TypeError('Portfolio backup must be text.');
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new TypeError('Portfolio backup must contain valid JSON.');
+  }
+  assertPortfolioShape(parsed);
+  const normalized = {
+    version: PAPER_PORTFOLIO_VERSION,
+    initialCapital: DEFAULT_VIRTUAL_CAPITAL,
+    trades: parsed.trades.map(validateTrade),
+    marks: validateMarks(parsed.marks)
+  };
+  derivePaperPortfolio(normalized);
+  return normalized;
+}
+
 export function applyPaperTrade(portfolio, input) {
   const current = derivePaperPortfolio(portfolio);
   if (!input || typeof input !== 'object' || Array.isArray(input)) {
