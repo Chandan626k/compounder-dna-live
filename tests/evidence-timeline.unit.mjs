@@ -19,7 +19,7 @@ assert.match(html, /no new calculation is performed/, 'timeline must remain expl
 assert.match(html, /id="researchStateValue"/, 'research state regression must remain present');
 assert.match(html, /id="evidencePanel"/, 'evidence drill-down regression must remain present');
 assert.match(html, /canonicalEvidence\?\.breakoutLifecycle/, 'canonical evidence remains authoritative');
-assert.match(html, /productionBlocked=tr\?\.productionDecisionBlocked===true/, 'production gate must remain backend-controlled');
+assert.match(html, /productionBlocked=!tradingAvailable\|\|tr\?\.productionDecisionBlocked===true/, 'missing trading data must also keep production actions blocked');
 assert.match(html, /backendAction=a=>productionBlocked\?'NO TRADE'/, 'blocked production actions must remain NO TRADE');
 assert.doesNotMatch(html, /renderEvidenceTimeline[\s\S]*Date\.now\(/, 'timeline must not synthesize event time from current time');
 
