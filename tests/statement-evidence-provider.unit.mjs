@@ -60,7 +60,7 @@ async function runApi(symbol, provider) {
     analyzeStockFn: async (requestedSymbol) => {
       const evidence = await fetchStatementEvidence(requestedSymbol, provider);
       return {
-        stock: { symbol: requestedSymbol.toUpperCase().replace(/\\.(?:NS|BO)$/i, ''), price: 100, currency: 'INR' },
+        stock: { symbol: requestedSymbol.toUpperCase().replace(/\.(?:NS|BO)$/i, ''), price: 100, currency: 'INR' },
         fundamentals: mergeStatementEvidence(baseFinancials(), evidence),
         valuation: { enterpriseValue: null, evToEbitda: null, evToRevenue: null }
       };
