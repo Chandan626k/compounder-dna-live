@@ -5,6 +5,7 @@ import {
   applyPaperTrade,
   createPaperPortfolio,
   derivePaperPortfolio,
+  parsePaperPortfolioBackup,
   setPaperMark
 } from '../public/paper-portfolio.js';
 
@@ -91,11 +92,29 @@ assert.throws(() => applyPaperTrade(buyOne, {
 assert.throws(() => setPaperMark(initial, 'TCS.NS', 100, at), /open paper position/);
 assert.throws(() => derivePaperPortfolio({ ...initial, initialCapital: 100000 }), /₹5,00,000/);
 
+const backupRoundTrip = parsePaperPortfolioBackup(JSON.stringify(markedAfterSell));
+assert.deepEqual(backupRoundTrip, markedAfterSell, 'valid backups must round-trip without changing the ledger');
+assert.equal(derivePaperPortfolio(backupRoundTrip).totalEquity, 500315);
+assert.throws(() => parsePaperPortfolioBackup('{invalid json'), /valid JSON/);
+assert.throws(() => parsePaperPortfolioBackup(JSON.stringify({ ...initial, version: 99 })), /Unsupported paper portfolio version/);
+assert.throws(() => parsePaperPortfolioBackup(JSON.stringify({ ...initial, initialCapital: 100000 })), /₹5,00,000/);
+assert.throws(() => parsePaperPortfolioBackup(JSON.stringify({
+  ...initial,
+  trades: [{ id: 'orphan-sell', symbol: 'TCS.NS', side: 'SELL', quantity: 1, price: 100, fees: 0, executedAt: at }]
+})), /open long position/);
+assert.throws(() => parsePaperPortfolioBackup(JSON.stringify({
+  ...initial,
+  marks: { 'TCS.NS': { price: 100, markedAt: at } }
+})), /without an open position/);
+
 
 const paperPage = fs.readFileSync(new URL('../public/paper-trading.html', import.meta.url), 'utf8');
 assert.match(paperPage, /PAPER MODE ONLY/);
 assert.match(paperPage, /No broker connection/);
 assert.match(paperPage, /localStorage/);
+assert.match(paperPage, /Import portfolio backup/);
+assert.match(paperPage, /parsePaperPortfolioBackup/);
+assert.match(paperPage, /window\.confirm/);
 assert.match(paperPage, /Promise\.allSettled/);
 assert.match(paperPage, /No real order was sent/);
 assert.doesNotMatch(paperPage, /\/api\/orders?/i);

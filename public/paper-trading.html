@@ -124,7 +124,11 @@ footer{max-width:1180px;margin:auto;padding:10px 16px 35px;color:var(--muted);fo
         <li>Data is saved in this browser's local storage only. It is not synced across devices.</li>
         <li>Export a JSON backup regularly. No server-side account or database is used.</li>
       </ul>
-      <div class="form-actions" style="margin-top:12px"><button id="exportButton" class="secondary" type="button">Export portfolio backup</button></div>
+      <div class="form-actions" style="margin-top:12px">
+        <button id="exportButton" class="secondary" type="button">Export portfolio backup</button>
+        <button id="importButton" class="secondary" type="button">Import portfolio backup</button>
+        <input id="importFile" type="file" accept=".json,application/json" hidden>
+      </div>
       <div id="storageStatus" class="status" aria-live="polite"></div>
     </div>
   </section>
@@ -147,6 +151,7 @@ import {
   createPaperPortfolio,
   applyPaperTrade,
   derivePaperPortfolio,
+  parsePaperPortfolioBackup,
   setPaperMark
 } from './paper-portfolio.js';
 
@@ -373,6 +378,33 @@ $('exportButton').addEventListener('click', () => {
     setMessage('storageStatus', 'Backup exported. Keep it somewhere safe; this page does not sync across devices.');
   } catch (error) {
     setMessage('storageStatus', 'Could not export backup: ' + error.message, true);
+  }
+});
+
+$('importButton').addEventListener('click', () => $('importFile').click());
+
+$('importFile').addEventListener('change', async event => {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+  try {
+    if (file.size > 4 * 1024 * 1024) {
+      throw new RangeError('Backup file must be 4 MB or smaller.');
+    }
+    const imported = parsePaperPortfolioBackup(await file.text());
+    if (!window.confirm('Replace the current browser-local paper portfolio with this validated backup?')) {
+      setMessage('storageStatus', 'Import cancelled. Existing portfolio unchanged.');
+      return;
+    }
+    persist(imported);
+    if (storageAvailable) {
+      setMessage('storageStatus', 'Validated backup imported and saved in this browser.');
+    } else {
+      setMessage('storageStatus', 'Backup imported in this page only; browser storage is unavailable. Export a backup before closing.', true);
+    }
+  } catch (error) {
+    setMessage('storageStatus', 'Import failed; existing portfolio unchanged: ' + error.message, true);
+  } finally {
+    event.target.value = '';
   }
 });
 </script>
