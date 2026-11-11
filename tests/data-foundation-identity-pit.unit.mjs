@@ -17,6 +17,31 @@ assert.equal(resolveProviderMapping(identity.identity, 'upstox').identifier, 'NS
 assert.equal(symbolWasValid(identity.identity, 'INFY', '2024-01-01T00:00:00Z'), true);
 assert.equal(sameSecurityIdentity(identity.identity, { securityId: 'SEC:INFY:NSE' }), true);
 
+const invalidTimestampIdentity = createSecurityIdentity({
+  securityId: 'SEC:BAD:NSE', issuerId: 'ISS:BAD', exchange: 'NSE', instrumentType: 'EQUITY', canonicalSymbol: 'BAD',
+  symbolValidityFrom: false,
+  providerMappings: [{ provider: 'yahoo', identifier: 'BAD.NS', validFrom: [2025, 0, 1] }],
+});
+assert.equal(invalidTimestampIdentity.identity.symbolValidityFrom, null);
+assert.equal(invalidTimestampIdentity.identity.providerMappings[0].validFrom, null);
+assert.equal(invalidTimestampIdentity.validationState, IDENTITY_VALIDATION.INVALID,
+  'explicit malformed identity validity timestamps must not become open-ended validity');
+assert.ok(invalidTimestampIdentity.errors.some((error) => error.includes('symbolValidityFrom')));
+assert.ok(invalidTimestampIdentity.errors.some((error) => error.includes('provider mapping validFrom')));
+
+const timelessIdentity = createSecurityIdentity({
+  securityId: 'SEC:TIMELESS:NSE', issuerId: 'ISS:TIMELESS', exchange: 'NSE', instrumentType: 'EQUITY',
+  canonicalSymbol: 'INFY', providerMappings: [{ provider: 'yahoo', identifier: 'INFY.NS' }],
+});
+assert.equal(resolveProviderMapping(timelessIdentity.identity, 'yahoo', false), null,
+  'a supplied boolean as-of value must not be treated as an epoch or as an omitted date');
+assert.equal(resolveProviderMapping(timelessIdentity.identity, 'yahoo', 'not-a-date'), null,
+  'an invalid supplied as-of value must not bypass mapping validity checks');
+assert.equal(symbolWasValid(timelessIdentity.identity, 'INFY', false), false,
+  'a boolean symbol-validity time must not be coerced to the Unix epoch');
+assert.equal(symbolWasValid(timelessIdentity.identity, 'INFY', 0), true,
+  'an explicit numeric epoch remains a valid symbol-validity time');
+
 const baseInput = {
   issuerIdentity: 'ISS:INFOSYS', securityIdentity: 'SEC:INFY:NSE', metric: 'netIncome', value: 100,
   unit: 'INR_CRORE', currency: 'INR', accountingBasis: 'IND_AS',
@@ -32,6 +57,43 @@ const baseInput = {
 const base = createFinancialEvidence(baseInput);
 assert.equal(base.validationState, VALIDATION_STATES.VALID);
 assert.equal(determinePitEligibility(base.evidence, '2025-05-21T00:00:00Z'), PIT_STATES.PIT_VERIFIED);
+
+const coercedBooleanTimestamps = createFinancialEvidence({
+  ...baseInput,
+  publicationTimestamp: false,
+  availabilityTimestamp: true,
+});
+assert.equal(coercedBooleanTimestamps.evidence.publicationTimestamp, null,
+  'boolean publication timestamps must not be coerced to epoch dates');
+assert.equal(coercedBooleanTimestamps.evidence.availabilityTimestamp, null,
+  'boolean availability timestamps must not be coerced to epoch dates');
+assert.equal(determinePitEligibility(coercedBooleanTimestamps.evidence, '2025-05-21T00:00:00Z'), PIT_STATES.PIT_UNKNOWN,
+  'coerced boolean source timestamps must not satisfy PIT verification');
+
+const coercedArrayTimestamp = createFinancialEvidence({
+  ...baseInput,
+  publicationTimestamp: [2025, 0, 1],
+  availabilityTimestamp: [2025, 0, 2],
+});
+assert.equal(coercedArrayTimestamp.evidence.publicationTimestamp, null,
+  'array publication timestamps must not be coerced into calendar dates');
+assert.equal(coercedArrayTimestamp.evidence.availabilityTimestamp, null,
+  'array availability timestamps must not be coerced into calendar dates');
+assert.equal(determinePitEligibility(coercedArrayTimestamp.evidence, '2025-05-21T00:00:00Z'), PIT_STATES.PIT_UNKNOWN);
+
+const explicitEpochEvidence = createFinancialEvidence({
+  ...baseInput,
+  reportingPeriodStart: 0,
+  reportingPeriodEnd: 1,
+  publicationTimestamp: 0,
+  availabilityTimestamp: 1,
+  effectiveTimestamp: new Date(1),
+  retrievedAt: 2,
+});
+assert.equal(explicitEpochEvidence.evidence.publicationTimestamp, '1970-01-01T00:00:00.000Z');
+assert.equal(explicitEpochEvidence.evidence.availabilityTimestamp, '1970-01-01T00:00:00.001Z');
+assert.equal(determinePitEligibility(explicitEpochEvidence.evidence, 3), PIT_STATES.PIT_VERIFIED,
+  'explicit finite numeric epoch milliseconds remain valid timestamps');
 
 const preEpochEvidence = createFinancialEvidence({
   ...baseInput,
