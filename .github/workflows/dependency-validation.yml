@@ -6,6 +6,7 @@ on:
       - fix/security-dependency-audit-2026-11
   workflow_dispatch:
 
+# This write permission is limited to the disposable dependency feature branch.
 permissions:
   contents: write
 
