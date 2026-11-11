@@ -196,6 +196,31 @@ const retrievalOnly = createFinancialEvidence({ ...baseInput, publicationTimesta
 assert.equal(determinePitEligibility(retrievalOnly.evidence, '2025-05-21T00:00:00Z'), PIT_STATES.PIT_UNKNOWN);
 assert.notEqual(retrievalOnly.evidence.retrievedAt, retrievalOnly.evidence.publicationTimestamp);
 
+const malformedPeriodContract = createFinancialEvidence({
+  ...baseInput,
+  reportingPeriodStart: '1',
+  reportingPeriodEnd: '2',
+});
+assert.equal(malformedPeriodContract.validationState, VALIDATION_STATES.INVALID,
+  'ambiguous reporting-period strings must invalidate the evidence contract');
+assert.ok(malformedPeriodContract.errors.some((error) => error.includes('reportingPeriodStart')));
+assert.ok(malformedPeriodContract.errors.some((error) => error.includes('reportingPeriodEnd')));
+
+const impossiblePeriodContract = createFinancialEvidence({
+  ...baseInput,
+  reportingPeriodStart: '2025-02-30',
+});
+assert.equal(impossiblePeriodContract.validationState, VALIDATION_STATES.INVALID,
+  'impossible reporting-period dates must invalidate the evidence contract');
+
+const rawAmbiguousPeriod = {
+  ...base.evidence,
+  reportingPeriodStart: '1',
+  reportingPeriodEnd: '2',
+};
+assert.equal(isPeriodCompatible(rawAmbiguousPeriod, rawAmbiguousPeriod), false,
+  'period compatibility must validate raw date strings instead of accepting Date coercion');
+
 const invalidPeriodContract = createFinancialEvidence({
   ...baseInput,
   reportingPeriodStart: '2025-04-01T00:00:00Z',
