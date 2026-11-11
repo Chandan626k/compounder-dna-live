@@ -29,6 +29,20 @@ assert.equal(invalidTimestampIdentity.validationState, IDENTITY_VALIDATION.INVAL
 assert.ok(invalidTimestampIdentity.errors.some((error) => error.includes('symbolValidityFrom')));
 assert.ok(invalidTimestampIdentity.errors.some((error) => error.includes('provider mapping validFrom')));
 
+const invalidIsoIdentity = createSecurityIdentity({
+  securityId: 'SEC:BAD-ISO:NSE', issuerId: 'ISS:BAD-ISO', exchange: 'NSE', instrumentType: 'EQUITY',
+  canonicalSymbol: 'BADISO',
+  symbolValidityFrom: '1',
+  symbolValidityTo: '2025-02-30',
+  providerMappings: [{ provider: 'yahoo', identifier: 'BADISO.NS', validFrom: '2025-02-30', validTo: '1' }],
+});
+assert.equal(invalidIsoIdentity.validationState, IDENTITY_VALIDATION.INVALID,
+  'ambiguous and impossible identity validity dates must not be accepted');
+assert.ok(invalidIsoIdentity.errors.some((error) => error.includes('symbolValidityFrom')));
+assert.ok(invalidIsoIdentity.errors.some((error) => error.includes('symbolValidityTo')));
+assert.ok(invalidIsoIdentity.errors.some((error) => error.includes('provider mapping validFrom')));
+assert.ok(invalidIsoIdentity.errors.some((error) => error.includes('provider mapping validTo')));
+
 const timelessIdentity = createSecurityIdentity({
   securityId: 'SEC:TIMELESS:NSE', issuerId: 'ISS:TIMELESS', exchange: 'NSE', instrumentType: 'EQUITY',
   canonicalSymbol: 'INFY', providerMappings: [{ provider: 'yahoo', identifier: 'INFY.NS' }],
@@ -37,8 +51,12 @@ assert.equal(resolveProviderMapping(timelessIdentity.identity, 'yahoo', false), 
   'a supplied boolean as-of value must not be treated as an epoch or as an omitted date');
 assert.equal(resolveProviderMapping(timelessIdentity.identity, 'yahoo', 'not-a-date'), null,
   'an invalid supplied as-of value must not bypass mapping validity checks');
+assert.equal(resolveProviderMapping(timelessIdentity.identity, 'yahoo', '1'), null,
+  'an ambiguous numeric date string must not be interpreted as an as-of timestamp');
 assert.equal(symbolWasValid(timelessIdentity.identity, 'INFY', false), false,
   'a boolean symbol-validity time must not be coerced to the Unix epoch');
+assert.equal(symbolWasValid(timelessIdentity.identity, 'INFY', '1'), false,
+  'an ambiguous numeric date string must not become a symbol-validity timestamp');
 assert.equal(symbolWasValid(timelessIdentity.identity, 'INFY', 0), true,
   'an explicit numeric epoch remains a valid symbol-validity time');
 
@@ -80,6 +98,50 @@ assert.equal(coercedArrayTimestamp.evidence.publicationTimestamp, null,
 assert.equal(coercedArrayTimestamp.evidence.availabilityTimestamp, null,
   'array availability timestamps must not be coerced into calendar dates');
 assert.equal(determinePitEligibility(coercedArrayTimestamp.evidence, '2025-05-21T00:00:00Z'), PIT_STATES.PIT_UNKNOWN);
+
+const ambiguousStringTimestamps = createFinancialEvidence({
+  ...baseInput,
+  publicationTimestamp: '1',
+  availabilityTimestamp: '2',
+});
+assert.equal(ambiguousStringTimestamps.evidence.publicationTimestamp, null,
+  'numeric-looking strings must not be interpreted as calendar timestamps');
+assert.equal(ambiguousStringTimestamps.evidence.availabilityTimestamp, null);
+assert.equal(determinePitEligibility(ambiguousStringTimestamps.evidence, '2026-11-11T00:00:00Z'), PIT_STATES.PIT_UNKNOWN);
+
+const invalidCalendarTimestamp = createFinancialEvidence({
+  ...baseInput,
+  publicationTimestamp: '2025-02-30T10:00:00Z',
+});
+assert.equal(invalidCalendarTimestamp.evidence.publicationTimestamp, null,
+  'impossible calendar dates must not be normalized into a different valid day');
+assert.equal(determinePitEligibility(invalidCalendarTimestamp.evidence, '2026-11-11T00:00:00Z'), PIT_STATES.PIT_UNKNOWN);
+
+const rawMalformedTimestampEvidence = {
+  ...base.evidence,
+  publicationTimestamp: false,
+  availabilityTimestamp: true,
+};
+assert.equal(determinePitEligibility(rawMalformedTimestampEvidence, '2026-11-11T00:00:00Z'), PIT_STATES.PIT_UNKNOWN,
+  'PIT evaluation must validate raw evidence timestamps even when the constructor is bypassed');
+
+const rawAmbiguousTimestampEvidence = {
+  ...base.evidence,
+  publicationTimestamp: '1',
+  availabilityTimestamp: '2',
+};
+assert.equal(determinePitEligibility(rawAmbiguousTimestampEvidence, '2026-11-11T00:00:00Z'), PIT_STATES.PIT_UNKNOWN,
+  'PIT evaluation must reject ambiguous timestamp strings on raw evidence');
+
+const explicitIsoFormats = createFinancialEvidence({
+  ...baseInput,
+  publicationTimestamp: '2025-05-15',
+  availabilityTimestamp: '2025-05-15T15:35:00+05:30',
+});
+assert.equal(explicitIsoFormats.evidence.publicationTimestamp, '2025-05-15T00:00:00.000Z');
+assert.equal(explicitIsoFormats.evidence.availabilityTimestamp, '2025-05-15T10:05:00.000Z');
+assert.equal(determinePitEligibility(explicitIsoFormats.evidence, '2025-05-16T00:00:00Z'), PIT_STATES.PIT_VERIFIED,
+  'explicit ISO date-only and offset timestamps remain supported');
 
 const explicitEpochEvidence = createFinancialEvidence({
   ...baseInput,
