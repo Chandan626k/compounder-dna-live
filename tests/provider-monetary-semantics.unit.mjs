@@ -21,6 +21,13 @@ assert.equal(deriveFinancialCurrency([
   { date: '2025-03-31', currencyCode: 'INR', EBITDA: 20 },
 ]), null, 'mixed statement currencies must remain UNKNOWN');
 assert.equal(deriveFinancialCurrency([{ date: '2025-03-31', totalRevenue: 100 }]), null, 'missing statement currency must remain UNKNOWN');
+assert.equal(deriveFinancialCurrency([
+  { date: '2025-03-31', currencyCode: 'USD', totalRevenue: 100 },
+  { date: '2024-03-31', totalRevenue: 50 },
+]), null, 'known plus missing row currency metadata must remain UNKNOWN');
+assert.equal(deriveFinancialCurrency([
+  { date: '2025-03-31', currencyCode: '', currency: 'USD', totalRevenue: 100 },
+]), 'USD', 'blank primary currency metadata must not mask an explicit fallback field');
 
 const matchingEvidence = (fixture) => ({
   currency: {
@@ -40,6 +47,15 @@ assert.equal(compatible.ebitda.periodType, 'TTM');
 assert.equal(compatible.revenue.periodType, 'TTM');
 assert.equal(compatible.ebitda.currency, 'INR');
 assert.equal(compatible.revenue.currency, 'INR');
+
+const withoutRowCurrency = structuredClone(base());
+withoutRowCurrency.trailing = withoutRowCurrency.trailing.map(({ currencyCode, ...row }) => row);
+const explicitPriceCurrency = assessProviderMonetarySemantics(withoutRowCurrency);
+assert.equal(explicitPriceCurrency.currencyStatus, 'MATCH', 'explicit quoteSummary financialCurrency is valid reporting-currency evidence');
+assert.equal(explicitPriceCurrency.financialCurrency, 'INR');
+assert.equal(explicitPriceCurrency.compatible.enterpriseValue, true, 'provider EV currency remains independently verifiable');
+assert.equal(explicitPriceCurrency.compatible.evToEbitda, false, 'missing row currency must still block EV/EBITDA');
+assert.equal(explicitPriceCurrency.compatible.evToRevenue, false, 'missing row currency must still block EV/revenue');
 
 for (const [name, mutate] of [
   ['unknown currency', x => { x.summary.price.currency = null; x.summary.price.financialCurrency = null; }],
