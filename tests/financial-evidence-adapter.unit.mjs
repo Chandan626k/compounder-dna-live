@@ -119,7 +119,7 @@ assert.equal(revenue.evidence.metricScope, null);
 assert.equal(revenue.evidence.entitlementStatus, ACCESS_STATES.UNKNOWN);
 assert.equal(revenue.evidence.revisionStatus, 'UNKNOWN');
 assert.equal(revenue.evidence.lineage, null);
-assert.equal(revenue.evidence.retrievedAt, fetchedAt);
+assert.equal(revenue.evidence.retrievedAt, '2026-09-20T06:00:00.000Z');
 assert.notEqual(revenue.evidence.retrievedAt, providerRows.income[0].retrievedAt);
 
 const roe = mapped.records.find((r) => r.evidence.metric === 'roe' && r.evidence.reportingPeriodEnd.startsWith('2025-03-31'));
