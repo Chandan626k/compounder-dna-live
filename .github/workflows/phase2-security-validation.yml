@@ -1,0 +1,30 @@
+name: Phase 2 Security Validation
+
+on:
+  push:
+    branches:
+      - fix/phase2-partial-analysis-security
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install exact locked dependencies
+        run: npm ci
+      - name: Full test suite
+        run: npm test
+      - name: Enforce clean dependency audit
+        run: npm audit --audit-level=low
