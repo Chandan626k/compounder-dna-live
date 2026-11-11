@@ -4,6 +4,11 @@ on:
   push:
     branches:
       - feature/paper-portfolio-simulator-v1
+      - fix/paper-portfolio-*
+  pull_request:
+    branches:
+      - feature/paper-portfolio-simulator-v1
+      - fix/paper-portfolio-*
 
 permissions:
   contents: read
@@ -12,10 +17,10 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout exact pushed commit
+      - name: Checkout exact pushed or pull-request head commit
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Setup Node 22
         uses: actions/setup-node@v4
         with:
