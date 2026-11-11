@@ -286,6 +286,40 @@ assert.ok(verifiedStrength.evidence.selected.every((e) => e.issuerIdentity === '
 assert.ok(verifiedStrength.evidence.selected.every((e) => e.pitEligibility === PIT_STATES.PIT_VERIFIED));
 assert.deepEqual(verifiedStrength.evidence.pitStates, [PIT_STATES.PIT_VERIFIED]);
 
+const ambiguousPeriodCanonical = {
+  ...verifiedCanonical,
+  records: verifiedCanonical.records.map((record) => ({
+    ...record,
+    evidence: {
+      ...record.evidence,
+      reportingPeriodStart: '1',
+      reportingPeriodEnd: '2',
+    },
+  })),
+};
+assert.equal(buildStrength(ambiguousPeriodCanonical, {
+  sectorKey: 'MANUFACTURING',
+  baseFinancials: { ratios: {}, derived: {}, current: {} },
+}).status, 'UNAVAILABLE',
+'an ambiguous raw reporting period must not pass the downstream canonical consumer');
+
+const invertedPeriodCanonical = {
+  ...verifiedCanonical,
+  records: verifiedCanonical.records.map((record) => ({
+    ...record,
+    evidence: {
+      ...record.evidence,
+      reportingPeriodStart: '2025-04-01T00:00:00Z',
+      reportingPeriodEnd: '2025-03-31T00:00:00Z',
+    },
+  })),
+};
+assert.equal(buildStrength(invertedPeriodCanonical, {
+  sectorKey: 'MANUFACTURING',
+  baseFinancials: { ratios: {}, derived: {}, current: {} },
+}).status, 'UNAVAILABLE',
+'an inverted raw reporting period must not pass the downstream canonical consumer');
+
 const missingEnvelopeContract = { ...verifiedCanonical, contract: null };
 assert.equal(buildStrength(missingEnvelopeContract, {
   sectorKey: 'MANUFACTURING',
