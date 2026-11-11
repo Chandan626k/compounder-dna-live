@@ -12,9 +12,15 @@ const identity = createSecurityIdentity({
   ],
 });
 assert.equal(identity.validationState, IDENTITY_VALIDATION.VALID);
+assert.equal(identity.identity.validationState, IDENTITY_VALIDATION.VALID,
+  'the inner identity must carry the constructor validation result');
 assert.equal(resolveProviderMapping(identity.identity, 'yahoo').identifier, 'INFY.NS');
 assert.equal(resolveProviderMapping(identity.identity, 'upstox').identifier, 'NSE_EQ|INE009A01021');
+assert.equal(resolveProviderMapping({ ...identity.identity, validationState: undefined }, 'yahoo'), null,
+  'raw or unvalidated identity-shaped objects must not be resolved');
 assert.equal(symbolWasValid(identity.identity, 'INFY', '2024-01-01T00:00:00Z'), true);
+assert.equal(symbolWasValid({ ...identity.identity, validationState: undefined }, 'INFY', '2024-01-01T00:00:00Z'), false,
+  'raw or unvalidated identity-shaped objects must not establish symbol validity');
 assert.equal(sameSecurityIdentity(identity.identity, { securityId: 'SEC:INFY:NSE' }), true);
 
 const invalidTimestampIdentity = createSecurityIdentity({
@@ -28,6 +34,11 @@ assert.equal(invalidTimestampIdentity.validationState, IDENTITY_VALIDATION.INVAL
   'explicit malformed identity validity timestamps must not become open-ended validity');
 assert.ok(invalidTimestampIdentity.errors.some((error) => error.includes('symbolValidityFrom')));
 assert.ok(invalidTimestampIdentity.errors.some((error) => error.includes('provider mapping validFrom')));
+assert.equal(invalidTimestampIdentity.identity.validationState, IDENTITY_VALIDATION.INVALID);
+assert.equal(resolveProviderMapping(invalidTimestampIdentity.identity, 'yahoo'), null,
+  'a malformed identity must not resolve its normalized-away provider validity bound');
+assert.equal(symbolWasValid(invalidTimestampIdentity.identity, 'BAD', '2025-05-01T00:00:00Z'), false,
+  'a malformed identity must not become open-ended symbol validity');
 
 const invalidIsoIdentity = createSecurityIdentity({
   securityId: 'SEC:BAD-ISO:NSE', issuerId: 'ISS:BAD-ISO', exchange: 'NSE', instrumentType: 'EQUITY',
@@ -42,6 +53,8 @@ assert.ok(invalidIsoIdentity.errors.some((error) => error.includes('symbolValidi
 assert.ok(invalidIsoIdentity.errors.some((error) => error.includes('symbolValidityTo')));
 assert.ok(invalidIsoIdentity.errors.some((error) => error.includes('provider mapping validFrom')));
 assert.ok(invalidIsoIdentity.errors.some((error) => error.includes('provider mapping validTo')));
+assert.equal(resolveProviderMapping(invalidIsoIdentity.identity, 'yahoo'), null);
+assert.equal(symbolWasValid(invalidIsoIdentity.identity, 'BADISO', '2026-01-01T00:00:00Z'), false);
 
 const timelessIdentity = createSecurityIdentity({
   securityId: 'SEC:TIMELESS:NSE', issuerId: 'ISS:TIMELESS', exchange: 'NSE', instrumentType: 'EQUITY',
