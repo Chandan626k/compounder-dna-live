@@ -117,6 +117,25 @@ assert.equal(buildFinancialStrengthInputFromCanonical(providerForgeryCanonical, 
   sectorKey: 'MANUFACTURING',
   baseFinancials: { ratios: {}, derived: {}, current: {} },
 }).status, 'UNAVAILABLE', 'provider-controlled filing metadata must never establish authoritative evidence');
+const rejectedTrustedContext = adaptStatementEvidenceToCanonical(verifiedFixture, {
+  issuerIdentity: 'ISS:INFOSYS',
+  securityIdentity: 'SEC:INFY:NSE',
+  evaluationTimestamp: '2026-09-20T06:01:00Z',
+  trustedSourceContext: {
+    sourceType: 'FILING',
+    sourceAuthority: 'UNVERIFIED_PROVIDER',
+    validationState: VALIDATION_STATES.VALID,
+  },
+});
+const rejectedTrustedDebt = rejectedTrustedContext.records.find((r) => r.evidence.metric === 'debt');
+assert.equal(rejectedTrustedDebt.evidence.sourceType, 'provider');
+assert.equal(rejectedTrustedDebt.evidence.sourceAuthority, 'SECONDARY_PROVIDER');
+assert.equal(rejectedTrustedDebt.evidence.validationState, VALIDATION_STATES.UNKNOWN);
+assert.equal(rejectedTrustedDebt.pitEligibility, PIT_STATES.PIT_UNKNOWN);
+assert.equal(buildFinancialStrengthInputFromCanonical(rejectedTrustedContext, {
+  sectorKey: 'MANUFACTURING',
+  baseFinancials: { ratios: {}, derived: {}, current: {} },
+}).status, 'UNAVAILABLE', 'unallowlisted trusted-source authority must not promote provider rows');
 const verifiedStrength = buildFinancialStrengthInputFromCanonical(verifiedCanonical, {
   sectorKey: 'MANUFACTURING',
   baseFinancials: { ratios: {}, derived: {}, current: {} },
