@@ -1,0 +1,34 @@
+name: Phase 2 Opaque Filing Provenance Validation
+
+on:
+  push:
+    branches:
+      - fix/phase2-opaque-filing-provenance
+  pull_request:
+    branches:
+      - fix/phase2-provider-provenance-trust-boundary
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact PR head SHA
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install exact locked dependencies
+        run: npm ci
+      - name: Provider-only trust-boundary regression
+        run: node tests/financial-evidence-adapter.unit.mjs
+      - name: Full regression suite
+        run: npm test
+      - name: Enforce dependency audit
+        run: npm audit --audit-level=low
