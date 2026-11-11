@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>StockSamjho — Paper Portfolio</title>
+<style>
+:root{color-scheme:light;--bg:#f4f6fa;--card:#fff;--ink:#172033;--muted:#64748b;--line:#dfe5ee;--blue:#2563eb;--green:#137547;--red:#b42332;--amber:#9a6700}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif}
+a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}
+header,main{max-width:1180px;margin:auto;padding:18px 16px}
+header{padding-top:24px}.topline{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+h1{margin:12px 0 4px;font-size:28px}.sub{color:var(--muted);font-size:13px;line-height:1.6}
+.mode{display:inline-block;border:1px solid #b7d7c4;background:#eef8f1;color:#17633b;border-radius:999px;padding:7px 11px;font:800 10px ui-monospace,monospace;letter-spacing:.5px}
+.warning{margin-top:14px;padding:12px 14px;border:1px solid #e6c98c;border-radius:10px;background:#fff8e8;color:#6f4b00;font-size:12px;line-height:1.6}
+.cards{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:14px 0}
+.card,.panel{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:15px;box-shadow:0 4px 14px rgba(20,35,55,.04)}
+.card span{display:block;color:var(--muted);font:700 10px ui-monospace,monospace;text-transform:uppercase;letter-spacing:.5px}
+.card strong{display:block;margin-top:8px;font:800 19px ui-monospace,monospace;overflow-wrap:anywhere}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:12px 0}
+h2{font-size:16px;margin:0 0 10px}.hint{color:var(--muted);font-size:11px;line-height:1.55;margin:0 0 12px}
+form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;align-items:end}
+.field{display:grid;gap:5px}.field.full{grid-column:1/-1}
+label{font-size:11px;color:#526174;font-weight:700}
+input,select,textarea{width:100%;min-width:0;border:1px solid #cfd8e3;border-radius:8px;background:#fff;padding:10px 11px;color:var(--ink);font:13px inherit}
+input:focus,select:focus,textarea:focus{outline:2px solid #bfd3ff;border-color:var(--blue)}
+button{border:0;border-radius:8px;background:var(--blue);color:#fff;padding:11px 14px;font-weight:800;font-size:12px;cursor:pointer}
+button.secondary{background:#eef2f7;color:#26364a;border:1px solid var(--line)}
+button:disabled{opacity:.55;cursor:not-allowed}
+.form-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.status{margin-top:10px;color:var(--muted);font-size:11px;line-height:1.5;min-height:16px}
+.analysis-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px}
+.analysis-item{border:1px solid var(--line);background:#fafcff;border-radius:9px;padding:9px;min-width:0}
+.analysis-item span{display:block;color:var(--muted);font-size:10px;text-transform:uppercase;font-weight:700}
+.analysis-item b{display:block;margin-top:4px;font-size:12px;overflow-wrap:anywhere}
+.table-wrap{overflow:auto}
+table{width:100%;border-collapse:collapse;min-width:720px;font-size:11px}
+th,td{text-align:left;padding:9px 8px;border-bottom:1px solid #e8edf3;vertical-align:top}
+th{color:var(--muted);font:700 10px ui-monospace,monospace;text-transform:uppercase}
+.positive{color:var(--green)}.negative{color:var(--red)}.muted{color:var(--muted)}
+ul{margin:0;padding-left:18px;color:#526174;font-size:11px;line-height:1.8}
+footer{max-width:1180px;margin:auto;padding:10px 16px 35px;color:var(--muted);font-size:10px;line-height:1.6}
+@media(max-width:850px){.cards{grid-template-columns:repeat(2,minmax(0,1fr))}.grid{grid-template-columns:1fr}}
+@media(max-width:520px){header,main{padding-left:11px;padding-right:11px}.cards{grid-template-columns:1fr 1fr}.card strong{font-size:16px}form{grid-template-columns:1fr}.field.full{grid-column:auto}.analysis-grid{grid-template-columns:1fr 1fr}h1{font-size:23px}}
+</style>
+</head>
+<body>
+<header>
+  <div class="topline">
+    <a href="/terminal.html">← Back to StockSamjho analysis</a>
+    <span class="mode">PAPER MODE ONLY</span>
+  </div>
+  <h1>Virtual Paper Portfolio</h1>
+  <p class="sub">Fixed starting capital: <b>₹5,00,000</b>. Track hypothetical cash-equity trades and manually marked positions without placing any real order.</p>
+  <div class="warning"><b>Simulation only.</b> No broker connection, no real orders, no live execution, no margin, no short selling and no production action. Every paper entry is manually submitted by you; analysis signals never create orders automatically.</div>
+</header>
+
+<main>
+  <section class="cards" aria-label="Portfolio summary">
+    <div class="card"><span>Virtual cash</span><strong id="cash">₹5,00,000</strong></div>
+    <div class="card"><span>Open cost basis</span><strong id="invested">₹0</strong></div>
+    <div class="card"><span>Realized P&amp;L</span><strong id="realized">₹0</strong></div>
+    <div class="card"><span>Unrealized P&amp;L</span><strong id="unrealized">—</strong></div>
+    <div class="card"><span>Portfolio equity</span><strong id="equity">₹5,00,000</strong></div>
+  </section>
+
+  <section class="grid">
+    <div class="panel">
+      <h2>Read-only analysis snapshot</h2>
+      <p class="hint">Fetches the existing analysis and trading APIs for context only. It cannot submit a paper trade and does not override the NO TRADE / production safety gate.</p>
+      <form id="analysisForm">
+        <div class="field"><label for="analysisSymbol">NSE / BSE symbol</label><input id="analysisSymbol" placeholder="INFY.NS" autocomplete="off" required></div>
+        <div class="field"><button type="submit">Load analysis</button></div>
+      </form>
+      <div id="analysisStatus" class="status" aria-live="polite">No analysis loaded.</div>
+      <div class="analysis-grid">
+        <div class="analysis-item"><span>Company / symbol</span><b id="analysisName">—</b></div>
+        <div class="analysis-item"><span>Provider price</span><b id="analysisPrice">—</b></div>
+        <div class="analysis-item"><span>Analysis decision</span><b id="analysisDecision">—</b></div>
+        <div class="analysis-item"><span>Overall score</span><b id="analysisScore">—</b></div>
+        <div class="analysis-item"><span>Data confidence</span><b id="analysisConfidence">—</b></div>
+        <div class="analysis-item"><span>Technical trend</span><b id="analysisTrend">—</b></div>
+        <div class="analysis-item"><span>Trading API action</span><b id="analysisAction">—</b></div>
+        <div class="analysis-item"><span>Production action gate</span><b id="analysisGate">—</b></div>
+      </div>
+      <div id="analysisSource" class="status"></div>
+      <div id="analysisWarnings" class="status"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Record a simulated trade</h2>
+      <p class="hint">INR cash-equity only. Enter an explicit exchange symbol, whole-share quantity, hypothetical execution price and actual assumed fee. Fees default to ₹0; no brokerage or tax rate is assumed.</p>
+      <form id="tradeForm">
+        <div class="field"><label for="tradeSymbol">Symbol (.NS / .BO)</label><input id="tradeSymbol" placeholder="INFY.NS" autocomplete="off" required></div>
+        <div class="field"><label for="tradeSide">Paper side</label><select id="tradeSide"><option value="BUY">PAPER BUY</option><option value="SELL">PAPER SELL</option></select></div>
+        <div class="field"><label for="tradeQty">Quantity (whole shares)</label><input id="tradeQty" type="number" min="1" step="1" required></div>
+        <div class="field"><label for="tradePrice">Execution price (₹)</label><input id="tradePrice" type="number" min="0.01" step="0.01" required></div>
+        <div class="field"><label for="tradeFees">Fees (₹)</label><input id="tradeFees" type="number" min="0" step="0.01" value="0"></div>
+        <div class="field"><label for="tradeNote">Note (optional)</label><input id="tradeNote" maxlength="240" placeholder="Why this hypothetical entry?"></div>
+        <div class="field full"><button type="submit">Save paper trade</button></div>
+      </form>
+      <div id="tradeStatus" class="status" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <section class="grid">
+    <div class="panel">
+      <h2>Manual mark-to-market</h2>
+      <p class="hint">Enter a checked price manually for an open position. Marks are not live quotes and are never updated automatically.</p>
+      <form id="markForm">
+        <div class="field"><label for="markSymbol">Open position symbol</label><input id="markSymbol" placeholder="INFY.NS" autocomplete="off" required></div>
+        <div class="field"><label for="markPrice">Manual mark price (₹)</label><input id="markPrice" type="number" min="0.01" step="0.01" required></div>
+        <div class="field full"><button type="submit">Update manual mark</button></div>
+      </form>
+      <div id="markStatus" class="status" aria-live="polite"></div>
+    </div>
+    <div class="panel">
+      <h2>Portfolio rules &amp; storage</h2>
+      <ul>
+        <li>Long-only cash equity; no leverage, derivatives or short positions.</li>
+        <li>Only explicit .NS / .BO symbols; all ledger amounts are INR.</li>
+        <li>Fees are entered by the user. Zero is a placeholder, not a brokerage estimate.</li>
+        <li>Unrealized P&amp;L and equity stay unavailable until every open holding has a manual mark.</li>
+        <li>Data is saved in this browser's local storage only. It is not synced across devices.</li>
+        <li>Export a JSON backup regularly. No server-side account or database is used.</li>
+      </ul>
+      <div class="form-actions" style="margin-top:12px"><button id="exportButton" class="secondary" type="button">Export portfolio backup</button></div>
+      <div id="storageStatus" class="status" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Open paper positions</h2>
+    <div class="table-wrap"><table><thead><tr><th>Symbol</th><th>Qty</th><th>Average cost</th><th>Manual mark</th><th>Market value</th><th>Unrealized P&amp;L</th><th>Marked at</th></tr></thead><tbody id="positionsBody"></tbody></table></div>
+  </section>
+
+  <section class="panel" style="margin-top:12px">
+    <h2>Paper trade ledger</h2>
+    <div class="table-wrap"><table><thead><tr><th>Time</th><th>Side</th><th>Symbol</th><th>Qty</th><th>Price</th><th>Fees</th><th>Note</th></tr></thead><tbody id="tradesBody"></tbody></table></div>
+  </section>
+</main>
+
+<footer>Paper portfolio v1 • Simulated records only • No investment advice, trade recommendation, execution, brokerage integration or guaranteed return. Browser-local storage may be cleared by the browser or device.</footer>
+
+<script type="module">
+import {
+  createPaperPortfolio,
+  applyPaperTrade,
+  derivePaperPortfolio,
+  setPaperMark
+} from './paper-portfolio.js';
+
+const STORAGE_KEY = 'stocksamjho.paperPortfolio.v1';
+const money = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 });
+const $ = id => document.getElementById(id);
+let portfolio = null;
+let storageAvailable = true;
+
+function fmt(value) {
+  return value === null || value === undefined ? '—' : money.format(value);
+}
+function setText(id, value) {
+  $(id).textContent = value === null || value === undefined || value === '' ? '—' : String(value);
+}
+function setMessage(id, value, isError = false) {
+  $(id).textContent = value;
+  $(id).style.color = isError ? '#b42332' : '';
+}
+function addCell(row, value, className = '') {
+  const cell = document.createElement('td');
+  cell.textContent = value === null || value === undefined ? '—' : String(value);
+  if (className) cell.className = className;
+  row.appendChild(cell);
+}
+function formatTime(value) {
+  if (!value) return '—';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString('en-IN');
+}
+function render() {
+  if (!portfolio) return;
+  const state = derivePaperPortfolio(portfolio);
+  setText('cash', fmt(state.cash));
+  setText('invested', fmt(state.totalInvestedCost));
+  setText('realized', fmt(state.realizedPnl));
+  setText('unrealized', state.unrealizedPnl === null ? 'Awaiting manual marks' : fmt(state.unrealizedPnl));
+  setText('equity', state.totalEquity === null ? 'Incomplete — mark every open position' : fmt(state.totalEquity));
+
+  const positionsBody = $('positionsBody');
+  positionsBody.replaceChildren();
+  if (!state.positions.length) {
+    const row = document.createElement('tr');
+    addCell(row, 'No open paper positions.');
+    const cell = row.firstElementChild;
+    cell.colSpan = 7;
+    positionsBody.appendChild(row);
+  } else {
+    for (const position of state.positions) {
+      const row = document.createElement('tr');
+      addCell(row, position.symbol);
+      addCell(row, position.quantity);
+      addCell(row, fmt(position.averageCost));
+      addCell(row, fmt(position.markPrice));
+      addCell(row, fmt(position.marketValue));
+      const pnlClass = position.unrealizedPnl === null ? '' : position.unrealizedPnl >= 0 ? 'positive' : 'negative';
+      addCell(row, fmt(position.unrealizedPnl), pnlClass);
+      addCell(row, formatTime(position.markedAt));
+      positionsBody.appendChild(row);
+    }
+  }
+
+  const tradesBody = $('tradesBody');
+  tradesBody.replaceChildren();
+  const trades = [...portfolio.trades].reverse();
+  if (!trades.length) {
+    const row = document.createElement('tr');
+    addCell(row, 'No simulated trades recorded.');
+    row.firstElementChild.colSpan = 7;
+    tradesBody.appendChild(row);
+  } else {
+    for (const trade of trades) {
+      const row = document.createElement('tr');
+      addCell(row, formatTime(trade.executedAt));
+      addCell(row, 'PAPER ' + trade.side, trade.side === 'BUY' ? 'positive' : 'negative');
+      addCell(row, trade.symbol);
+      addCell(row, trade.quantity);
+      addCell(row, fmt(trade.price));
+      addCell(row, fmt(trade.fees));
+      addCell(row, trade.note || '—');
+      tradesBody.appendChild(row);
+    }
+  }
+}
+function persist(next) {
+  portfolio = next;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(portfolio));
+    storageAvailable = true;
+    setMessage('storageStatus', 'Saved on this browser only. Export a backup before clearing browser data.');
+  } catch (error) {
+    storageAvailable = false;
+    setMessage('storageStatus', 'Browser storage is unavailable. Changes remain only in this open page; export a backup before closing it.', true);
+  }
+  render();
+}
+function loadPortfolio() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) {
+    portfolio = createPaperPortfolio();
+    persist(portfolio);
+    return;
+  }
+  const saved = JSON.parse(raw);
+  derivePaperPortfolio(saved);
+  portfolio = saved;
+  setMessage('storageStatus', 'Loaded saved portfolio from this browser.');
+  render();
+}
+
+try {
+  loadPortfolio();
+} catch (error) {
+  portfolio = null;
+  setMessage('storageStatus', 'Saved portfolio could not be validated: ' + error.message + '. No saved data was overwritten.', true);
+  $('tradeForm').querySelector('button[type="submit"]').disabled = true;
+  $('markForm').querySelector('button[type="submit"]').disabled = true;
+  $('exportButton').disabled = true;
+}
+
+$('tradeForm').addEventListener('submit', event => {
+  event.preventDefault();
+  if (!portfolio) return;
+  try {
+    const next = applyPaperTrade(portfolio, {
+      symbol: $('tradeSymbol').value,
+      side: $('tradeSide').value,
+      quantity: Number($('tradeQty').value),
+      price: Number($('tradePrice').value),
+      fees: Number($('tradeFees').value || 0),
+      note: $('tradeNote').value
+    });
+    persist(next);
+    setMessage('tradeStatus', 'Paper trade saved. No real order was sent.');
+    $('tradeForm').reset();
+    $('tradeFees').value = '0';
+  } catch (error) {
+    setMessage('tradeStatus', error.message, true);
+  }
+});
+
+$('markForm').addEventListener('submit', event => {
+  event.preventDefault();
+  if (!portfolio) return;
+  try {
+    const next = setPaperMark(portfolio, $('markSymbol').value, Number($('markPrice').value));
+    persist(next);
+    setMessage('markStatus', 'Manual mark updated. It is not a live or automatically refreshed quote.');
+    $('markPrice').value = '';
+  } catch (error) {
+    setMessage('markStatus', error.message, true);
+  }
+});
+
+$('analysisForm').addEventListener('submit', async event => {
+  event.preventDefault();
+  const symbol = $('analysisSymbol').value.trim().toUpperCase();
+  if (!/^[A-Z0-9][A-Z0-9&_-]{0,23}\.(NS|BO)$/.test(symbol)) {
+    setMessage('analysisStatus', 'Enter an explicit NSE or BSE symbol ending in .NS or .BO.', true);
+    return;
+  }
+  setMessage('analysisStatus', 'Loading read-only analysis and trading status…');
+  try {
+    const query = '?symbol=' + encodeURIComponent(symbol);
+    const [analysisResponse, tradingResponse] = await Promise.all([
+      fetch('/api/analyze' + query, { headers: { Accept: 'application/json' } }),
+      fetch('/api/trading' + query, { headers: { Accept: 'application/json' } })
+    ]);
+    const analysis = await analysisResponse.json().catch(() => ({}));
+    const trading = await tradingResponse.json().catch(() => ({}));
+    if (!analysisResponse.ok) throw new Error(analysis.error || 'Analysis API unavailable.');
+    if (!tradingResponse.ok) throw new Error(trading.error || 'Trading data API unavailable.');
+    const quality = analysis.dataQuality || {};
+    setText('analysisName', (analysis.stock && analysis.stock.name ? analysis.stock.name + ' • ' : '') + symbol);
+    setText('analysisPrice', analysis.stock && analysis.stock.price != null
+      ? String(analysis.stock.price) + ' ' + (analysis.stock.currency || 'currency unknown')
+      : 'Not available');
+    setText('analysisDecision', analysis.decision && analysis.decision.action ? analysis.decision.action : 'UNKNOWN');
+    setText('analysisScore', analysis.score && analysis.score.overall != null ? analysis.score.overall : 'Not available');
+    setText('analysisConfidence', quality.confidence == null ? 'Not available' : quality.confidence);
+    setText('analysisTrend', trading.technical && trading.technical.trend ? trading.technical.trend : 'Not available');
+    setText('analysisAction', trading.trade && trading.trade.action ? trading.trade.action : 'NO TRADE');
+    const gateEnabled = trading.decisionPolicy && trading.decisionPolicy.productionActionsEnabled === true;
+    const blocked = trading.productionDecisionBlocked === true || (trading.decisionPolicy && trading.decisionPolicy.productionActionsEnabled === false);
+    setText('analysisGate', blocked ? 'Disabled / blocked' : gateEnabled ? 'Enabled by API policy' : 'Not confirmed');
+    const sourceBits = [quality.provider, quality.source, quality.asOf].filter(Boolean);
+    setText('analysisSource', sourceBits.length ? 'Data metadata: ' + sourceBits.join(' • ') : 'Data source / as-of metadata unavailable.');
+    setText('analysisWarnings', Array.isArray(quality.warnings) && quality.warnings.length
+      ? 'Data warnings: ' + quality.warnings.join(' • ')
+      : 'No data warnings reported by this response; this is not proof of authoritative evidence.');
+    setMessage('analysisStatus', 'Read-only snapshot loaded for ' + symbol + '. It did not create a paper trade.');
+  } catch (error) {
+    setMessage('analysisStatus', error.message, true);
+  }
+});
+
+$('exportButton').addEventListener('click', () => {
+  if (!portfolio) return;
+  try {
+    const blob = new Blob([JSON.stringify(portfolio, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'stocksamjho-paper-portfolio-500000.json';
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+    setMessage('storageStatus', 'Backup exported. Keep it somewhere safe; this page does not sync across devices.');
+  } catch (error) {
+    setMessage('storageStatus', 'Could not export backup: ' + error.message, true);
+  }
+});
+</script>
+</body>
+</html>
