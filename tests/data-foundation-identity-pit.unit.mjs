@@ -175,6 +175,10 @@ assert.equal(determinePitEligibility(preEpochEvidence.evidence, ''), PIT_STATES.
   'empty evaluation timestamp must remain PIT_UNKNOWN');
 assert.equal(determinePitEligibility(preEpochEvidence.evidence, false), PIT_STATES.PIT_UNKNOWN,
   'boolean evaluation timestamps must be rejected');
+assert.equal(determinePitEligibility(base.evidence, '1'), PIT_STATES.PIT_UNKNOWN,
+  'ambiguous numeric evaluation strings must not be parsed as calendar dates');
+assert.equal(determinePitEligibility(base.evidence, '2025-02-30T00:00:00Z'), PIT_STATES.PIT_UNKNOWN,
+  'impossible calendar evaluation dates must remain PIT_UNKNOWN');
 assert.equal(determinePitEligibility(preEpochEvidence.evidence, 0), PIT_STATES.PIT_VERIFIED,
   'an explicit finite Unix-epoch timestamp remains valid');
 
