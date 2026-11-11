@@ -10,6 +10,8 @@ import {
 
 const evaluationTimestamp = '2026-09-20T06:01:00Z';
 const fetchedAt = '2026-09-20T06:00:00Z';
+const buildStrength = (canonicalFinancialEvidence, options = {}) =>
+  buildFinancialStrengthInputFromCanonical(canonicalFinancialEvidence, { ...options, evaluationTimestamp });
 const providerRows = {
   fetchedAt,
   provider: 'Yahoo Finance fundamentalsTimeSeries',
@@ -141,7 +143,7 @@ assert.equal(forgedAllowlistedDebt.evidence.sourceAuthority, 'SECONDARY_PROVIDER
 assert.equal(forgedAllowlistedDebt.evidence.validationState, VALIDATION_STATES.UNKNOWN);
 assert.equal(forgedAllowlistedDebt.evidence.sourceDocumentId, null);
 assert.equal(forgedAllowlistedDebt.pitEligibility, PIT_STATES.PIT_UNKNOWN);
-assert.equal(buildFinancialStrengthInputFromCanonical(forgedAllowlistedContext, {
+assert.equal(buildStrength(forgedAllowlistedContext, {
   sectorKey: 'MANUFACTURING',
   baseFinancials: { ratios: {}, derived: {}, current: {} },
 }).status, 'UNAVAILABLE', 'an arbitrary allowlisted context must not promote provider rows');
@@ -155,7 +157,7 @@ const forgedUnallowlistedContext = adaptStatementEvidenceToCanonical(providerRow
   },
 });
 assert.ok(forgedUnallowlistedContext.records.every((r) => r.evidence.sourceAuthority === 'SECONDARY_PROVIDER'));
-assert.equal(buildFinancialStrengthInputFromCanonical(forgedUnallowlistedContext, {
+assert.equal(buildStrength(forgedUnallowlistedContext, {
   sectorKey: 'MANUFACTURING',
   baseFinancials: { ratios: {}, derived: {}, current: {} },
 }).status, 'UNAVAILABLE');
@@ -260,7 +262,7 @@ const verifiedCanonical = {
     verifiedRecord('currentLiabilities', 250),
   ]),
 };
-const verifiedStrength = buildFinancialStrengthInputFromCanonical(verifiedCanonical, {
+const verifiedStrength = buildStrength(verifiedCanonical, {
   sectorKey: 'MANUFACTURING',
   baseFinancials: { ratios: {}, derived: {}, current: {} },
 });
@@ -272,6 +274,78 @@ assert.equal(verifiedStrength.evidence.source, 'canonicalFinancialEvidence');
 assert.ok(verifiedStrength.evidence.selected.every((e) => e.issuerIdentity === 'ISS:INFOSYS' && e.securityIdentity === 'SEC:INFY:NSE'));
 assert.ok(verifiedStrength.evidence.selected.every((e) => e.pitEligibility === PIT_STATES.PIT_VERIFIED));
 assert.deepEqual(verifiedStrength.evidence.pitStates, [PIT_STATES.PIT_VERIFIED]);
+
+const missingOuterEnvelope = {
+  ...verifiedCanonical,
+  records: verifiedCanonical.records.map((record) => ({
+    evidence: { ...record.evidence },
+    pitEligibility: PIT_STATES.PIT_VERIFIED,
+  })),
+};
+assert.equal(buildStrength(missingOuterEnvelope, {
+  sectorKey: 'MANUFACTURING',
+  baseFinancials: { ratios: {}, derived: {}, current: {} },
+}).status, 'UNAVAILABLE', 'nested VALID evidence cannot replace a missing outer contract');
+
+const nestedUnknownPit = {
+  ...verifiedCanonical,
+  records: verifiedCanonical.records.map((record) => ({
+    ...record,
+    evidence: { ...record.evidence, pitEligibility: PIT_STATES.PIT_UNKNOWN },
+  })),
+};
+assert.equal(buildStrength(nestedUnknownPit, {
+  sectorKey: 'MANUFACTURING',
+  baseFinancials: { ratios: {}, derived: {}, current: {} },
+}).status, 'UNAVAILABLE', 'outer PIT_VERIFIED cannot override nested PIT_UNKNOWN');
+
+const outerUnknownPit = {
+  ...verifiedCanonical,
+  records: verifiedCanonical.records.map((record) => ({
+    ...record,
+    pitEligibility: PIT_STATES.PIT_UNKNOWN,
+  })),
+};
+assert.equal(buildStrength(outerUnknownPit, {
+  sectorKey: 'MANUFACTURING',
+  baseFinancials: { ratios: {}, derived: {}, current: {} },
+}).status, 'UNAVAILABLE', 'nested PIT_VERIFIED cannot override outer PIT_UNKNOWN');
+
+const futurePublication = verifiedRecord('debt', 200, {
+  publicationTimestamp: '2026-09-21T00:00:00Z',
+});
+const forgedFuturePublication = {
+  ...futurePublication,
+  pitEligibility: PIT_STATES.PIT_VERIFIED,
+  evidence: { ...futurePublication.evidence, pitEligibility: PIT_STATES.PIT_VERIFIED },
+};
+const futurePublicationCanonical = {
+  ...verifiedCanonical,
+  records: verifiedCanonical.records.map((record) => record.evidence.metric === 'debt'
+    ? forgedFuturePublication
+    : record),
+};
+assert.equal(buildStrength(futurePublicationCanonical, {
+  sectorKey: 'MANUFACTURING',
+  baseFinancials: { ratios: {}, derived: {}, current: {} },
+}).status, 'UNAVAILABLE', 'consumer must recompute PIT against the evaluation timestamp');
+
+const forgedContractErrors = {
+  ...verifiedCanonical,
+  records: verifiedCanonical.records.map((record) => ({
+    ...record,
+    errors: ['contract validation error'],
+  })),
+};
+assert.equal(buildStrength(forgedContractErrors, {
+  sectorKey: 'MANUFACTURING',
+  baseFinancials: { ratios: {}, derived: {}, current: {} },
+}).status, 'UNAVAILABLE', 'non-empty outer contract errors must block financial strength');
+
+assert.equal(buildFinancialStrengthInputFromCanonical(verifiedCanonical, {
+  sectorKey: 'MANUFACTURING',
+  baseFinancials: { ratios: {}, derived: {}, current: {} },
+}).status, 'UNAVAILABLE', 'an explicit evaluation timestamp is required');
 
 const unknownPitCanonical = {
   ...verifiedCanonical,
@@ -288,7 +362,7 @@ const unknownPitCanonical = {
     pitEligibility: PIT_STATES.PIT_UNKNOWN,
   })),
 };
-assert.equal(buildFinancialStrengthInputFromCanonical(unknownPitCanonical, {
+assert.equal(buildStrength(unknownPitCanonical, {
   sectorKey: 'MANUFACTURING',
   baseFinancials: { ratios: {}, derived: {}, current: {} },
 }).status, 'UNAVAILABLE', 'PIT_UNKNOWN must never be promoted into financial strength');
@@ -302,7 +376,7 @@ const forgedPit = adaptStatementEvidenceToCanonical({
 const forgedPitDebt = forgedPit.records.find((record) => record.evidence.metric === 'debt');
 assert.equal(forgedPitDebt.pitEligibility, PIT_STATES.PIT_UNKNOWN);
 assert.equal(forgedPitDebt.evidence.pitEligibility, PIT_STATES.PIT_UNKNOWN);
-assert.equal(buildFinancialStrengthInputFromCanonical(forgedPit, {
+assert.equal(buildStrength(forgedPit, {
   sectorKey: 'MANUFACTURING',
   baseFinancials: { ratios: {}, derived: {}, current: {} },
 }).status, 'UNAVAILABLE', 'provider-supplied PIT_VERIFIED cannot replace source timestamps and document identity');
@@ -314,13 +388,13 @@ const fixtureBlocked = {
     evidence: { ...record.evidence, fixtureStatus: 'DEVELOPMENT_FIXTURE' },
   })),
 };
-assert.equal(buildFinancialStrengthInputFromCanonical(fixtureBlocked, {
+assert.equal(buildStrength(fixtureBlocked, {
   sectorKey: 'MANUFACTURING',
   baseFinancials: { ratios: {}, derived: {}, current: {} },
 }).status, 'UNAVAILABLE', 'development fixtures must not be used as production financial-strength evidence');
 
 const secondaryProvider = adaptStatementEvidenceToCanonical(providerRows, { evaluationTimestamp });
-assert.equal(buildFinancialStrengthInputFromCanonical(secondaryProvider, {
+assert.equal(buildStrength(secondaryProvider, {
   sectorKey: 'MANUFACTURING',
   baseFinancials: { ratios: {}, derived: {}, current: {} },
 }).status, 'UNAVAILABLE', 'secondary provider rows cannot satisfy the authoritative filing gate');
@@ -333,7 +407,7 @@ const unknownValidation = {
     evidence: { ...record.evidence, validationState: VALIDATION_STATES.UNKNOWN },
   })),
 };
-assert.equal(buildFinancialStrengthInputFromCanonical(unknownValidation, {
+assert.equal(buildStrength(unknownValidation, {
   sectorKey: 'MANUFACTURING',
   baseFinancials: { ratios: {}, derived: {}, current: {} },
 }).status, 'UNAVAILABLE');
@@ -347,12 +421,12 @@ const invalidPeriod = {
   ...verifiedCanonical,
   records: verifiedCanonical.records.map((record) => record.evidence.metric === 'equity' ? invalidPeriodRecord : record),
 };
-assert.equal(buildFinancialStrengthInputFromCanonical(invalidPeriod, {
+assert.equal(buildStrength(invalidPeriod, {
   sectorKey: 'MANUFACTURING',
   baseFinancials: { ratios: {}, derived: {}, current: {} },
 }).status, 'UNAVAILABLE', 'invalid outer contract state must not be hidden by nested evidence');
 
-const missingCanonical = buildFinancialStrengthInputFromCanonical(
+const missingCanonical = buildStrength(
   { ...verifiedCanonical, records: verifiedCanonical.records.filter((r) => r.evidence.metric !== 'ebitda') },
   { sectorKey: 'MANUFACTURING', baseFinancials: { ratios: { debtToEquity: 99 }, derived: { netDebtToEbitda: 99 }, current: { totalDebt: 99 } } },
 );
@@ -361,11 +435,11 @@ assert.equal(missingCanonical.financials.ratios.debtToEquity, null);
 assert.equal(missingCanonical.financials.derived.netDebtToEbitda, null);
 assert.equal(missingCanonical.financials.current.totalDebt, null);
 
-assert.equal(buildFinancialStrengthInputFromCanonical({ ...verifiedCanonical, currencyStatus: 'UNKNOWN' }, {
+assert.equal(buildStrength({ ...verifiedCanonical, currencyStatus: 'UNKNOWN' }, {
   sectorKey: 'MANUFACTURING',
   baseFinancials: { ratios: {}, derived: {}, current: {} },
 }).status, 'UNAVAILABLE');
-assert.equal(buildFinancialStrengthInputFromCanonical({ ...verifiedCanonical, currencyStatus: 'MISMATCH' }, {
+assert.equal(buildStrength({ ...verifiedCanonical, currencyStatus: 'MISMATCH' }, {
   sectorKey: 'MANUFACTURING',
   baseFinancials: { ratios: {}, derived: {}, current: {} },
 }).status, 'UNAVAILABLE');
@@ -377,14 +451,14 @@ const ttmCanonical = {
     evidence: { ...record.evidence, periodType: 'TTM' },
   })),
 };
-const ttmStrength = buildFinancialStrengthInputFromCanonical(ttmCanonical, {
+const ttmStrength = buildStrength(ttmCanonical, {
   sectorKey: 'MANUFACTURING',
   baseFinancials: { ratios: {}, derived: {}, current: {} },
 });
 assert.equal(ttmStrength.status, 'READY');
 assert.equal(ttmStrength.evidence.selected[0].periodType, 'TTM');
 
-const incompatibleIdentity = buildFinancialStrengthInputFromCanonical({
+const incompatibleIdentity = buildStrength({
   ...verifiedCanonical,
   records: verifiedCanonical.records.map((record) => record.evidence.metric === 'equity'
     ? { ...record, evidence: { ...record.evidence, securityIdentity: 'SEC:OTHER:NSE' } }
@@ -392,7 +466,7 @@ const incompatibleIdentity = buildFinancialStrengthInputFromCanonical({
 }, { sectorKey: 'MANUFACTURING', baseFinancials: { ratios: {}, derived: {}, current: {} } });
 assert.equal(incompatibleIdentity.status, 'UNAVAILABLE');
 
-const incompatibleScope = buildFinancialStrengthInputFromCanonical({
+const incompatibleScope = buildStrength({
   ...verifiedCanonical,
   records: verifiedCanonical.records.map((record) => record.evidence.metric === 'equity'
     ? { ...record, evidence: { ...record.evidence, statementScope: 'STANDALONE' } }
@@ -400,7 +474,7 @@ const incompatibleScope = buildFinancialStrengthInputFromCanonical({
 }, { sectorKey: 'MANUFACTURING', baseFinancials: { ratios: {}, derived: {}, current: {} } });
 assert.equal(incompatibleScope.status, 'UNAVAILABLE');
 
-const incompatibleAccountingBasis = buildFinancialStrengthInputFromCanonical({
+const incompatibleAccountingBasis = buildStrength({
   ...verifiedCanonical,
   records: verifiedCanonical.records.map((record) => record.evidence.metric === 'equity'
     ? { ...record, evidence: { ...record.evidence, accountingBasis: 'US_GAAP' } }

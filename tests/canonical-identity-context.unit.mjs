@@ -69,6 +69,7 @@ assert.ok(canonical.records.every((record) => record.evidence.publicationTimesta
 const strength = buildFinancialStrengthInputFromCanonical(canonical, {
   sectorKey: 'MANUFACTURING',
   baseFinancials: { ratios: {}, derived: {}, current: {} },
+  evaluationTimestamp: '2025-05-21T00:00:00.000Z',
 });
 assert.equal(strength.status, 'UNAVAILABLE', 'otherwise complete evidence must remain blocked without durable issuer/security identity');
 assert.equal(strength.reason, 'CANONICAL_FINANCIAL_STRENGTH_EVIDENCE_INSUFFICIENT');
