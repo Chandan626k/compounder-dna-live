@@ -3,6 +3,7 @@ import { adaptStatementEvidenceToCanonical, buildFinancialStrengthInputFromCanon
 import {
   ACCESS_STATES,
   PIT_STATES,
+  REVISION_STATES,
   VALIDATION_STATES,
   createFinancialEvidence,
   determinePitEligibility,
@@ -234,6 +235,7 @@ function verifiedRecord(metric, value, { periodType = 'ANNUAL', ...overrides } =
     provider: 'isolated contract test fixture',
     providerRecordId: `REC-${metric}-2025`,
     retrievedAt: '2026-05-20T10:00:00Z',
+    revisionStatus: REVISION_STATES.ORIGINAL,
     validationState: VALIDATION_STATES.VALID,
     entitlementStatus: ACCESS_STATES.ALLOWED,
     accessMode: 'LICENSED_SOURCE_DOCUMENT',
@@ -369,6 +371,35 @@ assert.equal(buildStrength(bankingWrongUnit, {
   baseFinancials: { ratios: {}, derived: {}, current: {} },
 }).status, 'UNAVAILABLE', 'banking metrics with incompatible units cannot be combined');
 
+const revisionBlockedCases = [
+  [verifiedRecord('debt', 200, { revisionStatus: null }), 'missing revision status'],
+  [verifiedRecord('debt', 200, { revisionStatus: REVISION_STATES.UNKNOWN }), 'unknown revision status'],
+  [verifiedRecord('debt', 200, { revisionStatus: REVISION_STATES.REVISED, supersedes: null }), 'revised record without lineage'],
+  [verifiedRecord('debt', 200, { revisionStatus: REVISION_STATES.SUPERSEDED, supersededAt: null }), 'superseded record without supersededAt'],
+];
+for (const [blockedRecord, label] of revisionBlockedCases) {
+  const revisionBlockedCanonical = {
+    ...verifiedCanonical,
+    records: verifiedCanonical.records.map((record) => record.evidence.metric === 'debt' ? blockedRecord : record),
+  };
+  assert.equal(buildStrength(revisionBlockedCanonical, {
+    sectorKey: 'MANUFACTURING',
+    baseFinancials: { ratios: {}, derived: {}, current: {} },
+  }).status, 'UNAVAILABLE', label + ' must block financial-strength consumption');
+}
+
+const revisedWithLineage = verifiedRecord('debt', 200, {
+  revisionStatus: REVISION_STATES.REVISED,
+  supersedes: { documentId: 'TEST-debt-prior', documentVersion: 'v1' },
+});
+const revisedStrength = buildStrength({
+  ...verifiedCanonical,
+  records: verifiedCanonical.records.map((record) => record.evidence.metric === 'debt' ? revisedWithLineage : record),
+}, {
+  sectorKey: 'MANUFACTURING',
+  baseFinancials: { ratios: {}, derived: {}, current: {} },
+});
+assert.equal(revisedStrength.status, 'READY', 'revised evidence with explicit document lineage remains usable');
 
 const missingOuterEnvelope = {
   ...verifiedCanonical,
