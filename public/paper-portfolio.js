@@ -5,7 +5,9 @@ const SYMBOL_PATTERN = /^[A-Z0-9][A-Z0-9&_-]{0,23}\.(?:NS|BO)$/;
 const ISO_UTC_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 
 function roundMoney(value) {
-  return Math.round((value + Number.EPSILON) * 100) / 100;
+  const rounded = Math.round((value + Number.EPSILON) * 100) / 100;
+  if (!Number.isFinite(rounded)) throw new RangeError('Money calculation exceeds the supported range.');
+  return rounded;
 }
 
 function canonicalSymbol(value) {
@@ -28,7 +30,9 @@ function positiveNumber(value, label) {
   if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
     throw new TypeError(label + ' must be a finite number greater than zero.');
   }
-  return roundMoney(value);
+  const rounded = roundMoney(value);
+  if (rounded <= 0) throw new TypeError(label + ' must remain greater than zero at INR precision.');
+  return rounded;
 }
 
 function nonNegativeNumber(value, label) {
@@ -64,10 +68,11 @@ function validateTrade(trade, index) {
     throw new TypeError('Every paper trade needs a text ID.');
   }
   const symbol = canonicalSymbol(trade.symbol);
+  if (symbol !== trade.symbol) throw new TypeError('Stored trade symbols must be uppercase canonical exchange symbols.');
   if (trade.side !== 'BUY' && trade.side !== 'SELL') {
     throw new TypeError('Paper trade side must be BUY or SELL.');
   }
-  if (!Number.isInteger(trade.quantity) || trade.quantity <= 0) {
+  if (!Number.isSafeInteger(trade.quantity) || trade.quantity <= 0) {
     throw new TypeError('Paper trade quantity must be a positive whole number.');
   }
   const price = positiveNumber(trade.price, 'Trade price');
@@ -220,7 +225,7 @@ export function applyPaperTrade(portfolio, input) {
   const side = input.side;
   if (side !== 'BUY' && side !== 'SELL') throw new TypeError('Paper trade side must be BUY or SELL.');
   const quantity = input.quantity;
-  if (!Number.isInteger(quantity) || quantity <= 0) throw new TypeError('Quantity must be a positive whole number.');
+  if (!Number.isSafeInteger(quantity) || quantity <= 0) throw new TypeError('Quantity must be a positive safe whole number.');
   const price = positiveNumber(input.price, 'Trade price');
   const fees = input.fees === undefined ? 0 : nonNegativeNumber(input.fees, 'Trade fees');
   const executedAt = input.executedAt === undefined ? new Date().toISOString() : input.executedAt;
@@ -259,6 +264,8 @@ export function applyPaperTrade(portfolio, input) {
     }],
     marks: { ...portfolio.marks }
   };
+  const nextState = derivePaperPortfolio(next);
+  if (!nextState.positions.some(position => position.symbol === symbol)) delete next.marks[symbol];
   derivePaperPortfolio(next);
   return next;
 }
