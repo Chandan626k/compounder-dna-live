@@ -2,12 +2,17 @@
   const errorMessage = (error) => error?.message || String(error || 'Request failed.');
 
   async function fetchJson(fetchImpl, url) {
-    const response = await fetchImpl(url, { headers: { Accept: 'application/json' } });
+    let response;
+    try {
+      response = await fetchImpl(url, { headers: { Accept: 'application/json' } });
+    } catch (error) {
+      throw new Error(`${url} request failed: ${errorMessage(error)}`);
+    }
     let payload;
     try {
       payload = await response.json();
     } catch {
-      throw new Error(`${url} returned invalid JSON.`);
+      throw new Error(`${url} returned HTTP ${response.status} with invalid JSON.`);
     }
     if (!response.ok) {
       throw new Error(payload?.error || `${url} returned HTTP ${response.status}.`);

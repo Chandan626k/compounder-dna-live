@@ -59,6 +59,13 @@ const invalidTrading = await loadStockData('TCS', async (url) => (
 assert.equal(invalidTrading.trading, null);
 assert.match(invalidTrading.tradingError, /invalid JSON/);
 
+const networkFailure = await loadStockData('TCS', async (url) => {
+  if (url.startsWith('/api/analyze')) return response(200, { stock: { symbol: 'TCS' } });
+  throw new Error('Failed to fetch');
+});
+assert.equal(networkFailure.trading, null);
+assert.match(networkFailure.tradingError, /\/api\/trading\?symbol=TCS request failed: Failed to fetch/);
+
 await assert.rejects(loadStockData('   ', async () => response(200, {})), /Stock symbol is required/);
 
 const terminal = fs.readFileSync('public/terminal.html', 'utf8');
