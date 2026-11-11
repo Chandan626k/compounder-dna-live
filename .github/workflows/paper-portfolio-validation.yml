@@ -1,0 +1,31 @@
+name: Paper Portfolio Validation
+
+on:
+  push:
+    branches:
+      - feature/paper-portfolio-simulator-v1
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact pushed commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Paper portfolio and page regressions
+        run: node tests/paper-portfolio.unit.mjs
+      - name: Full regression suite
+        run: npm test
+      - name: Enforce dependency audit
+        run: npm audit --audit-level=low
