@@ -83,4 +83,27 @@ assert.equal(matched.current.freeCashFlow, 175);
 assert.equal(matched.derived.debtToEquityFromStatements, 0.2);
 assert.equal(matched.rawAvailability.annualStatements, true);
 
+const unknownCurrency = mergeStatementEvidence(baseFinancials, {
+  provider: 'Yahoo Finance fundamentalsTimeSeries',
+  currency: {
+    tradingCurrency: 'USD',
+    financialCurrency: null,
+    status: 'UNKNOWN',
+  },
+  coverage: { income: true, balanceSheet: true, cashFlow: true },
+  evidence: {
+    balance: { totalDebt: { value: 999, key: 'totalDebt', date: '2026-03-31T00:00:00.000Z' } },
+    cash: { freeCashFlow: { value: 777, key: 'freeCashFlow', date: '2026-03-31T00:00:00.000Z' } },
+  },
+});
+for (const key of ['revenue', 'ebitda', 'netIncome', 'freeCashFlow', 'operatingCashFlow', 'totalDebt', 'netDebt', 'cash', 'equity', 'currentAssets', 'currentLiabilities']) {
+  assert.equal(unknownCurrency.current[key], null, `${key} must remain unavailable when statement currency is UNKNOWN`);
+}
+for (const key of ['netDebtToEbitda', 'fcfMargin', 'fcfConversion', 'currentRatioFromStatements', 'workingCapital', 'debtToEquityFromStatements']) {
+  assert.equal(unknownCurrency.derived[key], null, `${key} must remain unavailable when statement currency is UNKNOWN`);
+}
+assert.equal(unknownCurrency.rawAvailability.annualStatements, false);
+assert.equal(unknownCurrency.rawAvailability.annualBalanceSheet, false);
+assert.equal(unknownCurrency.rawAvailability.annualCashFlow, false);
+
 console.log('currency-evidence.unit: PASS');
