@@ -236,6 +236,10 @@ function verifiedRecord(metric, value, { periodType = 'ANNUAL', ...overrides } =
     retrievedAt: '2026-05-20T10:00:00Z',
     validationState: VALIDATION_STATES.VALID,
     entitlementStatus: ACCESS_STATES.ALLOWED,
+    accessMode: 'LICENSED_SOURCE_DOCUMENT',
+    storagePolicy: 'ALLOW_INTERNAL_STORAGE',
+    displayPolicy: 'ALLOW_DERIVED_METRICS',
+    redistributionPolicy: 'NO_RAW_SOURCE_DATA_REDISTRIBUTION',
     ...overrides,
   });
   const pitEligibility = determinePitEligibility(contract, evaluationTimestamp);
@@ -253,6 +257,11 @@ const verifiedCanonical = {
   sourceType: 'FILING',
   sourceAuthority: 'COMPANY_FILING',
   currencyStatus: 'MATCH',
+  identityResolution: Object.freeze({
+    status: 'RESOLVED',
+    issuerIdentity: 'ISS:INFOSYS',
+    securityIdentity: 'SEC:INFY:NSE',
+  }),
   records: Object.freeze([
     verifiedRecord('debt', 200),
     verifiedRecord('equity', 1000),
@@ -274,6 +283,92 @@ assert.equal(verifiedStrength.evidence.source, 'canonicalFinancialEvidence');
 assert.ok(verifiedStrength.evidence.selected.every((e) => e.issuerIdentity === 'ISS:INFOSYS' && e.securityIdentity === 'SEC:INFY:NSE'));
 assert.ok(verifiedStrength.evidence.selected.every((e) => e.pitEligibility === PIT_STATES.PIT_VERIFIED));
 assert.deepEqual(verifiedStrength.evidence.pitStates, [PIT_STATES.PIT_VERIFIED]);
+
+const missingEnvelopeContract = { ...verifiedCanonical, contract: null };
+assert.equal(buildStrength(missingEnvelopeContract, {
+  sectorKey: 'MANUFACTURING',
+  baseFinancials: { ratios: {}, derived: {}, current: {} },
+}).status, 'UNAVAILABLE', 'canonical records without the expected outer envelope must be rejected');
+
+const unresolvedIdentity = {
+  ...verifiedCanonical,
+  identityResolution: { ...verifiedCanonical.identityResolution, status: 'UNRESOLVED' },
+};
+assert.equal(buildStrength(unresolvedIdentity, {
+  sectorKey: 'MANUFACTURING',
+  baseFinancials: { ratios: {}, derived: {}, current: {} },
+}).status, 'UNAVAILABLE', 'record IDs cannot override unresolved canonical identity');
+
+const mismatchedResolvedIdentity = {
+  ...verifiedCanonical,
+  identityResolution: {
+    ...verifiedCanonical.identityResolution,
+    issuerIdentity: 'ISS:OTHER',
+  },
+};
+assert.equal(buildStrength(mismatchedResolvedIdentity, {
+  sectorKey: 'MANUFACTURING',
+  baseFinancials: { ratios: {}, derived: {}, current: {} },
+}).status, 'UNAVAILABLE', 'record identities must match the resolved envelope identity');
+
+for (const entitlementStatus of [ACCESS_STATES.UNKNOWN, ACCESS_STATES.RESTRICTED, ACCESS_STATES.NOT_ALLOWED]) {
+  const nonEntitled = {
+    ...verifiedCanonical,
+    records: verifiedCanonical.records.map((record, index) => index === 0
+      ? { ...record, evidence: { ...record.evidence, entitlementStatus } }
+      : record),
+  };
+  assert.equal(buildStrength(nonEntitled, {
+    sectorKey: 'MANUFACTURING',
+    baseFinancials: { ratios: {}, derived: {}, current: {} },
+  }).status, 'UNAVAILABLE', `entitlement ${entitlementStatus} must block financial-strength use`);
+}
+
+const missingDisplayPolicy = {
+  ...verifiedCanonical,
+  records: verifiedCanonical.records.map((record, index) => index === 0
+    ? { ...record, evidence: { ...record.evidence, displayPolicy: null } }
+    : record),
+};
+assert.equal(buildStrength(missingDisplayPolicy, {
+  sectorKey: 'MANUFACTURING',
+  baseFinancials: { ratios: {}, derived: {}, current: {} },
+}).status, 'UNAVAILABLE', 'missing source-use policy must block financial-strength use');
+
+const mixedUnits = {
+  ...verifiedCanonical,
+  records: verifiedCanonical.records.map((record) => record.evidence.metric === 'cash'
+    ? { ...record, evidence: { ...record.evidence, unit: 'INR_LAKH' } }
+    : record),
+};
+assert.equal(buildStrength(mixedUnits, {
+  sectorKey: 'MANUFACTURING',
+  baseFinancials: { ratios: {}, derived: {}, current: {} },
+}).status, 'UNAVAILABLE', 'monetary metrics with different units cannot be combined');
+
+const bankingCanonical = {
+  ...verifiedCanonical,
+  records: [
+    verifiedRecord('roe', 18, { unit: 'PERCENT' }),
+    verifiedRecord('roa', 9, { unit: 'PERCENT' }),
+  ],
+};
+assert.equal(buildStrength(bankingCanonical, {
+  sectorKey: 'BANKING',
+  baseFinancials: { ratios: {}, derived: {}, current: {} },
+}).status, 'READY', 'banking strength inputs require compatible percentage units');
+
+const bankingWrongUnit = {
+  ...bankingCanonical,
+  records: bankingCanonical.records.map((record) => record.evidence.metric === 'roa'
+    ? { ...record, evidence: { ...record.evidence, unit: 'BASIS_POINTS' } }
+    : record),
+};
+assert.equal(buildStrength(bankingWrongUnit, {
+  sectorKey: 'BANKING',
+  baseFinancials: { ratios: {}, derived: {}, current: {} },
+}).status, 'UNAVAILABLE', 'banking metrics with incompatible units cannot be combined');
+
 
 const missingOuterEnvelope = {
   ...verifiedCanonical,
