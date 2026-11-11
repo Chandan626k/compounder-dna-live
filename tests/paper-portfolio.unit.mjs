@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import {
   DEFAULT_VIRTUAL_CAPITAL,
   applyPaperTrade,
@@ -89,5 +90,19 @@ assert.throws(() => applyPaperTrade(buyOne, {
 }), /Duplicate paper trade ID/);
 assert.throws(() => setPaperMark(initial, 'TCS.NS', 100, at), /open paper position/);
 assert.throws(() => derivePaperPortfolio({ ...initial, initialCapital: 100000 }), /₹5,00,000/);
+
+
+const paperPage = fs.readFileSync(new URL('../public/paper-trading.html', import.meta.url), 'utf8');
+assert.match(paperPage, /PAPER MODE ONLY/);
+assert.match(paperPage, /No broker connection/);
+assert.match(paperPage, /localStorage/);
+assert.match(paperPage, /Promise\.allSettled/);
+assert.match(paperPage, /No real order was sent/);
+assert.doesNotMatch(paperPage, /\/api\/orders?/i);
+const pageScript = paperPage.match(/<script type="module">([\s\S]*?)<\/script>/);
+assert.ok(pageScript, 'paper trading page must contain its client module');
+const compilableScript = pageScript[1].replace(/^import\s*\{[\s\S]*?\}\s*from\s*['"]\.\/paper-portfolio\.js['"];\s*/, '');
+assert.notEqual(compilableScript, pageScript[1], 'paper page must import the isolated portfolio module');
+assert.doesNotThrow(() => new Function(compilableScript), 'paper page module must parse as JavaScript');
 
 console.log('PASS paper-portfolio.unit.mjs');
