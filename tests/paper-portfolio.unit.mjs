@@ -69,7 +69,7 @@ assert.throws(() => applyPaperTrade(initial, {
 }), /BUY or SELL/);
 assert.throws(() => applyPaperTrade(initial, {
   id: 'bad-symbol', symbol: 'TCS', side: 'BUY', quantity: 1, price: 100, fees: 0, executedAt: at
-}), /\.NS or \.BO/);
+}), /\\.NS or \\.BO/);
 assert.throws(() => applyPaperTrade(initial, {
   id: 'fractional', symbol: 'TCS.NS', side: 'BUY', quantity: 1.5, price: 100, fees: 0, executedAt: at
 }), /whole number/);
@@ -96,13 +96,14 @@ const paperPage = fs.readFileSync(new URL('../public/paper-trading.html', import
 assert.match(paperPage, /PAPER MODE ONLY/);
 assert.match(paperPage, /No broker connection/);
 assert.match(paperPage, /localStorage/);
-assert.match(paperPage, /Promise\.allSettled/);
+assert.match(paperPage, /Promise\\.allSettled/);
 assert.match(paperPage, /No real order was sent/);
-assert.doesNotMatch(paperPage, /\/api\/orders?/i);
-const pageScript = paperPage.match(/<script type="module">([\s\S]*?)<\/script>/);
+assert.doesNotMatch(paperPage, /\\/api\\/orders?/i);
+const pageScript = paperPage.match(/<script type="module">([\\s\\S]*?)<\\/script>/);
 assert.ok(pageScript, 'paper trading page must contain its client module');
-const compilableScript = pageScript[1].replace(/^import\s*\{[\s\S]*?\}\s*from\s*['"]\.\/paper-portfolio\.js['"];\s*/, '');
-assert.notEqual(compilableScript, pageScript[1], 'paper page must import the isolated portfolio module');
+const compilableScript = pageScript[1].replace(/^\\s*import\\s*\\{[\\s\\S]*?\\}\\s*from\\s*['"]\\.\\/paper-portfolio\\.js['"];\\s*/, '');
+assert.match(compilableScript, /^const STORAGE_KEY/, 'module import must be stripped before the inline-script syntax check');
+assert.doesNotMatch(compilableScript, /^\\s*import\\s/m, 'no module import may remain in the compiled inline script');
 assert.doesNotThrow(() => new Function(compilableScript), 'paper page module must parse as JavaScript');
 
 console.log('PASS paper-portfolio.unit.mjs');
