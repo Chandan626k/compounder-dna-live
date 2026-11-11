@@ -618,6 +618,52 @@ const ttmStrength = buildStrength(ttmCanonical, {
 assert.equal(ttmStrength.status, 'READY');
 assert.equal(ttmStrength.evidence.selected[0].periodType, 'TTM');
 
+const pitDocumentIdentityFixture = verifiedRecord('debt', 200).evidence;
+for (const malformedDocumentId of [[], {}, ['TEST-debt-2025'], 123, true]) {
+  assert.equal(determinePitEligibility({
+    ...pitDocumentIdentityFixture,
+    sourceDocumentId: malformedDocumentId,
+  }, evaluationTimestamp), PIT_STATES.PIT_UNKNOWN,
+  'PIT must reject non-text source document IDs');
+  assert.equal(determinePitEligibility({
+    ...pitDocumentIdentityFixture,
+    sourceDocumentVersion: malformedDocumentId,
+  }, evaluationTimestamp), PIT_STATES.PIT_UNKNOWN,
+  'PIT must reject non-text source document versions');
+}
+
+function withRawMetadataOverrides(overrides) {
+  return {
+    ...verifiedCanonical,
+    records: verifiedCanonical.records.map((record) => ({
+      ...record,
+      evidence: { ...record.evidence, ...overrides },
+    })),
+  };
+}
+
+const malformedCanonicalMetadataCases = [
+  ['sourceType', ['FILING']],
+  ['sourceAuthority', ['COMPANY_FILING']],
+  ['sourceDocumentId', ['TEST-DOC']],
+  ['sourceDocumentVersion', ['v1']],
+  ['retrievedAt', true],
+  ['periodType', 'UNRECOGNIZED_PERIOD'],
+  ['periodType', { value: 'ANNUAL' }],
+  ['accountingBasis', ['IND_AS']],
+  ['statementScope', ['CONSOLIDATED']],
+  ['metricScope', ['GROUP']],
+  ['currency', ['INR']],
+];
+for (const [field, value] of malformedCanonicalMetadataCases) {
+  assert.equal(buildStrength(withRawMetadataOverrides({ [field]: value }), {
+    sectorKey: 'MANUFACTURING',
+    baseFinancials: { ratios: {}, derived: {}, current: {} },
+  }).status, 'UNAVAILABLE',
+  `raw canonical ${field} metadata must be type-checked before financial-strength use`);
+}
+
+
 const incompatibleIdentity = buildStrength({
   ...verifiedCanonical,
   records: verifiedCanonical.records.map((record) => record.evidence.metric === 'equity'

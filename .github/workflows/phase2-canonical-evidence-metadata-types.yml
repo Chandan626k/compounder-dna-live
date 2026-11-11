@@ -1,0 +1,35 @@
+name: Phase 2 Canonical Evidence Metadata Types
+on:
+  push:
+    branches:
+      - fix/phase2-canonical-evidence-metadata-types
+  pull_request:
+    branches:
+      - fix/phase2-identity-resolution-requires-valid-contract
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact PR head SHA
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Focused canonical evidence regressions
+        run: |
+          node tests/data-foundation-identity-pit.unit.mjs
+          node tests/financial-evidence-adapter.unit.mjs
+      - name: Full regression suite
+        run: npm test
+      - name: Enforce dependency audit
+        run: npm audit --audit-level=low
