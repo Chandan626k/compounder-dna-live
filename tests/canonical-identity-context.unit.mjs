@@ -59,7 +59,12 @@ assert.equal(canonical.identityResolution.status, 'UNRESOLVED');
 assert.ok(canonical.records.length > 0);
 assert.ok(canonical.records.every((record) => record.evidence.issuerIdentity === null));
 assert.ok(canonical.records.every((record) => record.evidence.securityIdentity === null));
-assert.ok(canonical.records.every((record) => record.pitEligibility === PIT_STATES.PIT_VERIFIED));
+assert.ok(canonical.records.every((record) => record.pitEligibility === PIT_STATES.PIT_UNKNOWN));
+assert.ok(canonical.records.every((record) => record.evidence.sourceType === 'provider'));
+assert.ok(canonical.records.every((record) => record.evidence.sourceAuthority === 'SECONDARY_PROVIDER'));
+assert.ok(canonical.records.every((record) => record.evidence.validationState === 'UNKNOWN'));
+assert.ok(canonical.records.every((record) => record.evidence.sourceDocumentId === null));
+assert.ok(canonical.records.every((record) => record.evidence.publicationTimestamp === null));
 
 const strength = buildFinancialStrengthInputFromCanonical(canonical, {
   sectorKey: 'MANUFACTURING',
