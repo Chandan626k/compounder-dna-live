@@ -252,6 +252,12 @@ function disablePortfolioEditing() {
   $('tradesBody').replaceChildren();
 }
 
+function enablePortfolioEditing() {
+  $('tradeForm').querySelector('button[type="submit"]').disabled = false;
+  $('markForm').querySelector('button[type="submit"]').disabled = false;
+  $('exportButton').disabled = false;
+}
+
 function adoptStoredSnapshot(raw) {
   if (raw === null) {
     portfolio = null;
@@ -266,6 +272,7 @@ function adoptStoredSnapshot(raw) {
     portfolio = latest;
     lastPersistedRaw = raw;
     storageAvailable = true;
+    enablePortfolioEditing();
     render();
     return true;
   } catch {
@@ -298,6 +305,7 @@ async function persist(next) {
     if (!storageReadable) {
       portfolio = next;
       storageAvailable = false;
+      enablePortfolioEditing();
       render();
       setMessage('storageStatus', 'Browser storage is unavailable. Changes remain only in this open page; export a backup before closing it.', true);
       return true;
@@ -317,6 +325,7 @@ async function persist(next) {
   portfolio = JSON.parse(result.currentRaw);
   lastPersistedRaw = result.currentRaw;
   storageAvailable = true;
+  enablePortfolioEditing();
   setMessage('storageStatus', result.usedLock
     ? 'Saved on this browser. Concurrent tab writes are serialized; export a backup regularly.'
     : 'Saved on this browser. Cross-tab locking is unavailable; keep only one paper portfolio tab open.');
@@ -331,8 +340,8 @@ async function loadPortfolio() {
   } catch {
     portfolio = createPaperPortfolio();
     storageAvailable = false;
+    enablePortfolioEditing();
     setMessage('storageStatus', 'Browser storage is unavailable. Changes remain only in this open page; export a backup before closing it.', true);
-    render();
     return;
   }
   // Keep the exact stored bytes even when parsing fails. A confirmed backup import
@@ -347,6 +356,7 @@ async function loadPortfolio() {
   derivePaperPortfolio(saved);
   portfolio = saved;
   storageAvailable = true;
+  enablePortfolioEditing();
   setMessage('storageStatus', 'Loaded saved portfolio from this browser.');
   render();
 }
