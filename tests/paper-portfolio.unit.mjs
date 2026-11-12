@@ -30,6 +30,35 @@ const buyTwo = applyPaperTrade(buyOne, {
 });
 const marked = setPaperMark(buyTwo, 'INFY.NS', 120, at);
 const laterAt = '2026-11-12T00:00:01.000Z';
+const futureAt = new Date(Date.now() + 60_000).toISOString();
+assert.throws(
+  () => setPaperMark(buyOne, 'INFY.NS', 110, futureAt),
+  /canonical UTC ISO timestamp no later than now/,
+  'a future manual mark must not be accepted as current valuation evidence'
+);
+assert.throws(
+  () => applyPaperTrade(buyOne, {
+    id: 'future-buy', symbol: 'INFY.NS', side: 'BUY', quantity: 1, price: 105, fees: 0, executedAt: futureAt
+  }),
+  /canonical UTC ISO timestamp no later than now/,
+  'a paper trade must not be recorded with a future execution time'
+);
+assert.throws(
+  () => parsePaperPortfolioBackup(JSON.stringify({
+    ...buyOne,
+    marks: { 'INFY.NS': { price: 110, markedAt: futureAt } }
+  })),
+  /Manual mark time must be a canonical UTC ISO timestamp no later than now/,
+  'backup restore must reject future-dated manual marks'
+);
+assert.throws(
+  () => parsePaperPortfolioBackup(JSON.stringify({
+    ...buyOne,
+    trades: buyOne.trades.map((trade, index) => index === 0 ? { ...trade, executedAt: futureAt } : trade)
+  })),
+  /Trade time must be a canonical UTC ISO timestamp no later than now/,
+  'backup restore must reject future-dated paper trades'
+);
 const markedBeforeLaterBuy = setPaperMark(buyOne, 'INFY.NS', 110, at);
 const boughtAfterMark = applyPaperTrade(markedBeforeLaterBuy, {
   id: 'buy-after-mark', symbol: 'INFY.NS', side: 'BUY', quantity: 1, price: 105, fees: 0, executedAt: laterAt
