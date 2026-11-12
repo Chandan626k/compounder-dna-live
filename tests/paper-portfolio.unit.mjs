@@ -107,6 +107,39 @@ assert.throws(
   /supported INR paise precision/,
   'aggregate sale proceeds must remain exactly representable at paise precision'
 );
+const exactProductBase = applyPaperTrade(initial, {
+  id: 'large-buy', symbol: 'INFY.NS', side: 'BUY', quantity: 10_287_043, price: 0.01, fees: 0, executedAt: at
+});
+const exactProductMarked = setPaperMark(exactProductBase, 'INFY.NS', 8_729_815.89, at);
+assert.equal(
+  derivePaperPortfolio(exactProductMarked).positions[0].marketValue,
+  89_803_991_442_513.27,
+  'quantity times a paise-denominated price must preserve the exact integer-paise product'
+);
+const exactProductSold = applyPaperTrade(exactProductBase, {
+  id: 'large-sell', symbol: 'INFY.NS', side: 'SELL', quantity: 10_287_043, price: 8_729_815.89, fees: 0, executedAt: at
+});
+const exactProductSoldState = derivePaperPortfolio(exactProductSold);
+assert.equal(exactProductSoldState.cash, 89_803_991_839_642.84);
+assert.equal(exactProductSoldState.realizedPnl, 89_803_991_339_642.84);
+
+let aggregatePrecision = createPaperPortfolio();
+aggregatePrecision = applyPaperTrade(aggregatePrecision, {
+  id: 'aggregate-infy-buy', symbol: 'INFY.NS', side: 'BUY', quantity: 1, price: 1, fees: 0, executedAt: at
+});
+aggregatePrecision = applyPaperTrade(aggregatePrecision, {
+  id: 'aggregate-tcs-buy', symbol: 'TCS.NS', side: 'BUY', quantity: 1, price: 1, fees: 0, executedAt: at
+});
+aggregatePrecision = setPaperMark(aggregatePrecision, 'INFY.NS', 24_930_856_864_454.58, at);
+aggregatePrecision = setPaperMark(aggregatePrecision, 'TCS.NS', 20_997_005_779_327.77, at);
+const aggregatePrecisionState = derivePaperPortfolio(aggregatePrecision);
+assert.equal(
+  aggregatePrecisionState.totalMarketValue,
+  45_927_862_643_782.35,
+  'portfolio aggregation must add exact paise values without a one-paise floating-point loss'
+);
+assert.equal(aggregatePrecisionState.totalEquity, 45_927_863_143_780.35);
+
 assert.throws(() => derivePaperPortfolio({ ...initial, initialCapital: 100000 }), /₹5,00,000/);
 
 const backupRoundTrip = parsePaperPortfolioBackup(JSON.stringify(markedAfterSell));
