@@ -236,6 +236,27 @@ await assert.rejects(
 );
 assert.equal(invalidWriterStorage.raw, invalidWriterBase, 'invalid writer snapshots must never replace stored data');
 
+// A corrupted saved ledger must remain replaceable by a validated backup after explicit confirmation.
+const invalidStoredSnapshot = JSON.stringify({
+  version: 1,
+  initialCapital: 500000,
+  trades: [{ id: 'orphan-stored', symbol: 'TCS.NS', side: 'SELL', quantity: 1, price: 100, fees: 0, executedAt: at }],
+  marks: {},
+  storageRevision: '8'.repeat(32)
+});
+const corruptedStorage = memoryStorage(invalidStoredSnapshot);
+const capturedInvalidRaw = corruptedStorage.raw;
+assert.throws(() => derivePaperPortfolio(JSON.parse(capturedInvalidRaw)), /open long position/);
+const recoveryWrite = await writePaperPortfolioSnapshot(
+  corruptedStorage,
+  locks,
+  'paper-key',
+  capturedInvalidRaw,
+  serializePaperPortfolioStorageSnapshot(initial)
+);
+assert.equal(recoveryWrite.saved, true, 'a confirmed valid backup must replace an unchanged invalid stored snapshot');
+assert.deepEqual(parsePaperPortfolioBackup(corruptedStorage.raw), initial);
+
 const abaBasePortfolio = createPaperPortfolio();
 const abaBase = serializePaperPortfolioStorageSnapshot(abaBasePortfolio, '1'.repeat(32));
 const abaChangedPortfolio = applyPaperTrade(abaBasePortfolio, {
@@ -272,6 +293,12 @@ const compilableScript = pageScript[1].replace(/^\s*import\s*\{[\s\S]*?\}\s*from
 assert.match(compilableScript, /^const STORAGE_KEY/, 'module import must be stripped before the inline-script syntax check');
 assert.match(pageScript[1], /serializePaperPortfolioStorageSnapshot\(next\)/, 'the page must delegate revision creation to the storage writer');
 assert.doesNotMatch(pageScript[1], /createStorageRevision/, 'the page must not supply storage revisions');
+const loadPortfolioBody = pageScript[1].match(/async function loadPortfolio\(\) \{([\\s\\S]*?)\\n\}/);
+assert.ok(loadPortfolioBody, 'paper page must keep its storage loading path testable');
+const rawCaptureIndex = loadPortfolioBody[1].indexOf('lastPersistedRaw = raw;');
+const rawParseIndex = loadPortfolioBody[1].indexOf('const saved = JSON.parse(raw);');
+assert.ok(rawCaptureIndex >= 0 && rawParseIndex >= 0 && rawCaptureIndex < rawParseIndex,
+  'the exact raw snapshot must be captured before validation so a confirmed backup can recover invalid storage');
 assert.doesNotMatch(compilableScript, /^\s*import\s/m, 'no module import may remain in the compiled inline script');
 assert.doesNotThrow(() => new Function(compilableScript), 'paper page module must parse as JavaScript');
 
