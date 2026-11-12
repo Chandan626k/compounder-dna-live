@@ -2,7 +2,7 @@ import express from 'express';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { analyze } from './lib/market-engine.js';
+import { MARKET_DATA_ACCESS_POLICY, sendMarketDataUnavailable } from './lib/market-data-access-policy.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -29,23 +29,12 @@ app.get('/', async (req, res) => {
 app.get('/api/health', (req, res) => res.json({
   ok: true,
   time: new Date().toISOString(),
-  provider: 'Yahoo Finance via yahoo-finance2'
+  marketEngine: 'computation-only',
+  marketDataAccess: MARKET_DATA_ACCESS_POLICY.status,
+  provider: 'NOT_CONFIGURED'
 }));
 
-app.get('/api/analyze', async (req, res) => {
-  const symbol = String(req.query?.symbol || '').trim();
-  if (!symbol) return res.status(400).json({ error: 'symbol required' });
-  try {
-    return res.status(200).json(await analyze(symbol));
-  } catch (e) {
-    console.error('[api/analyze]', e);
-    return res.status(502).json({
-      error: 'Live market data unavailable',
-      detail: String(e?.message || e),
-      symbol: symbol.toUpperCase()
-    });
-  }
-});
+app.get('/api/analyze', (req, res) => sendMarketDataUnavailable(res));
 
 app.get('/api/data/health', (req, res) => res.json({ ok: true }));
 

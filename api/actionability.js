@@ -1,3 +1,5 @@
+import { sendMarketDataUnavailable } from '../lib/market-data-access-policy.js';
+
 import { analyze as analyzeStock } from '../lib/market-engine.js';
 import { buildTrading } from '../lib/trading-engine.js';
 import { buildActionability } from '../lib/actionability.js';
@@ -54,6 +56,7 @@ export default async function handler(req, res) {
   Object.entries(HEADERS).forEach(([k, v]) => res.setHeader(k, v));
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'GET') return res.status(405).json({ success: false, error: 'Method not allowed' });
+  return sendMarketDataUnavailable(res);
   const symbol = String(req.query?.symbol || '').trim().toUpperCase();
   if (!/^[A-Za-z0-9.&_-]{1,25}(?:\.(?:NS|BO))?$/i.test(symbol)) return res.status(400).json({ success: false, error: 'Valid stock symbol is required' });
   try {
