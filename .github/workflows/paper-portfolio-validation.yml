@@ -8,6 +8,7 @@ on:
   pull_request:
     branches:
       - feature/paper-portfolio-simulator-v1
+      - feature/paper-portfolio-backup-restore
       - fix/paper-portfolio-*
 
 permissions:
