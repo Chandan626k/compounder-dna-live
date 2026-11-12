@@ -302,6 +302,17 @@ const rawCaptureIndex = loadPortfolioBody.indexOf('lastPersistedRaw = raw;');
 const rawParseIndex = loadPortfolioBody.indexOf('const saved = JSON.parse(raw);');
 assert.ok(rawCaptureIndex >= 0 && rawParseIndex >= 0 && rawCaptureIndex < rawParseIndex,
   'the exact raw snapshot must be captured before validation so a confirmed backup can recover invalid storage');
+const enableHelper = pageScript[1].match(/function enablePortfolioEditing\\(\\) \\{([\\s\\S]*?)\\n\\}/);
+assert.ok(enableHelper, 'paper page must provide a way to re-enable editing after a validated recovery');
+assert.match(enableHelper[1], /tradeForm[\\s\\S]*?disabled = false/);
+assert.match(enableHelper[1], /markForm[\\s\\S]*?disabled = false/);
+assert.match(enableHelper[1], /exportButton[\\s\\S]*?disabled = false/);
+assert.match(pageScript[1], /portfolio = latest;[\\s\\S]*?storageAvailable = true;[\\s\\S]*?enablePortfolioEditing\\(\\);/,
+  'a valid snapshot adopted from another tab must restore editing controls');
+assert.match(pageScript[1], /portfolio = JSON\\.parse\\(result\\.currentRaw\\);[\\s\\S]*?storageAvailable = true;[\\s\\S]*?enablePortfolioEditing\\(\\);/,
+  'a successful backup restore must restore editing controls');
+assert.match(pageScript[1], /portfolio = next;[\\s\\S]*?storageAvailable = false;[\\s\\S]*?enablePortfolioEditing\\(\\);/,
+  'a validated in-memory recovery must remain editable when browser storage is unavailable');
 assert.doesNotMatch(compilableScript, /^\s*import\s/m, 'no module import may remain in the compiled inline script');
 assert.doesNotThrow(() => new Function(compilableScript), 'paper page module must parse as JavaScript');
 
