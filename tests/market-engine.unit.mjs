@@ -13,6 +13,7 @@ import {
   SCORE_MODEL,
 } from '../lib/market-engine.js';
 import { mergeStatementEvidence } from '../lib/statement-evidence.js';
+import { providerTradingCurrency } from '../lib/provider-trading-currency.js';
 
 
 const aiParsed = parseAIResponse(JSON.stringify({
@@ -24,6 +25,13 @@ const aiParsed = parseAIResponse(JSON.stringify({
 }));
 assert.match(renderAIHtml(aiParsed), /Business \& Moat/);
 assert.throws(() => parseAIResponse('{}'), /missing section/);
+
+assert.equal(providerTradingCurrency(undefined), null, 'missing provider currency must remain unknown');
+assert.equal(providerTradingCurrency(null), null, 'null provider currency must remain unknown');
+assert.equal(providerTradingCurrency('   '), null, 'blank provider currency must remain unknown');
+assert.equal(providerTradingCurrency(' INR '), 'INR', 'explicit provider currency is preserved after trimming');
+assert.equal(providerTradingCurrency('GBp'), 'GBp', 'provider denomination casing is preserved without conversion');
+
 
 const approx = (actual, expected, tolerance = 1e-9) => {
   assert.ok(Math.abs(actual - expected) <= tolerance, `expected ${actual} ≈ ${expected}`);
