@@ -5,9 +5,11 @@ const SYMBOL_PATTERN = /^[A-Z0-9][A-Z0-9&_-]{0,23}\.(?:NS|BO)$/;
 const ISO_UTC_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 
 function roundMoney(value) {
-  const rounded = Math.round((value + Number.EPSILON) * 100) / 100;
-  if (!Number.isFinite(rounded)) throw new RangeError('Money calculation exceeds the supported range.');
-  return rounded;
+  const paise = Math.round((value + Number.EPSILON) * 100);
+  if (!Number.isSafeInteger(paise)) {
+    throw new RangeError('Money calculation exceeds the supported INR paise precision.');
+  }
+  return paise / 100;
 }
 
 function canonicalSymbol(value) {
