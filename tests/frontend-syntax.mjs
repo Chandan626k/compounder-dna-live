@@ -41,10 +41,10 @@ browserWindow.renderReadiness({
   },
   policy: { recommendationEnginePresent: false }
 });
-if (!nodes.readinessGrid.innerHTML.includes('PARTIALLY_READY')) {
+if (!nodes.readinessGrid.innerHTML.includes('Partially ready')) {
   throw new Error('Readiness renderer did not populate horizon cards.');
 }
-if (!nodes.readinessDetails.innerHTML.includes('verified currency')) {
+if (!nodes.readinessDetails.innerHTML.includes('Verified Currency')) {
   throw new Error('Readiness renderer did not populate next-required-evidence details.');
 }
 if (nodes.readinessPolicy.textContent !== 'RECOMMENDATION ENGINE OFF') {
