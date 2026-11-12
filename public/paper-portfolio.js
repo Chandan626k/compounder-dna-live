@@ -205,8 +205,16 @@ export function derivePaperPortfolio(portfolio) {
   let cash = DEFAULT_VIRTUAL_CAPITAL;
   let realizedPnl = 0;
   let totalFees = 0;
+  let previousExecutionTimestamp = -Infinity;
+  const latestTradeTimestampBySymbol = new Map();
 
   for (const trade of trades) {
+    const executionTimestamp = Date.parse(trade.executedAt);
+    if (executionTimestamp < previousExecutionTimestamp) {
+      throw new TypeError('Paper trades must be in non-decreasing execution-time order.');
+    }
+    previousExecutionTimestamp = executionTimestamp;
+    latestTradeTimestampBySymbol.set(trade.symbol, executionTimestamp);
     if (ids.has(trade.id)) throw new TypeError('Duplicate paper trade ID: ' + trade.id);
     ids.add(trade.id);
     const gross = multiplyMoney(trade.quantity, trade.price);
@@ -242,8 +250,12 @@ export function derivePaperPortfolio(portfolio) {
     }
   }
 
-  for (const symbol of Object.keys(marks)) {
+  for (const [symbol, mark] of Object.entries(marks)) {
     if (!positions.has(symbol)) throw new TypeError('Manual mark exists without an open position: ' + symbol);
+    const latestTradeTimestamp = latestTradeTimestampBySymbol.get(symbol);
+    if (latestTradeTimestamp !== undefined && Date.parse(mark.markedAt) < latestTradeTimestamp) {
+      throw new TypeError('Manual mark time must not predate the latest trade for ' + symbol + '.');
+    }
   }
 
   const positionRows = [...positions.values()]
