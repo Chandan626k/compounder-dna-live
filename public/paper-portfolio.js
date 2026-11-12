@@ -88,10 +88,11 @@ function canonicalSymbol(value) {
 }
 
 function validIsoUtc(value) {
-  return typeof value === 'string'
-    && ISO_UTC_PATTERN.test(value)
-    && Number.isFinite(Date.parse(value))
-    && new Date(value).toISOString() === value;
+  if (typeof value !== 'string' || !ISO_UTC_PATTERN.test(value)) return false;
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp)
+    && timestamp <= Date.now()
+    && new Date(timestamp).toISOString() === value;
 }
 
 function positiveNumber(value, label) {
@@ -150,7 +151,7 @@ function validateTrade(trade, index) {
   const price = positiveNumber(trade.price, 'Trade price');
   const fees = nonNegativeNumber(trade.fees, 'Trade fees');
   if (!validIsoUtc(trade.executedAt)) {
-    throw new TypeError('Trade time must be a canonical UTC ISO timestamp.');
+    throw new TypeError('Trade time must be a canonical UTC ISO timestamp no later than now.');
   }
   if (trade.note !== undefined && (typeof trade.note !== 'string' || trade.note.length > 240)) {
     throw new TypeError('Trade note must be text up to 240 characters.');
@@ -176,7 +177,7 @@ function validateMarks(marks) {
       throw new TypeError('Invalid manual mark for ' + symbol + '.');
     }
     if (!validIsoUtc(rawMark.markedAt)) {
-      throw new TypeError('Manual mark time must be a canonical UTC ISO timestamp.');
+      throw new TypeError('Manual mark time must be a canonical UTC ISO timestamp no later than now.');
     }
     validated[symbol] = {
       price: positiveNumber(rawMark.price, 'Manual mark price'),
@@ -391,7 +392,7 @@ export function applyPaperTrade(portfolio, input) {
   const fees = input.fees === undefined ? 0 : nonNegativeNumber(input.fees, 'Trade fees');
   const gross = multiplyMoney(quantity, price);
   const executedAt = input.executedAt === undefined ? new Date().toISOString() : input.executedAt;
-  if (!validIsoUtc(executedAt)) throw new TypeError('Trade time must be a canonical UTC ISO timestamp.');
+  if (!validIsoUtc(executedAt)) throw new TypeError('Trade time must be a canonical UTC ISO timestamp no later than now.');
   const note = input.note === undefined ? '' : input.note;
   if (typeof note !== 'string' || note.length > 240) throw new TypeError('Trade note must be text up to 240 characters.');
   const id = input.id === undefined ? 'paper-' + (portfolio.trades.length + 1) : input.id;
@@ -443,7 +444,7 @@ export function setPaperMark(portfolio, symbolInput, priceInput, markedAt = new 
     throw new RangeError('A manual mark can only be added for an open paper position.');
   }
   const price = positiveNumber(priceInput, 'Manual mark price');
-  if (!validIsoUtc(markedAt)) throw new TypeError('Manual mark time must be a canonical UTC ISO timestamp.');
+  if (!validIsoUtc(markedAt)) throw new TypeError('Manual mark time must be a canonical UTC ISO timestamp no later than now.');
   const next = {
     version: PAPER_PORTFOLIO_VERSION,
     initialCapital: DEFAULT_VIRTUAL_CAPITAL,
