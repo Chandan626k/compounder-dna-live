@@ -293,10 +293,13 @@ const compilableScript = pageScript[1].replace(/^\s*import\s*\{[\s\S]*?\}\s*from
 assert.match(compilableScript, /^const STORAGE_KEY/, 'module import must be stripped before the inline-script syntax check');
 assert.match(pageScript[1], /serializePaperPortfolioStorageSnapshot\(next\)/, 'the page must delegate revision creation to the storage writer');
 assert.doesNotMatch(pageScript[1], /createStorageRevision/, 'the page must not supply storage revisions');
-const loadPortfolioBody = pageScript[1].match(/async function loadPortfolio\(\) \{([\\s\\S]*?)\\n\}/);
-assert.ok(loadPortfolioBody, 'paper page must keep its storage loading path testable');
-const rawCaptureIndex = loadPortfolioBody[1].indexOf('lastPersistedRaw = raw;');
-const rawParseIndex = loadPortfolioBody[1].indexOf('const saved = JSON.parse(raw);');
+const loadPortfolioStart = pageScript[1].indexOf('async function loadPortfolio() {');
+const loadPortfolioEnd = pageScript[1].indexOf('\n}\n\nwindow.addEventListener', loadPortfolioStart);
+assert.ok(loadPortfolioStart >= 0 && loadPortfolioEnd > loadPortfolioStart,
+  'paper page must keep its storage loading path testable');
+const loadPortfolioBody = pageScript[1].slice(loadPortfolioStart, loadPortfolioEnd);
+const rawCaptureIndex = loadPortfolioBody.indexOf('lastPersistedRaw = raw;');
+const rawParseIndex = loadPortfolioBody.indexOf('const saved = JSON.parse(raw);');
 assert.ok(rawCaptureIndex >= 0 && rawParseIndex >= 0 && rawCaptureIndex < rawParseIndex,
   'the exact raw snapshot must be captured before validation so a confirmed backup can recover invalid storage');
 assert.doesNotMatch(compilableScript, /^\s*import\s/m, 'no module import may remain in the compiled inline script');
