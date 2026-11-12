@@ -4,12 +4,78 @@ export const DEFAULT_VIRTUAL_CAPITAL = 500000;
 const SYMBOL_PATTERN = /^[A-Z0-9][A-Z0-9&_-]{0,23}\.(?:NS|BO)$/;
 const ISO_UTC_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 
-function roundMoney(value) {
-  const paise = Math.round((value + Number.EPSILON) * 100);
-  if (!Number.isSafeInteger(paise)) {
+const MAX_SAFE_PAISE = BigInt(Number.MAX_SAFE_INTEGER);
+
+function moneyToPaise(value) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new TypeError('Money amount must be a finite number.');
+  }
+  const match = /^(-?)([0-9]+)(?:[.]([0-9]*))?(?:e([+-]?[0-9]+))?$/i.exec(value.toString());
+  if (!match) throw new TypeError('Money amount must have a finite decimal representation.');
+  const negative = match[1] === '-';
+  const fraction = match[3] || '';
+  const digits = (match[2] + fraction).replace(/^0+(?=[0-9])/, '') || '0';
+  const decimalShift = 2 + Number(match[4] || 0) - fraction.length;
+  let absolute = BigInt(digits);
+  if (decimalShift >= 0) {
+    absolute *= 10n ** BigInt(decimalShift);
+  } else {
+    const divisor = 10n ** BigInt(-decimalShift);
+    const quotient = absolute / divisor;
+    const remainder = absolute % divisor;
+    absolute = quotient + (remainder * 2n >= divisor ? 1n : 0n);
+  }
+  const paise = negative ? -absolute : absolute;
+  if (paise > MAX_SAFE_PAISE || paise < -MAX_SAFE_PAISE) {
     throw new RangeError('Money calculation exceeds the supported INR paise precision.');
   }
-  return paise / 100;
+  return paise;
+}
+
+function moneyFromPaise(paise) {
+  if (typeof paise !== 'bigint' || paise > MAX_SAFE_PAISE || paise < -MAX_SAFE_PAISE) {
+    throw new RangeError('Money calculation exceeds the supported INR paise precision.');
+  }
+  const value = Number(paise) / 100;
+  if (moneyToPaise(value) !== paise) {
+    throw new RangeError('Money amount cannot be represented exactly at INR paise precision.');
+  }
+  return value;
+}
+
+function roundMoney(value) {
+  return moneyFromPaise(moneyToPaise(value));
+}
+
+function addMoney(left, right) {
+  return moneyFromPaise(moneyToPaise(left) + moneyToPaise(right));
+}
+
+function subtractMoney(left, right) {
+  return moneyFromPaise(moneyToPaise(left) - moneyToPaise(right));
+}
+
+function multiplyMoney(quantity, price) {
+  if (!Number.isSafeInteger(quantity) || quantity < 0) {
+    throw new TypeError('Money multiplication quantity must be a non-negative safe whole number.');
+  }
+  return moneyFromPaise(moneyToPaise(price) * BigInt(quantity));
+}
+
+function allocateMoney(total, quantity, totalQuantity) {
+  if (!Number.isSafeInteger(quantity) || quantity <= 0
+      || !Number.isSafeInteger(totalQuantity) || totalQuantity <= 0
+      || quantity > totalQuantity) {
+    throw new TypeError('Average-cost allocation quantities must be valid positive whole numbers.');
+  }
+  const totalPaise = moneyToPaise(total);
+  if (totalPaise < 0n) throw new RangeError('Average-cost allocation cannot use negative cost basis.');
+  const numerator = totalPaise * BigInt(quantity);
+  const denominator = BigInt(totalQuantity);
+  const quotient = numerator / denominator;
+  const remainder = numerator % denominator;
+  const allocatedPaise = quotient + (remainder * 2n >= denominator ? 1n : 0n);
+  return moneyFromPaise(allocatedPaise);
 }
 
 function canonicalSymbol(value) {
@@ -142,31 +208,31 @@ export function derivePaperPortfolio(portfolio) {
   for (const trade of trades) {
     if (ids.has(trade.id)) throw new TypeError('Duplicate paper trade ID: ' + trade.id);
     ids.add(trade.id);
-    const gross = roundMoney(trade.quantity * trade.price);
-    totalFees = roundMoney(totalFees + trade.fees);
+    const gross = multiplyMoney(trade.quantity, trade.price);
+    totalFees = addMoney(totalFees, trade.fees);
     const position = positions.get(trade.symbol) || { symbol: trade.symbol, quantity: 0, costBasis: 0 };
 
     if (trade.side === 'BUY') {
-      const totalCost = roundMoney(gross + trade.fees);
+      const totalCost = addMoney(gross, trade.fees);
       if (totalCost > cash) throw new RangeError('Insufficient virtual cash for this paper BUY.');
-      cash = roundMoney(cash - totalCost);
+      cash = subtractMoney(cash, totalCost);
       position.quantity += trade.quantity;
-      position.costBasis = roundMoney(position.costBasis + totalCost);
+      position.costBasis = addMoney(position.costBasis, totalCost);
       positions.set(trade.symbol, position);
       continue;
     }
 
-    if (trade.fees > gross) throw new RangeError('Paper SELL fees cannot exceed gross sale proceeds.');
+    if (moneyToPaise(trade.fees) > moneyToPaise(gross)) throw new RangeError('Paper SELL fees cannot exceed gross sale proceeds.');
     if (position.quantity < trade.quantity) {
       throw new RangeError('Paper SELL quantity exceeds the open long position.');
     }
     const averageCost = position.costBasis / position.quantity;
-    const allocatedCost = roundMoney(averageCost * trade.quantity);
-    const netProceeds = roundMoney(gross - trade.fees);
-    realizedPnl = roundMoney(realizedPnl + netProceeds - allocatedCost);
-    cash = roundMoney(cash + netProceeds);
+    const allocatedCost = allocateMoney(position.costBasis, trade.quantity, position.quantity);
+    const netProceeds = subtractMoney(gross, trade.fees);
+    realizedPnl = addMoney(realizedPnl, subtractMoney(netProceeds, allocatedCost));
+    cash = addMoney(cash, netProceeds);
     position.quantity -= trade.quantity;
-    position.costBasis = roundMoney(position.costBasis - allocatedCost);
+    position.costBasis = subtractMoney(position.costBasis, allocatedCost);
     if (position.quantity === 0) {
       positions.delete(trade.symbol);
       delete marks[trade.symbol];
@@ -183,7 +249,7 @@ export function derivePaperPortfolio(portfolio) {
     .sort((a, b) => a.symbol.localeCompare(b.symbol))
     .map(position => {
       const mark = marks[position.symbol] || null;
-      const marketValue = mark ? roundMoney(position.quantity * mark.price) : null;
+      const marketValue = mark ? multiplyMoney(position.quantity, mark.price) : null;
       return {
         symbol: position.symbol,
         quantity: position.quantity,
@@ -192,18 +258,18 @@ export function derivePaperPortfolio(portfolio) {
         markPrice: mark ? mark.price : null,
         markedAt: mark ? mark.markedAt : null,
         marketValue,
-        unrealizedPnl: mark ? roundMoney(marketValue - position.costBasis) : null
+        unrealizedPnl: mark ? subtractMoney(marketValue, position.costBasis) : null
       };
     });
 
   const marketValueComplete = positionRows.every(position => position.markPrice !== null);
-  const totalInvestedCost = roundMoney(positionRows.reduce((sum, position) => sum + position.costBasis, 0));
-  const markedMarketValue = roundMoney(positionRows.reduce((sum, position) => sum + (position.marketValue || 0), 0));
+  const totalInvestedCost = positionRows.reduce((sum, position) => addMoney(sum, position.costBasis), 0);
+  const markedMarketValue = positionRows.reduce((sum, position) => addMoney(sum, position.marketValue || 0), 0);
   const totalMarketValue = marketValueComplete ? markedMarketValue : null;
   const unrealizedPnl = marketValueComplete
-    ? roundMoney(positionRows.reduce((sum, position) => sum + position.unrealizedPnl, 0))
+    ? positionRows.reduce((sum, position) => addMoney(sum, position.unrealizedPnl), 0)
     : null;
-  const totalEquity = marketValueComplete ? roundMoney(cash + markedMarketValue) : null;
+  const totalEquity = marketValueComplete ? addMoney(cash, markedMarketValue) : null;
 
   return {
     initialCapital: DEFAULT_VIRTUAL_CAPITAL,
@@ -215,7 +281,7 @@ export function derivePaperPortfolio(portfolio) {
     totalEquity,
     realizedPnl: roundMoney(realizedPnl),
     unrealizedPnl,
-    totalPnl: totalEquity === null ? null : roundMoney(totalEquity - DEFAULT_VIRTUAL_CAPITAL),
+    totalPnl: totalEquity === null ? null : subtractMoney(totalEquity, DEFAULT_VIRTUAL_CAPITAL),
     totalFees: roundMoney(totalFees),
     tradeCount: trades.length,
     positions: positionRows
@@ -323,6 +389,7 @@ export function applyPaperTrade(portfolio, input) {
   if (!Number.isSafeInteger(quantity) || quantity <= 0) throw new TypeError('Quantity must be a positive safe whole number.');
   const price = positiveNumber(input.price, 'Trade price');
   const fees = input.fees === undefined ? 0 : nonNegativeNumber(input.fees, 'Trade fees');
+  const gross = multiplyMoney(quantity, price);
   const executedAt = input.executedAt === undefined ? new Date().toISOString() : input.executedAt;
   if (!validIsoUtc(executedAt)) throw new TypeError('Trade time must be a canonical UTC ISO timestamp.');
   const note = input.note === undefined ? '' : input.note;
@@ -332,14 +399,14 @@ export function applyPaperTrade(portfolio, input) {
   if (portfolio.trades.some(trade => trade && trade.id === id.trim())) throw new TypeError('Duplicate paper trade ID: ' + id);
 
   if (side === 'BUY') {
-    const requiredCash = roundMoney(quantity * price + fees);
+    const requiredCash = addMoney(gross, fees);
     if (requiredCash > current.cash) throw new RangeError('Insufficient virtual cash for this paper BUY.');
   } else {
     const position = current.positions.find(item => item.symbol === symbol);
     if (!position || position.quantity < quantity) {
       throw new RangeError('Paper SELL quantity exceeds the open long position.');
     }
-    if (fees > roundMoney(quantity * price)) {
+    if (moneyToPaise(fees) > moneyToPaise(gross)) {
       throw new RangeError('Paper SELL fees cannot exceed gross sale proceeds.');
     }
   }
