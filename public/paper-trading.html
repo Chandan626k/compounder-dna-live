@@ -276,23 +276,11 @@ function adoptStoredSnapshot(raw) {
   }
 }
 
-function createStorageRevision() {
-  const cryptoApi = globalThis.crypto;
-  if (!cryptoApi || typeof cryptoApi.getRandomValues !== 'function') {
-    throw new Error('Secure random storage revisions are unavailable; this portfolio cannot be saved safely.');
-  }
-  const bytes = new Uint8Array(16);
-  cryptoApi.getRandomValues(bytes);
-  return Array.from(bytes, value => value.toString(16).padStart(2, '0')).join('');
-}
-
 async function persist(next) {
   let serialized;
-  let snapshot;
   let result;
   try {
-    serialized = serializePaperPortfolioStorageSnapshot(next, createStorageRevision());
-    snapshot = JSON.parse(serialized);
+    serialized = serializePaperPortfolioStorageSnapshot(next);
     result = await writePaperPortfolioSnapshot(
       localStorage,
       navigator.locks || null,
@@ -326,8 +314,8 @@ async function persist(next) {
     return false;
   }
 
-  portfolio = snapshot;
-  lastPersistedRaw = serialized;
+  portfolio = JSON.parse(result.currentRaw);
+  lastPersistedRaw = result.currentRaw;
   storageAvailable = true;
   setMessage('storageStatus', result.usedLock
     ? 'Saved on this browser. Concurrent tab writes are serialized; export a backup regularly.'

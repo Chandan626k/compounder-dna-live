@@ -148,7 +148,15 @@ const concurrentResults = await Promise.all([
   writePaperPortfolioSnapshot(concurrentStorage, locks, 'paper-key', baseSnapshot, tabBSnapshot)
 ]);
 assert.equal(concurrentResults.filter(result => result.saved).length, 1, 'serialized tabs must not both overwrite the same base snapshot');
-assert.ok([tabASnapshot, tabBSnapshot].includes(concurrentStorage.raw));
+const savedConcurrentResult = concurrentResults.find(result => result.saved);
+const savedConcurrentInput = concurrentResults[0].saved ? tabASnapshot : tabBSnapshot;
+assert.equal(concurrentStorage.raw, savedConcurrentResult.currentRaw);
+assert.deepEqual(parsePaperPortfolioBackup(concurrentStorage.raw), parsePaperPortfolioBackup(savedConcurrentInput));
+assert.notEqual(
+  JSON.parse(concurrentStorage.raw).storageRevision,
+  JSON.parse(savedConcurrentInput).storageRevision,
+  'the storage writer must replace caller-supplied revisions'
+);
 const staleWrite = await writePaperPortfolioSnapshot(concurrentStorage, locks, 'paper-key', baseSnapshot, snapshot('d'.repeat(32)));
 assert.equal(staleWrite.saved, false, 'stale tabs must be rejected instead of overwriting a newer ledger');
 assert.equal(staleWrite.currentRaw, concurrentStorage.raw);
@@ -160,7 +168,10 @@ const fallbackStorage = memoryStorage(fallbackBase);
 const fallbackWrite = await writePaperPortfolioSnapshot(fallbackStorage, null, 'paper-key', fallbackBase, fallbackNext);
 assert.equal(fallbackWrite.saved, true, 'single-tab fallback should still save when the snapshot matches');
 assert.equal(fallbackWrite.usedLock, false);
-assert.equal(fallbackStorage.raw, fallbackNext);
+assert.equal(fallbackStorage.raw, fallbackWrite.currentRaw);
+assert.deepEqual(parsePaperPortfolioBackup(fallbackStorage.raw), parsePaperPortfolioBackup(fallbackNext));
+assert.notEqual(JSON.parse(fallbackStorage.raw).storageRevision, 'f'.repeat(32));
+assert.notEqual(JSON.parse(fallbackStorage.raw).storageRevision, 'e'.repeat(32));
 
 const invalidWriterBase = snapshot('9'.repeat(32));
 const invalidWriterNext = JSON.stringify({
@@ -185,14 +196,17 @@ const abaChangedPortfolio = applyPaperTrade(abaBasePortfolio, {
 const abaChanged = serializePaperPortfolioStorageSnapshot(abaChangedPortfolio, '2'.repeat(32));
 const restoredBackup = parsePaperPortfolioBackup(abaBase);
 assert.equal(Object.hasOwn(restoredBackup, 'storageRevision'), false, 'backup import must not reuse an old storage revision');
-const abaRestored = serializePaperPortfolioStorageSnapshot(restoredBackup, '3'.repeat(32));
-assert.notEqual(abaRestored, abaBase, 'restoring identical portfolio contents must still create a fresh storage revision');
 const abaStorage = memoryStorage(abaBase);
-assert.equal((await writePaperPortfolioSnapshot(abaStorage, locks, 'paper-key', abaBase, abaChanged)).saved, true);
-assert.equal((await writePaperPortfolioSnapshot(abaStorage, locks, 'paper-key', abaChanged, abaRestored)).saved, true);
+const changedWrite = await writePaperPortfolioSnapshot(abaStorage, locks, 'paper-key', abaBase, abaChanged);
+assert.equal(changedWrite.saved, true);
+assert.notEqual(changedWrite.currentRaw, abaChanged, 'the storage writer must issue its own fresh revision');
+const restoredWrite = await writePaperPortfolioSnapshot(abaStorage, locks, 'paper-key', changedWrite.currentRaw, abaBase);
+assert.equal(restoredWrite.saved, true, 'restoring a backup with an old revision must still be allowed');
+assert.notEqual(restoredWrite.currentRaw, abaBase, 'restoring identical contents must not restore an old storage revision');
+assert.deepEqual(parsePaperPortfolioBackup(restoredWrite.currentRaw), restoredBackup);
 const abaStaleWrite = await writePaperPortfolioSnapshot(abaStorage, locks, 'paper-key', abaBase, snapshot('4'.repeat(32)));
-assert.equal(abaStaleWrite.saved, false, 'a stale tab must not overwrite a backup restore that returned to identical portfolio contents');
-assert.equal(abaStaleWrite.currentRaw, abaRestored);
+assert.equal(abaStaleWrite.saved, false, 'a stale tab must not overwrite a restore even when the caller reuses the old revision');
+assert.equal(abaStaleWrite.currentRaw, restoredWrite.currentRaw);
 
 const paperPage = fs.readFileSync(new URL('../public/paper-trading.html', import.meta.url), 'utf8');
 assert.match(paperPage, /PAPER MODE ONLY/);
@@ -208,6 +222,8 @@ const pageScript = paperPage.match(/<script type="module">([\s\S]*?)<\/script>/)
 assert.ok(pageScript, 'paper trading page must contain its client module');
 const compilableScript = pageScript[1].replace(/^\s*import\s*\{[\s\S]*?\}\s*from\s*['"]\.\/paper-portfolio\.js['"];\s*/, '');
 assert.match(compilableScript, /^const STORAGE_KEY/, 'module import must be stripped before the inline-script syntax check');
+assert.match(pageScript[1], /serializePaperPortfolioStorageSnapshot\(next\)/, 'the page must delegate revision creation to the storage writer');
+assert.doesNotMatch(pageScript[1], /createStorageRevision/, 'the page must not supply storage revisions');
 assert.doesNotMatch(compilableScript, /^\s*import\s/m, 'no module import may remain in the compiled inline script');
 assert.doesNotThrow(() => new Function(compilableScript), 'paper page module must parse as JavaScript');
 

@@ -240,11 +240,22 @@ export function parsePaperPortfolioBackup(raw) {
 }
 
 export function serializePaperPortfolioStorageSnapshot(portfolio, revisionId) {
+  const normalized = parsePaperPortfolioBackup(JSON.stringify(portfolio));
+  if (revisionId === undefined) return JSON.stringify(normalized);
   if (typeof revisionId !== 'string' || !/^[a-f0-9]{32}$/.test(revisionId)) {
     throw new TypeError('Paper portfolio storage revision must be 32 lowercase hexadecimal characters.');
   }
-  const normalized = parsePaperPortfolioBackup(JSON.stringify(portfolio));
   return JSON.stringify({ ...normalized, storageRevision: revisionId });
+}
+
+function createPaperPortfolioStorageRevision() {
+  const cryptoApi = globalThis.crypto;
+  if (!cryptoApi || typeof cryptoApi.getRandomValues !== 'function') {
+    throw new Error('Secure random storage revisions are unavailable; this portfolio cannot be saved safely.');
+  }
+  const bytes = new Uint8Array(16);
+  cryptoApi.getRandomValues(bytes);
+  return Array.from(bytes, value => value.toString(16).padStart(2, '0')).join('');
 }
 
 function readPaperPortfolioStorageRevision(raw) {
@@ -273,22 +284,22 @@ export async function writePaperPortfolioSnapshot(storage, lockManager, key, exp
   if (typeof nextRaw !== 'string') {
     throw new TypeError('Next paper portfolio snapshot must be text.');
   }
-  const nextRevision = readPaperPortfolioStorageRevision(nextRaw);
-  if (!nextRevision) {
-    throw new TypeError('Next paper portfolio snapshot must include a valid storage revision.');
-  }
-  // Keep the low-level writer fail-closed even when a caller bypasses the serializer.
-  parsePaperPortfolioBackup(nextRaw);
+  // Validate and normalize the complete ledger at the storage boundary. Never trust a
+  // caller-supplied revision: a stale caller could reuse an older revision and recreate
+  // the ABA snapshot. Issue a fresh cryptographic revision for every actual write.
+  const normalizedNext = parsePaperPortfolioBackup(nextRaw);
   const expectedRevision = readPaperPortfolioStorageRevision(expectedRaw);
-  if (nextRevision === expectedRevision) {
-    throw new TypeError('Next paper portfolio storage revision must differ from the expected snapshot.');
+  let nextRevision = createPaperPortfolioStorageRevision();
+  while (nextRevision === expectedRevision) {
+    nextRevision = createPaperPortfolioStorageRevision();
   }
+  const persistedRaw = JSON.stringify({ ...normalizedNext, storageRevision: nextRevision });
 
   const write = () => {
     const currentRaw = storage.getItem(key);
     if (currentRaw !== expectedRaw) return { saved: false, currentRaw };
-    storage.setItem(key, nextRaw);
-    return { saved: true, currentRaw: nextRaw };
+    storage.setItem(key, persistedRaw);
+    return { saved: true, currentRaw: persistedRaw };
   };
 
   if (lockManager && typeof lockManager.request === 'function') {
