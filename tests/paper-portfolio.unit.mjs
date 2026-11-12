@@ -6,7 +6,8 @@ import {
   createPaperPortfolio,
   derivePaperPortfolio,
   parsePaperPortfolioBackup,
-  setPaperMark
+  setPaperMark,
+  writePaperPortfolioSnapshot
 } from '../public/paper-portfolio.js';
 
 const at = '2026-11-12T00:00:00.000Z';
@@ -107,6 +108,46 @@ assert.throws(() => parsePaperPortfolioBackup(JSON.stringify({
   marks: { 'TCS.NS': { price: 100, markedAt: at } }
 })), /without an open position/);
 
+
+
+function memoryStorage(initialRaw) {
+  let raw = initialRaw;
+  return {
+    getItem() { return raw; },
+    setItem(_key, value) { raw = value; },
+    get raw() { return raw; }
+  };
+}
+
+function serialLockManager() {
+  let tail = Promise.resolve();
+  return {
+    request(_name, callback) {
+      const pending = tail.then(callback, callback);
+      tail = pending.then(() => undefined, () => undefined);
+      return pending;
+    }
+  };
+}
+
+const concurrentStorage = memoryStorage('base-snapshot');
+const locks = serialLockManager();
+const concurrentResults = await Promise.all([
+  writePaperPortfolioSnapshot(concurrentStorage, locks, 'paper-key', 'base-snapshot', 'tab-a-snapshot'),
+  writePaperPortfolioSnapshot(concurrentStorage, locks, 'paper-key', 'base-snapshot', 'tab-b-snapshot')
+]);
+assert.equal(concurrentResults.filter(result => result.saved).length, 1, 'serialized tabs must not both overwrite the same base snapshot');
+assert.ok(['tab-a-snapshot', 'tab-b-snapshot'].includes(concurrentStorage.raw));
+const staleWrite = await writePaperPortfolioSnapshot(concurrentStorage, locks, 'paper-key', 'base-snapshot', 'stale-snapshot');
+assert.equal(staleWrite.saved, false, 'stale tabs must be rejected instead of overwriting a newer ledger');
+assert.equal(staleWrite.currentRaw, concurrentStorage.raw);
+assert.equal(staleWrite.usedLock, true);
+
+const fallbackStorage = memoryStorage('fallback-base');
+const fallbackWrite = await writePaperPortfolioSnapshot(fallbackStorage, null, 'paper-key', 'fallback-base', 'fallback-next');
+assert.equal(fallbackWrite.saved, true, 'single-tab fallback should still save when the snapshot matches');
+assert.equal(fallbackWrite.usedLock, false);
+assert.equal(fallbackStorage.raw, 'fallback-next');
 
 const paperPage = fs.readFileSync(new URL('../public/paper-trading.html', import.meta.url), 'utf8');
 assert.match(paperPage, /PAPER MODE ONLY/);
