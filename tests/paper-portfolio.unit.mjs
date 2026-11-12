@@ -162,6 +162,21 @@ assert.equal(fallbackWrite.saved, true, 'single-tab fallback should still save w
 assert.equal(fallbackWrite.usedLock, false);
 assert.equal(fallbackStorage.raw, fallbackNext);
 
+const invalidWriterBase = snapshot('9'.repeat(32));
+const invalidWriterNext = JSON.stringify({
+  version: 1,
+  initialCapital: 500000,
+  trades: [{ id: 'orphan-write', symbol: 'TCS.NS', side: 'SELL', quantity: 1, price: 100, fees: 0, executedAt: at }],
+  marks: {},
+  storageRevision: 'a'.repeat(32)
+});
+const invalidWriterStorage = memoryStorage(invalidWriterBase);
+await assert.rejects(
+  () => writePaperPortfolioSnapshot(invalidWriterStorage, locks, 'paper-key', invalidWriterBase, invalidWriterNext),
+  /open long position/
+);
+assert.equal(invalidWriterStorage.raw, invalidWriterBase, 'invalid writer snapshots must never replace stored data');
+
 const abaBasePortfolio = createPaperPortfolio();
 const abaBase = serializePaperPortfolioStorageSnapshot(abaBasePortfolio, '1'.repeat(32));
 const abaChangedPortfolio = applyPaperTrade(abaBasePortfolio, {
