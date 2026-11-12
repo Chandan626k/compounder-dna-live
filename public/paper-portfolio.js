@@ -235,6 +235,34 @@ export function parsePaperPortfolioBackup(raw) {
   return normalized;
 }
 
+export async function writePaperPortfolioSnapshot(storage, lockManager, key, expectedRaw, nextRaw) {
+  if (!storage || typeof storage.getItem !== 'function' || typeof storage.setItem !== 'function') {
+    throw new TypeError('Paper portfolio storage must support getItem and setItem.');
+  }
+  if (typeof key !== 'string' || !key.trim()) {
+    throw new TypeError('Paper portfolio storage key must be non-empty text.');
+  }
+  if (expectedRaw !== null && typeof expectedRaw !== 'string') {
+    throw new TypeError('Expected paper portfolio snapshot must be text or null.');
+  }
+  if (typeof nextRaw !== 'string') {
+    throw new TypeError('Next paper portfolio snapshot must be text.');
+  }
+
+  const write = () => {
+    const currentRaw = storage.getItem(key);
+    if (currentRaw !== expectedRaw) return { saved: false, currentRaw };
+    storage.setItem(key, nextRaw);
+    return { saved: true, currentRaw: nextRaw };
+  };
+
+  if (lockManager && typeof lockManager.request === 'function') {
+    const result = await lockManager.request(key + ':write', write);
+    return { ...result, usedLock: true };
+  }
+  return { ...write(), usedLock: false };
+}
+
 export function applyPaperTrade(portfolio, input) {
   const current = derivePaperPortfolio(portfolio);
   if (!input || typeof input !== 'object' || Array.isArray(input)) {
