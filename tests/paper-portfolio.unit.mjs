@@ -31,6 +31,43 @@ const buyTwo = applyPaperTrade(buyOne, {
 const marked = setPaperMark(buyTwo, 'INFY.NS', 120, at);
 const laterAt = '2026-11-12T00:00:01.000Z';
 const futureAt = new Date(Date.now() + 60_000).toISOString();
+
+const chronologyBuy = applyPaperTrade(initial, {
+  id: 'chronology-buy', symbol: 'TCS.NS', side: 'BUY', quantity: 2, price: 100, fees: 0, executedAt: laterAt
+});
+assert.throws(
+  () => applyPaperTrade(chronologyBuy, {
+    id: 'backdated-sell', symbol: 'TCS.NS', side: 'SELL', quantity: 1, price: 110, fees: 0, executedAt: at
+  }),
+  /non-decreasing execution-time order/,
+  'a SELL must not be backdated before the BUY that creates its position'
+);
+assert.throws(
+  () => parsePaperPortfolioBackup(JSON.stringify({
+    ...chronologyBuy,
+    trades: [...chronologyBuy.trades, {
+      id: 'backdated-buy', symbol: 'INFY.NS', side: 'BUY', quantity: 1, price: 100, fees: 0, executedAt: at
+    }]
+  })),
+  /non-decreasing execution-time order/,
+  'backup restore must reject an out-of-order append-only trade ledger'
+);
+assert.throws(
+  () => setPaperMark(chronologyBuy, 'TCS.NS', 105, at),
+  /must not predate the latest trade/,
+  'a manual mark must not predate the latest trade for its open position'
+);
+assert.throws(
+  () => parsePaperPortfolioBackup(JSON.stringify({
+    ...chronologyBuy,
+    marks: { 'TCS.NS': { price: 105, markedAt: at } }
+  })),
+  /must not predate the latest trade/,
+  'backup restore must reject a stale mark older than the latest position trade'
+);
+const chronologyFreshMark = setPaperMark(chronologyBuy, 'TCS.NS', 105, laterAt);
+assert.equal(derivePaperPortfolio(chronologyFreshMark).positions[0].markPrice, 105,
+  'a mark at the latest trade timestamp remains valid');
 assert.throws(
   () => setPaperMark(buyOne, 'INFY.NS', 110, futureAt),
   /canonical UTC ISO timestamp no later than now/,
