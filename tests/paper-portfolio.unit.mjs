@@ -29,6 +29,19 @@ const buyTwo = applyPaperTrade(buyOne, {
   id: 'buy-2', symbol: 'INFY.NS', side: 'BUY', quantity: 5, price: 110, fees: 10, executedAt: at
 });
 const marked = setPaperMark(buyTwo, 'INFY.NS', 120, at);
+const laterAt = '2026-11-12T00:00:01.000Z';
+const markedBeforeLaterBuy = setPaperMark(buyOne, 'INFY.NS', 110, at);
+const boughtAfterMark = applyPaperTrade(markedBeforeLaterBuy, {
+  id: 'buy-after-mark', symbol: 'INFY.NS', side: 'BUY', quantity: 1, price: 105, fees: 0, executedAt: laterAt
+});
+assert.equal(boughtAfterMark.marks['INFY.NS'], undefined, 'a later BUY must invalidate an older manual mark for the changed position');
+assert.equal(derivePaperPortfolio(boughtAfterMark).positions[0].markPrice, null);
+assert.equal(derivePaperPortfolio(boughtAfterMark).totalEquity, null, 'equity must remain incomplete until the updated position is re-marked');
+const soldAfterMark = applyPaperTrade(marked, {
+  id: 'sell-after-mark', symbol: 'INFY.NS', side: 'SELL', quantity: 1, price: 125, fees: 0, executedAt: laterAt
+});
+assert.equal(soldAfterMark.marks['INFY.NS'], undefined, 'a later partial SELL must invalidate an older manual mark too');
+assert.equal(derivePaperPortfolio(soldAfterMark).positions[0].markPrice, null);
 const beforeSell = derivePaperPortfolio(marked);
 assert.equal(beforeSell.cash, 498420);
 assert.equal(beforeSell.totalInvestedCost, 1580);
