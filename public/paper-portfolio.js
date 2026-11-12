@@ -411,6 +411,10 @@ export function applyPaperTrade(portfolio, input) {
     }
   }
 
+  // A manual mark is only valid until a later trade changes this symbol's position.
+  // Clear an older/equal-time mark so stale prices cannot value the updated position.
+  const nextMarks = { ...portfolio.marks };
+  if (nextMarks[symbol] && nextMarks[symbol].markedAt <= executedAt) delete nextMarks[symbol];
   const next = {
     version: PAPER_PORTFOLIO_VERSION,
     initialCapital: DEFAULT_VIRTUAL_CAPITAL,
@@ -424,7 +428,7 @@ export function applyPaperTrade(portfolio, input) {
       executedAt,
       note: note.trim()
     }],
-    marks: { ...portfolio.marks }
+    marks: nextMarks
   };
   const nextState = derivePaperPortfolio(next);
   if (!nextState.positions.some(position => position.symbol === symbol)) delete next.marks[symbol];
