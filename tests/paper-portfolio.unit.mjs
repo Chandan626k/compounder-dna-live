@@ -92,6 +92,21 @@ assert.throws(() => applyPaperTrade(buyOne, {
   id: 'buy-1', symbol: 'INFY.NS', side: 'BUY', quantity: 1, price: 100, fees: 0, executedAt: at
 }), /Duplicate paper trade ID/);
 assert.throws(() => setPaperMark(initial, 'TCS.NS', 100, at), /open paper position/);
+assert.throws(
+  () => setPaperMark(buyOne, 'INFY.NS', 90_071_992_547_410, at),
+  /supported INR paise precision/,
+  'manual marks must not exceed JavaScript safe-integer paise precision'
+);
+const precisionSellBase = applyPaperTrade(initial, {
+  symbol: 'INFY.NS', side: 'BUY', quantity: 2, price: 100, fees: 0, executedAt: at
+});
+assert.throws(
+  () => applyPaperTrade(precisionSellBase, {
+    symbol: 'INFY.NS', side: 'SELL', quantity: 2, price: 50_000_000_000_000, fees: 0, executedAt: at
+  }),
+  /supported INR paise precision/,
+  'aggregate sale proceeds must remain exactly representable at paise precision'
+);
 assert.throws(() => derivePaperPortfolio({ ...initial, initialCapital: 100000 }), /₹5,00,000/);
 
 const backupRoundTrip = parsePaperPortfolioBackup(JSON.stringify(markedAfterSell));
