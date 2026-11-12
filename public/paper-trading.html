@@ -335,16 +335,17 @@ async function loadPortfolio() {
     render();
     return;
   }
+  // Keep the exact stored bytes even when parsing fails. A confirmed backup import
+  // can then replace this unchanged invalid snapshot through the compare-before-write gate.
+  lastPersistedRaw = raw;
   if (!raw) {
     portfolio = createPaperPortfolio();
-    lastPersistedRaw = null;
     await persist(portfolio);
     return;
   }
   const saved = JSON.parse(raw);
   derivePaperPortfolio(saved);
   portfolio = saved;
-  lastPersistedRaw = raw;
   storageAvailable = true;
   setMessage('storageStatus', 'Loaded saved portfolio from this browser.');
   render();
