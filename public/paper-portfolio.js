@@ -58,6 +58,10 @@ function assertPortfolioShape(portfolio) {
   if (!portfolio.marks || typeof portfolio.marks !== 'object' || Array.isArray(portfolio.marks)) {
     throw new TypeError('Manual price marks must be an object.');
   }
+  if (portfolio.storageRevision !== undefined
+      && (typeof portfolio.storageRevision !== 'string' || !/^[a-f0-9]{32}$/.test(portfolio.storageRevision))) {
+    throw new TypeError('Paper portfolio storage revision must be 32 lowercase hexadecimal characters.');
+  }
 }
 
 function validateTrade(trade, index) {
@@ -235,6 +239,27 @@ export function parsePaperPortfolioBackup(raw) {
   return normalized;
 }
 
+export function serializePaperPortfolioStorageSnapshot(portfolio, revisionId) {
+  if (typeof revisionId !== 'string' || !/^[a-f0-9]{32}$/.test(revisionId)) {
+    throw new TypeError('Paper portfolio storage revision must be 32 lowercase hexadecimal characters.');
+  }
+  const normalized = parsePaperPortfolioBackup(JSON.stringify(portfolio));
+  return JSON.stringify({ ...normalized, storageRevision: revisionId });
+}
+
+function readPaperPortfolioStorageRevision(raw) {
+  if (typeof raw !== 'string') return null;
+  try {
+    const parsed = JSON.parse(raw);
+    const revision = parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed.storageRevision
+      : null;
+    return typeof revision === 'string' && /^[a-f0-9]{32}$/.test(revision) ? revision : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function writePaperPortfolioSnapshot(storage, lockManager, key, expectedRaw, nextRaw) {
   if (!storage || typeof storage.getItem !== 'function' || typeof storage.setItem !== 'function') {
     throw new TypeError('Paper portfolio storage must support getItem and setItem.');
@@ -247,6 +272,14 @@ export async function writePaperPortfolioSnapshot(storage, lockManager, key, exp
   }
   if (typeof nextRaw !== 'string') {
     throw new TypeError('Next paper portfolio snapshot must be text.');
+  }
+  const nextRevision = readPaperPortfolioStorageRevision(nextRaw);
+  if (!nextRevision) {
+    throw new TypeError('Next paper portfolio snapshot must include a valid storage revision.');
+  }
+  const expectedRevision = readPaperPortfolioStorageRevision(expectedRaw);
+  if (nextRevision === expectedRevision) {
+    throw new TypeError('Next paper portfolio storage revision must differ from the expected snapshot.');
   }
 
   const write = () => {
