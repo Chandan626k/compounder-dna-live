@@ -1,0 +1,35 @@
+name: Scanner MTF Validation
+
+on:
+  push:
+    branches:
+      - fix/scanner-mtf-*
+  pull_request:
+    branches:
+      - fix/scanner-*
+      - fix/scanner-mtf-*
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact pushed or pull-request head commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Focused scanner multi-timeframe regressions
+        run: node tests/scanner-mtf-gate.unit.mjs
+      - name: Full regression suite
+        run: npm test
+      - name: Enforce dependency audit
+        run: npm audit --audit-level=low
