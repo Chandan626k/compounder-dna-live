@@ -1,10 +1,27 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
 import { scanSymbols, SCANNER_DATA_ACCESS } from '../lib/scanner-engine-v2.js';
 import handler from '../api/scan.js';
 import { cacheSet } from '../lib/cache.js';
 
 assert.equal(SCANNER_DATA_ACCESS.status, 'NOT_CONFIGURED');
 assert.equal(SCANNER_DATA_ACCESS.reason, 'AUTHORIZED_MARKET_DATA_SOURCE_NOT_CONFIGURED');
+
+const terminalSource = fs.readFileSync(new URL('../public/terminal.html', import.meta.url), 'utf8');
+const helperStart = terminalSource.indexOf('function scannerFailureMessage(payload){');
+const helperEnd = terminalSource.indexOf("\n$('scan').onclick", helperStart);
+assert.ok(helperStart >= 0 && helperEnd > helperStart, 'Terminal must define a scanner-unavailable message helper.');
+assert.ok(terminalSource.includes('if(!r.ok)throw Error(scannerFailureMessage(d));'), 'Scanner UI must use the structured API error helper.');
+const helperSource = terminalSource.slice(helperStart, helperEnd);
+const scannerMessageContext = {};
+vm.runInNewContext(helperSource + "\nglobalThis.__scannerFailureMessage = scannerFailureMessage;", scannerMessageContext);
+assert.equal(
+  scannerMessageContext.__scannerFailureMessage({ errors: [{ error: 'AUTHORIZED_MARKET_DATA_SOURCE_NOT_CONFIGURED' }] }),
+  'Scanner unavailable: an authorized market-data source is not configured. No market-data request was made and no signals were generated.',
+);
+assert.equal(scannerMessageContext.__scannerFailureMessage({ error: 'UPSTREAM_UNAVAILABLE' }), 'UPSTREAM_UNAVAILABLE');
+assert.equal(scannerMessageContext.__scannerFailureMessage({}), 'Scanner failed');
 
 let fetchCalls = 0;
 const originalFetch = globalThis.fetch;
