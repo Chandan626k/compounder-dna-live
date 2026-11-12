@@ -302,6 +302,10 @@ const rawCaptureIndex = loadPortfolioBody.indexOf('lastPersistedRaw = raw;');
 const rawParseIndex = loadPortfolioBody.indexOf('const saved = JSON.parse(raw);');
 assert.ok(rawCaptureIndex >= 0 && rawParseIndex >= 0 && rawCaptureIndex < rawParseIndex,
   'the exact raw snapshot must be captured before validation so a confirmed backup can recover invalid storage');
+const storageUnavailableCatch = loadPortfolioBody.match(/try \\{\\s*raw = localStorage\\.getItem\\(STORAGE_KEY\\);\\s*\\} catch \\{([\\s\\S]*?)\\n  \\}/);
+assert.ok(storageUnavailableCatch, 'initial storage access failure must remain covered by the page regression');
+assert.match(storageUnavailableCatch[1], /portfolio = createPaperPortfolio\\(\\);[\\s\\S]*?storageAvailable = false;[\\s\\S]*?enablePortfolioEditing\\(\\);[\\s\\S]*?render\\(\\);[\\s\\S]*?return;/,
+  'the empty in-memory portfolio must render its summary and empty tables when localStorage is unavailable');
 const enableHelper = pageScript[1].match(/function enablePortfolioEditing\(\) \{([\s\S]*?)\n\}/);
 assert.ok(enableHelper, 'paper page must provide a way to re-enable editing after a validated recovery');
 assert.match(enableHelper[1], /tradeForm[\s\S]*?disabled = false/);
