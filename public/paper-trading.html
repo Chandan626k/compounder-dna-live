@@ -341,6 +341,7 @@ async function loadPortfolio() {
     portfolio = createPaperPortfolio();
     storageAvailable = false;
     enablePortfolioEditing();
+    render();
     setMessage('storageStatus', 'Browser storage is unavailable. Changes remain only in this open page; export a backup before closing it.', true);
     return;
   }
