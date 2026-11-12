@@ -1,3 +1,5 @@
+import { sendMarketDataUnavailable } from '../lib/market-data-access-policy.js';
+
 import { verifiedHistory } from '../lib/market-data-provider.js';
 import { runValidationBacktest } from '../lib/strategy-validation.js';
 import { buyAndHoldBenchmark } from '../lib/predictive-research.js';
@@ -98,8 +100,7 @@ export default async function handler(req, res) {
       const state = parseState(await import('../lib/holdout-ledger.js').then(({ durableHoldoutState }) => durableHoldoutState(FROZEN_PROTOCOL_ID)));
       return res.status(200).json({ success:true, protocolId:FROZEN_PROTOCOL_ID, status:state?.status || 'NOT_STARTED', finalHoldoutOpened:Boolean(state && state.status === 'COMPLETED') });
     }
-    if (mode === 'prepare') return res.status(200).json({ success:true, ...(await prepare()) });
-    if (mode === 'execute') { const out = await executeOnce(); return res.status(out.http).json(out.body); }
+    if (mode === 'prepare' || mode === 'execute') return sendMarketDataUnavailable(res);
     return res.status(400).json({ success:false, error:'mode must be status, prepare, or execute' });
   } catch (e) {
     const msg = String(e?.message || e);

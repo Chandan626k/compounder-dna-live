@@ -1,3 +1,5 @@
+import { sendMarketDataUnavailable } from '../lib/market-data-access-policy.js';
+
 import { analyze as analyzeStock } from '../lib/market-engine.js';
 import { applyDecisionEvidenceGate } from '../lib/decision-evidence-gate.js';
 
@@ -12,6 +14,7 @@ export default async function handler(req, res) {
   Object.entries(CORS).forEach(([k, v]) => res.setHeader(k, v));
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'GET') return res.status(405).json({ success: false, error: 'Method not allowed' });
+  return sendMarketDataUnavailable(res);
 
   const raw = req.query?.symbol;
   const symbol = String(Array.isArray(raw) ? raw[0] : raw || '').trim();

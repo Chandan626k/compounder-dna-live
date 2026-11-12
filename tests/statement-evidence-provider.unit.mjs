@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { createAnalyzeHandler } from '../api/analyze.js';
 import { deriveFinancialCurrency, fetchStatementEvidence, mergeStatementEvidence } from '../lib/statement-evidence.js';
 
 const rows = {
@@ -44,37 +43,6 @@ function baseFinancials() {
   };
 }
 
-function makeResponse() {
-  return {
-    headers: {},
-    statusCode: null,
-    setHeader(name, value) { this.headers[name] = value; },
-    status(code) { this.statusCode = code; return this; },
-    json(payload) { this.body = JSON.parse(JSON.stringify(payload)); return this; },
-    end() { this.ended = true; return this; }
-  };
-}
-
-async function runApi(symbol, provider) {
-  const handler = createAnalyzeHandler({
-    analyzeStockFn: async (requestedSymbol) => {
-      const evidence = await fetchStatementEvidence(requestedSymbol, provider);
-      return {
-        stock: { symbol: requestedSymbol.toUpperCase().replace(/\.(?:NS|BO)$/i, ''), price: 100, currency: 'INR' },
-        fundamentals: mergeStatementEvidence(baseFinancials(), evidence),
-        valuation: { enterpriseValue: null, evToEbitda: null, evToRevenue: null }
-      };
-    }
-  });
-  const response = makeResponse();
-  await handler({
-    method: 'GET',
-    query: { symbol },
-    headers: { 'x-request-id': 'statement-currency-provider-regression' }
-  }, response);
-  return response;
-}
-
 assert.equal(deriveFinancialCurrency([
   { currencyCode: 'USD' },
   { currencyCode: 'USD' }
@@ -99,31 +67,26 @@ assert.deepEqual(matchedEvidence.history, { incomeYears: 1, balanceYears: 1, cas
 assert.deepEqual(matchedEvidence.coverage, { income: true, balanceSheet: true, cashFlow: true });
 assert.deepEqual(matchedEvidence.errors, { income: null, balance: null, cash: null, quote: null });
 
-const matchedApi = await runApi('CURRENCYMETADATAMATCH', matchedProvider);
-assert.equal(matchedApi.statusCode, 200);
-assert.equal(matchedApi.headers['Cache-Control'], 'no-store');
-assert.equal(matchedApi.body.meta.cached, false);
-assert.equal(matchedApi.body.fundamentals.statementEvidence.currency.status, 'MATCH');
-assert.equal(matchedApi.body.fundamentals.statementEvidence.currency.source, 'quote.financialCurrency');
-assert.equal(matchedApi.body.fundamentals.current.totalDebt, 200);
-assert.equal(matchedApi.body.fundamentals.current.cash, 50);
-assert.equal(matchedApi.body.fundamentals.current.equity, 500);
-assert.equal(matchedApi.body.fundamentals.current.freeCashFlow, 75);
-assert.equal(matchedApi.body.fundamentals.rawAvailability.annualStatements, true);
-assert.equal(matchedApi.body.fundamentals.rawAvailability.annualBalanceSheet, true);
-assert.equal(matchedApi.body.fundamentals.rawAvailability.annualCashFlow, true);
+const matchedFinancials = mergeStatementEvidence(baseFinancials(), matchedEvidence);
+assert.equal(matchedFinancials.current.totalDebt, 200);
+assert.equal(matchedFinancials.current.cash, 50);
+assert.equal(matchedFinancials.current.equity, 500);
+assert.equal(matchedFinancials.current.freeCashFlow, 75);
+assert.equal(matchedFinancials.rawAvailability.annualStatements, true);
+assert.equal(matchedFinancials.rawAvailability.annualBalanceSheet, true);
+assert.equal(matchedFinancials.rawAvailability.annualCashFlow, true);
 
-const unknownApi = await runApi(
+const unknownEvidence = await fetchStatementEvidence(
   'CURRENCYMETADATAUNKNOWN',
   providerFixture({ quote: { currency: 'INR' } })
 );
-assert.equal(unknownApi.statusCode, 200);
-assert.equal(unknownApi.body.fundamentals.statementEvidence.currency.status, 'UNKNOWN');
-assert.equal(unknownApi.body.fundamentals.current.totalDebt, null);
-assert.equal(unknownApi.body.fundamentals.current.freeCashFlow, null);
-assert.equal(unknownApi.body.fundamentals.rawAvailability.annualStatements, false);
-assert.equal(unknownApi.body.fundamentals.rawAvailability.annualBalanceSheet, false);
-assert.equal(unknownApi.body.fundamentals.rawAvailability.annualCashFlow, false);
+assert.equal(unknownEvidence.currency.status, 'UNKNOWN');
+const unknownFinancials = mergeStatementEvidence(baseFinancials(), unknownEvidence);
+assert.equal(unknownFinancials.current.totalDebt, null);
+assert.equal(unknownFinancials.current.freeCashFlow, null);
+assert.equal(unknownFinancials.rawAvailability.annualStatements, false);
+assert.equal(unknownFinancials.rawAvailability.annualBalanceSheet, false);
+assert.equal(unknownFinancials.rawAvailability.annualCashFlow, false);
 
 const mismatch = await fetchStatementEvidence(
   'MISMATCH.NS',
