@@ -277,6 +277,8 @@ export async function writePaperPortfolioSnapshot(storage, lockManager, key, exp
   if (!nextRevision) {
     throw new TypeError('Next paper portfolio snapshot must include a valid storage revision.');
   }
+  // Keep the low-level writer fail-closed even when a caller bypasses the serializer.
+  parsePaperPortfolioBackup(nextRaw);
   const expectedRevision = readPaperPortfolioStorageRevision(expectedRaw);
   if (nextRevision === expectedRevision) {
     throw new TypeError('Next paper portfolio storage revision must differ from the expected snapshot.');
