@@ -6,6 +6,7 @@ import {
   createPaperPortfolio,
   derivePaperPortfolio,
   parsePaperPortfolioBackup,
+  serializePaperPortfolioStorageSnapshot,
   setPaperMark,
   writePaperPortfolioSnapshot
 } from '../public/paper-portfolio.js';
@@ -130,24 +131,53 @@ function serialLockManager() {
   };
 }
 
-const concurrentStorage = memoryStorage('base-snapshot');
+const snapshot = revision => JSON.stringify({
+  version: 1,
+  initialCapital: 500000,
+  trades: [],
+  marks: {},
+  storageRevision: revision
+});
+const baseSnapshot = snapshot('a'.repeat(32));
+const tabASnapshot = snapshot('b'.repeat(32));
+const tabBSnapshot = snapshot('c'.repeat(32));
+const concurrentStorage = memoryStorage(baseSnapshot);
 const locks = serialLockManager();
 const concurrentResults = await Promise.all([
-  writePaperPortfolioSnapshot(concurrentStorage, locks, 'paper-key', 'base-snapshot', 'tab-a-snapshot'),
-  writePaperPortfolioSnapshot(concurrentStorage, locks, 'paper-key', 'base-snapshot', 'tab-b-snapshot')
+  writePaperPortfolioSnapshot(concurrentStorage, locks, 'paper-key', baseSnapshot, tabASnapshot),
+  writePaperPortfolioSnapshot(concurrentStorage, locks, 'paper-key', baseSnapshot, tabBSnapshot)
 ]);
 assert.equal(concurrentResults.filter(result => result.saved).length, 1, 'serialized tabs must not both overwrite the same base snapshot');
-assert.ok(['tab-a-snapshot', 'tab-b-snapshot'].includes(concurrentStorage.raw));
-const staleWrite = await writePaperPortfolioSnapshot(concurrentStorage, locks, 'paper-key', 'base-snapshot', 'stale-snapshot');
+assert.ok([tabASnapshot, tabBSnapshot].includes(concurrentStorage.raw));
+const staleWrite = await writePaperPortfolioSnapshot(concurrentStorage, locks, 'paper-key', baseSnapshot, snapshot('d'.repeat(32)));
 assert.equal(staleWrite.saved, false, 'stale tabs must be rejected instead of overwriting a newer ledger');
 assert.equal(staleWrite.currentRaw, concurrentStorage.raw);
 assert.equal(staleWrite.usedLock, true);
 
-const fallbackStorage = memoryStorage('fallback-base');
-const fallbackWrite = await writePaperPortfolioSnapshot(fallbackStorage, null, 'paper-key', 'fallback-base', 'fallback-next');
+const fallbackBase = snapshot('e'.repeat(32));
+const fallbackNext = snapshot('f'.repeat(32));
+const fallbackStorage = memoryStorage(fallbackBase);
+const fallbackWrite = await writePaperPortfolioSnapshot(fallbackStorage, null, 'paper-key', fallbackBase, fallbackNext);
 assert.equal(fallbackWrite.saved, true, 'single-tab fallback should still save when the snapshot matches');
 assert.equal(fallbackWrite.usedLock, false);
-assert.equal(fallbackStorage.raw, 'fallback-next');
+assert.equal(fallbackStorage.raw, fallbackNext);
+
+const abaBasePortfolio = createPaperPortfolio();
+const abaBase = serializePaperPortfolioStorageSnapshot(abaBasePortfolio, '1'.repeat(32));
+const abaChangedPortfolio = applyPaperTrade(abaBasePortfolio, {
+  symbol: 'INFY.NS', side: 'BUY', quantity: 1, price: 100, fees: 0, executedAt: at
+});
+const abaChanged = serializePaperPortfolioStorageSnapshot(abaChangedPortfolio, '2'.repeat(32));
+const restoredBackup = parsePaperPortfolioBackup(abaBase);
+assert.equal(Object.hasOwn(restoredBackup, 'storageRevision'), false, 'backup import must not reuse an old storage revision');
+const abaRestored = serializePaperPortfolioStorageSnapshot(restoredBackup, '3'.repeat(32));
+assert.notEqual(abaRestored, abaBase, 'restoring identical portfolio contents must still create a fresh storage revision');
+const abaStorage = memoryStorage(abaBase);
+assert.equal((await writePaperPortfolioSnapshot(abaStorage, locks, 'paper-key', abaBase, abaChanged)).saved, true);
+assert.equal((await writePaperPortfolioSnapshot(abaStorage, locks, 'paper-key', abaChanged, abaRestored)).saved, true);
+const abaStaleWrite = await writePaperPortfolioSnapshot(abaStorage, locks, 'paper-key', abaBase, snapshot('4'.repeat(32)));
+assert.equal(abaStaleWrite.saved, false, 'a stale tab must not overwrite a backup restore that returned to identical portfolio contents');
+assert.equal(abaStaleWrite.currentRaw, abaRestored);
 
 const paperPage = fs.readFileSync(new URL('../public/paper-trading.html', import.meta.url), 'utf8');
 assert.match(paperPage, /PAPER MODE ONLY/);

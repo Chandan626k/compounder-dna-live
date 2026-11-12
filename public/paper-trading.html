@@ -152,6 +152,7 @@ import {
   applyPaperTrade,
   derivePaperPortfolio,
   parsePaperPortfolioBackup,
+  serializePaperPortfolioStorageSnapshot,
   setPaperMark,
   writePaperPortfolioSnapshot
 } from './paper-portfolio.js';
@@ -275,10 +276,23 @@ function adoptStoredSnapshot(raw) {
   }
 }
 
+function createStorageRevision() {
+  const cryptoApi = globalThis.crypto;
+  if (!cryptoApi || typeof cryptoApi.getRandomValues !== 'function') {
+    throw new Error('Secure random storage revisions are unavailable; this portfolio cannot be saved safely.');
+  }
+  const bytes = new Uint8Array(16);
+  cryptoApi.getRandomValues(bytes);
+  return Array.from(bytes, value => value.toString(16).padStart(2, '0')).join('');
+}
+
 async function persist(next) {
-  const serialized = JSON.stringify(next);
+  let serialized;
+  let snapshot;
   let result;
   try {
+    serialized = serializePaperPortfolioStorageSnapshot(next, createStorageRevision());
+    snapshot = JSON.parse(serialized);
     result = await writePaperPortfolioSnapshot(
       localStorage,
       navigator.locks || null,
@@ -312,7 +326,7 @@ async function persist(next) {
     return false;
   }
 
-  portfolio = next;
+  portfolio = snapshot;
   lastPersistedRaw = serialized;
   storageAvailable = true;
   setMessage('storageStatus', result.usedLock
@@ -454,7 +468,13 @@ $('analysisForm').addEventListener('submit', async event => {
 $('exportButton').addEventListener('click', () => {
   if (!portfolio) return;
   try {
-    const blob = new Blob([JSON.stringify(portfolio, null, 2)], { type: 'application/json' });
+    const backup = {
+      version: portfolio.version,
+      initialCapital: portfolio.initialCapital,
+      trades: portfolio.trades,
+      marks: portfolio.marks
+    };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
