@@ -41,7 +41,7 @@ browserWindow.renderReadiness({
   },
   policy: { recommendationEnginePresent: false }
 });
-if (!nodes.readinessGrid.innerHTML.includes('PARTIALLY_READY')) {
+if (!nodes.readinessGrid.innerHTML.includes('Partially ready')) {
   throw new Error('Readiness renderer did not populate horizon cards.');
 }
 if (!nodes.readinessDetails.innerHTML.includes('verified currency')) {
