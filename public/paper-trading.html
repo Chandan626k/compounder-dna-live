@@ -152,7 +152,8 @@ import {
   applyPaperTrade,
   derivePaperPortfolio,
   parsePaperPortfolioBackup,
-  setPaperMark
+  setPaperMark,
+  writePaperPortfolioSnapshot
 } from './paper-portfolio.js';
 
 const STORAGE_KEY = 'stocksamjho.paperPortfolio.v1';
@@ -160,6 +161,7 @@ const money = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR
 const $ = id => document.getElementById(id);
 let portfolio = null;
 let storageAvailable = true;
+let lastPersistedRaw = null;
 
 function fmt(value) {
   return value === null || value === undefined ? '—' : money.format(value);
@@ -236,51 +238,131 @@ function render() {
     }
   }
 }
-function persist(next) {
-  portfolio = next;
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(portfolio));
-    storageAvailable = true;
-    setMessage('storageStatus', 'Saved on this browser only. Export a backup before clearing browser data.');
-  } catch (error) {
-    storageAvailable = false;
-    setMessage('storageStatus', 'Browser storage is unavailable. Changes remain only in this open page; export a backup before closing it.', true);
-  }
-  render();
+function disablePortfolioEditing() {
+  $('tradeForm').querySelector('button[type="submit"]').disabled = true;
+  $('markForm').querySelector('button[type="submit"]').disabled = true;
+  $('exportButton').disabled = true;
+  setText('cash', 'Unavailable');
+  setText('invested', 'Unavailable');
+  setText('realized', 'Unavailable');
+  setText('unrealized', 'Unavailable');
+  setText('equity', 'Unavailable');
+  $('positionsBody').replaceChildren();
+  $('tradesBody').replaceChildren();
 }
-function loadPortfolio() {
+
+function adoptStoredSnapshot(raw) {
+  if (raw === null) {
+    portfolio = null;
+    lastPersistedRaw = null;
+    storageAvailable = false;
+    disablePortfolioEditing();
+    return false;
+  }
+  try {
+    const latest = JSON.parse(raw);
+    derivePaperPortfolio(latest);
+    portfolio = latest;
+    lastPersistedRaw = raw;
+    storageAvailable = true;
+    render();
+    return true;
+  } catch {
+    portfolio = null;
+    lastPersistedRaw = raw;
+    disablePortfolioEditing();
+    return false;
+  }
+}
+
+async function persist(next) {
+  const serialized = JSON.stringify(next);
+  let result;
+  try {
+    result = await writePaperPortfolioSnapshot(
+      localStorage,
+      navigator.locks || null,
+      STORAGE_KEY,
+      lastPersistedRaw,
+      serialized
+    );
+  } catch (error) {
+    let storageReadable = true;
+    try {
+      localStorage.getItem(STORAGE_KEY);
+    } catch {
+      storageReadable = false;
+    }
+    if (!storageReadable) {
+      portfolio = next;
+      storageAvailable = false;
+      render();
+      setMessage('storageStatus', 'Browser storage is unavailable. Changes remain only in this open page; export a backup before closing it.', true);
+      return true;
+    }
+    setMessage('storageStatus', 'Could not safely save the portfolio: ' + error.message + '. Existing saved data was left unchanged.', true);
+    return false;
+  }
+
+  if (!result.saved) {
+    const adopted = adoptStoredSnapshot(result.currentRaw);
+    setMessage('storageStatus', adopted
+      ? 'Another tab saved a newer portfolio. The latest version was loaded; your action was not saved. Review and reapply it.'
+      : 'Portfolio storage changed or was cleared in another tab. Your action was not saved; reload or import a validated backup.', true);
+    return false;
+  }
+
+  portfolio = next;
+  lastPersistedRaw = serialized;
+  storageAvailable = true;
+  setMessage('storageStatus', result.usedLock
+    ? 'Saved on this browser. Concurrent tab writes are serialized; export a backup regularly.'
+    : 'Saved on this browser. Cross-tab locking is unavailable; keep only one paper portfolio tab open.');
+  render();
+  return true;
+}
+
+async function loadPortfolio() {
   let raw = null;
   try {
     raw = localStorage.getItem(STORAGE_KEY);
-  } catch (error) {
+  } catch {
     portfolio = createPaperPortfolio();
+    storageAvailable = false;
     setMessage('storageStatus', 'Browser storage is unavailable. Changes remain only in this open page; export a backup before closing it.', true);
     render();
     return;
   }
   if (!raw) {
     portfolio = createPaperPortfolio();
-    persist(portfolio);
+    lastPersistedRaw = null;
+    await persist(portfolio);
     return;
   }
   const saved = JSON.parse(raw);
   derivePaperPortfolio(saved);
   portfolio = saved;
+  lastPersistedRaw = raw;
+  storageAvailable = true;
   setMessage('storageStatus', 'Loaded saved portfolio from this browser.');
   render();
 }
 
-try {
-  loadPortfolio();
-} catch (error) {
-  portfolio = null;
-  setMessage('storageStatus', 'Saved portfolio could not be validated: ' + error.message + '. No saved data was overwritten.', true);
-  $('tradeForm').querySelector('button[type="submit"]').disabled = true;
-  $('markForm').querySelector('button[type="submit"]').disabled = true;
-  $('exportButton').disabled = true;
-}
+window.addEventListener('storage', event => {
+  if (event.key !== STORAGE_KEY || event.newValue === lastPersistedRaw) return;
+  const adopted = adoptStoredSnapshot(event.newValue);
+  setMessage('storageStatus', adopted
+    ? 'Another tab updated this portfolio. The latest saved version was loaded; review before continuing.'
+    : 'Portfolio storage was cleared or became invalid in another tab. Reload or import a validated backup.', true);
+});
 
-$('tradeForm').addEventListener('submit', event => {
+loadPortfolio().catch(error => {
+  portfolio = null;
+  disablePortfolioEditing();
+  setMessage('storageStatus', 'Saved portfolio could not be validated: ' + error.message + '. No saved data was overwritten.', true);
+});
+
+$('tradeForm').addEventListener('submit', async event => {
   event.preventDefault();
   if (!portfolio) return;
   try {
@@ -292,7 +374,10 @@ $('tradeForm').addEventListener('submit', event => {
       fees: Number($('tradeFees').value || 0),
       note: $('tradeNote').value
     });
-    persist(next);
+    if (!await persist(next)) {
+      setMessage('tradeStatus', 'Portfolio changed in another tab. Review the latest ledger and reapply this paper trade.', true);
+      return;
+    }
     setMessage('tradeStatus', 'Paper trade saved. No real order was sent.');
     $('tradeForm').reset();
     $('tradeFees').value = '0';
@@ -301,12 +386,15 @@ $('tradeForm').addEventListener('submit', event => {
   }
 });
 
-$('markForm').addEventListener('submit', event => {
+$('markForm').addEventListener('submit', async event => {
   event.preventDefault();
   if (!portfolio) return;
   try {
     const next = setPaperMark(portfolio, $('markSymbol').value, Number($('markPrice').value));
-    persist(next);
+    if (!await persist(next)) {
+      setMessage('markStatus', 'Portfolio changed in another tab. Review the latest ledger and reapply this manual mark.', true);
+      return;
+    }
     setMessage('markStatus', 'Manual mark updated. It is not a live or automatically refreshed quote.');
     $('markPrice').value = '';
   } catch (error) {
@@ -395,7 +483,7 @@ $('importFile').addEventListener('change', async event => {
       setMessage('storageStatus', 'Import cancelled. Existing portfolio unchanged.');
       return;
     }
-    persist(imported);
+    if (!await persist(imported)) return;
     if (storageAvailable) {
       setMessage('storageStatus', 'Validated backup imported and saved in this browser.');
     } else {
