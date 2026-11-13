@@ -149,6 +149,11 @@ assert.throws(() => parsePaperPortfolioBackup(JSON.stringify({
   marks: { 'INFY.NS': { price: 125, markedAt: laterAt } }
 })), /without an open position/,
 'a backup must not retain a manual mark for a position that was already closed');
+assert.throws(() => parsePaperPortfolioBackup(JSON.stringify({
+  ...closed,
+  marks: { 'INFY.NS': { price: 125, markedAt: at } }
+})), /without an open position/,
+'a mark at the exact close timestamp must remain invalid when no later position is open');
 const markAfterExecution = setPaperMark(markedAfterSell, 'INFY.NS', 125, laterAt);
 const closedAfterMark = applyPaperTrade(markAfterExecution, {
   id: 'sell-after-later-mark', symbol: 'INFY.NS', side: 'SELL', quantity: 10, price: 126, fees: 0, executedAt: at
@@ -159,6 +164,11 @@ const reopened = applyPaperTrade(closed, {
   id: 'buy-3', symbol: 'INFY.NS', side: 'BUY', quantity: 1, price: 100, fees: 0, executedAt: at
 });
 assert.equal(derivePaperPortfolio(reopened).positions[0].markPrice, null, 'a reopened position must not inherit an old mark');
+const reopenedAtCloseTimestamp = setPaperMark(reopened, 'INFY.NS', 124, at);
+assert.equal(derivePaperPortfolio(reopenedAtCloseTimestamp).positions[0].markPrice, 124,
+  'a fresh mark at the same timestamp as a full close and subsequent reopen must attach to the reopened position');
+assert.equal(derivePaperPortfolio(parsePaperPortfolioBackup(JSON.stringify(reopenedAtCloseTimestamp))).positions[0].markPrice, 124,
+  'backup restore must preserve a same-timestamp mark for the reopened position');
 const reopenedMarked = setPaperMark(reopened, 'INFY.NS', 125, laterAt);
 const reopenedMarkedState = derivePaperPortfolio(reopenedMarked);
 assert.equal(reopenedMarkedState.positions[0].markPrice, 125,
