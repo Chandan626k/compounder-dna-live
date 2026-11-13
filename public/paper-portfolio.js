@@ -244,7 +244,9 @@ export function derivePaperPortfolio(portfolio) {
     position.costBasis = subtractMoney(position.costBasis, allocatedCost);
     if (position.quantity === 0) {
       positions.delete(trade.symbol);
-      delete marks[trade.symbol];
+      if (marks[trade.symbol] && Date.parse(marks[trade.symbol].markedAt) <= executionTimestamp) {
+        delete marks[trade.symbol];
+      }
     } else {
       positions.set(trade.symbol, position);
     }
@@ -411,6 +413,7 @@ export function applyPaperTrade(portfolio, input) {
   if (typeof id !== 'string' || !id.trim()) throw new TypeError('Paper trade ID must be non-empty text.');
   if (portfolio.trades.some(trade => trade && trade.id === id.trim())) throw new TypeError('Duplicate paper trade ID: ' + id);
 
+  let closesPosition = false;
   if (side === 'BUY') {
     const requiredCash = addMoney(gross, fees);
     if (requiredCash > current.cash) throw new RangeError('Insufficient virtual cash for this paper BUY.');
@@ -422,12 +425,13 @@ export function applyPaperTrade(portfolio, input) {
     if (moneyToPaise(fees) > moneyToPaise(gross)) {
       throw new RangeError('Paper SELL fees cannot exceed gross sale proceeds.');
     }
+    closesPosition = position.quantity === quantity;
   }
 
   // A manual mark is only valid until a later trade changes this symbol's position.
-  // Clear an older/equal-time mark so stale prices cannot value the updated position.
+  // A full close always clears the mark; other trades clear marks no newer than execution.
   const nextMarks = { ...portfolio.marks };
-  if (nextMarks[symbol] && nextMarks[symbol].markedAt <= executedAt) delete nextMarks[symbol];
+  if (closesPosition || (nextMarks[symbol] && nextMarks[symbol].markedAt <= executedAt)) delete nextMarks[symbol];
   const next = {
     version: PAPER_PORTFOLIO_VERSION,
     initialCapital: DEFAULT_VIRTUAL_CAPITAL,
