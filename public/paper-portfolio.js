@@ -280,6 +280,9 @@ export function derivePaperPortfolio(portfolio) {
     if (mark.afterTradeId !== undefined && mark.afterTradeId !== latestTradeId) {
       throw new TypeError('Manual mark trade reference must match the latest trade for ' + symbol + '.');
     }
+    if (markTimestamp === latestTradeTimestamp && mark.afterTradeId !== latestTradeId) {
+      throw new TypeError('Manual mark at the latest trade time must reference the latest trade for ' + symbol + '.');
+    }
     if (reopenedSymbols.has(symbol) && mark.afterTradeId !== latestTradeId) {
       throw new TypeError('Manual mark for a reopened position must reference the latest trade for ' + symbol + '.');
     }
