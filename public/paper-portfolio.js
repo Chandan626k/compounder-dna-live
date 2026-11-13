@@ -179,10 +179,17 @@ function validateMarks(marks) {
     if (!validIsoUtc(rawMark.markedAt)) {
       throw new TypeError('Manual mark time must be a canonical UTC ISO timestamp no later than now.');
     }
-    validated[symbol] = {
+    const mark = {
       price: positiveNumber(rawMark.price, 'Manual mark price'),
       markedAt: rawMark.markedAt
     };
+    if (rawMark.afterTradeId !== undefined) {
+      if (typeof rawMark.afterTradeId !== 'string' || !rawMark.afterTradeId.trim()) {
+        throw new TypeError('Manual mark trade reference must be non-empty text.');
+      }
+      mark.afterTradeId = rawMark.afterTradeId.trim();
+    }
+    validated[symbol] = mark;
   }
   return validated;
 }
@@ -207,6 +214,9 @@ export function derivePaperPortfolio(portfolio) {
   let totalFees = 0;
   let previousExecutionTimestamp = -Infinity;
   const latestTradeTimestampBySymbol = new Map();
+  const latestTradeIdBySymbol = new Map();
+  const closedSymbols = new Set();
+  const reopenedSymbols = new Set();
 
   for (const trade of trades) {
     const executionTimestamp = Date.parse(trade.executedAt);
@@ -215,6 +225,7 @@ export function derivePaperPortfolio(portfolio) {
     }
     previousExecutionTimestamp = executionTimestamp;
     latestTradeTimestampBySymbol.set(trade.symbol, executionTimestamp);
+    latestTradeIdBySymbol.set(trade.symbol, trade.id);
     if (ids.has(trade.id)) throw new TypeError('Duplicate paper trade ID: ' + trade.id);
     ids.add(trade.id);
     const gross = multiplyMoney(trade.quantity, trade.price);
@@ -222,6 +233,9 @@ export function derivePaperPortfolio(portfolio) {
     const position = positions.get(trade.symbol) || { symbol: trade.symbol, quantity: 0, costBasis: 0 };
 
     if (trade.side === 'BUY') {
+      if (position.quantity === 0 && closedSymbols.has(trade.symbol)) {
+        reopenedSymbols.add(trade.symbol);
+      }
       const totalCost = addMoney(gross, trade.fees);
       if (totalCost > cash) throw new RangeError('Insufficient virtual cash for this paper BUY.');
       cash = subtractMoney(cash, totalCost);
@@ -243,6 +257,7 @@ export function derivePaperPortfolio(portfolio) {
     position.quantity -= trade.quantity;
     position.costBasis = subtractMoney(position.costBasis, allocatedCost);
     if (position.quantity === 0) {
+      closedSymbols.add(trade.symbol);
       positions.delete(trade.symbol);
       // A same-timestamp mark may belong to a position reopened after this close.
       // If no position is open at the end, the orphan-mark check below still rejects it.
@@ -257,8 +272,16 @@ export function derivePaperPortfolio(portfolio) {
   for (const [symbol, mark] of Object.entries(marks)) {
     if (!positions.has(symbol)) throw new TypeError('Manual mark exists without an open position: ' + symbol);
     const latestTradeTimestamp = latestTradeTimestampBySymbol.get(symbol);
-    if (latestTradeTimestamp !== undefined && Date.parse(mark.markedAt) < latestTradeTimestamp) {
+    const latestTradeId = latestTradeIdBySymbol.get(symbol);
+    const markTimestamp = Date.parse(mark.markedAt);
+    if (latestTradeTimestamp !== undefined && markTimestamp < latestTradeTimestamp) {
       throw new TypeError('Manual mark time must not predate the latest trade for ' + symbol + '.');
+    }
+    if (mark.afterTradeId !== undefined && mark.afterTradeId !== latestTradeId) {
+      throw new TypeError('Manual mark trade reference must match the latest trade for ' + symbol + '.');
+    }
+    if (reopenedSymbols.has(symbol) && mark.afterTradeId !== latestTradeId) {
+      throw new TypeError('Manual mark for a reopened position must reference the latest trade for ' + symbol + '.');
     }
   }
 
@@ -432,21 +455,28 @@ export function applyPaperTrade(portfolio, input) {
 
   // A manual mark is only valid until a later trade changes this symbol's position.
   // A full close always clears the mark; other trades clear marks no newer than execution.
+  const nextTrade = {
+    id: id.trim(),
+    symbol,
+    side,
+    quantity,
+    price,
+    fees,
+    executedAt,
+    note: note.trim()
+  };
   const nextMarks = { ...portfolio.marks };
-  if (closesPosition || (nextMarks[symbol] && nextMarks[symbol].markedAt <= executedAt)) delete nextMarks[symbol];
+  if (closesPosition || (nextMarks[symbol] && nextMarks[symbol].markedAt <= executedAt)) {
+    delete nextMarks[symbol];
+  } else if (nextMarks[symbol]) {
+    // A retained mark is later than this (possibly backdated) execution, so anchor it
+    // to the updated ledger head for this symbol.
+    nextMarks[symbol] = { ...nextMarks[symbol], afterTradeId: nextTrade.id };
+  }
   const next = {
     version: PAPER_PORTFOLIO_VERSION,
     initialCapital: DEFAULT_VIRTUAL_CAPITAL,
-    trades: [...portfolio.trades, {
-      id: id.trim(),
-      symbol,
-      side,
-      quantity,
-      price,
-      fees,
-      executedAt,
-      note: note.trim()
-    }],
+    trades: [...portfolio.trades, nextTrade],
     marks: nextMarks
   };
   const nextState = derivePaperPortfolio(next);
@@ -467,11 +497,20 @@ export function setPaperMark(portfolio, symbolInput, priceInput, markedAt = new 
   if (existingMark && Date.parse(markedAt) < Date.parse(existingMark.markedAt)) {
     throw new TypeError('Manual mark time must not move backwards for ' + symbol + '.');
   }
+  let latestTradeId = null;
+  for (let index = portfolio.trades.length - 1; index >= 0; index -= 1) {
+    const trade = portfolio.trades[index];
+    if (trade.symbol === symbol) {
+      latestTradeId = typeof trade.id === 'string' ? trade.id.trim() : null;
+      break;
+    }
+  }
+  if (!latestTradeId) throw new TypeError('An open paper position must reference a latest trade.');
   const next = {
     version: PAPER_PORTFOLIO_VERSION,
     initialCapital: DEFAULT_VIRTUAL_CAPITAL,
     trades: [...portfolio.trades],
-    marks: { ...portfolio.marks, [symbol]: { price, markedAt } }
+    marks: { ...portfolio.marks, [symbol]: { price, markedAt, afterTradeId: latestTradeId } }
   };
   derivePaperPortfolio(next);
   return next;
