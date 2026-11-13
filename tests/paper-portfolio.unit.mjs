@@ -31,6 +31,15 @@ const buyTwo = applyPaperTrade(buyOne, {
 const marked = setPaperMark(buyTwo, 'INFY.NS', 120, at);
 const laterAt = '2026-11-12T00:00:01.000Z';
 const futureAt = new Date(Date.now() + 60_000).toISOString();
+const newerManualMark = setPaperMark(buyOne, 'INFY.NS', 125, laterAt);
+assert.throws(
+  () => setPaperMark(newerManualMark, 'INFY.NS', 110, at),
+  /must not move backwards/,
+  'a manual mark update must not replace a newer mark with an older timestamp'
+);
+const latestManualMark = setPaperMark(newerManualMark, 'INFY.NS', 126, '2026-11-12T00:00:02.000Z');
+assert.equal(latestManualMark.marks['INFY.NS'].price, 126,
+  'a manual mark update with a non-decreasing timestamp remains valid');
 
 const chronologyBuy = applyPaperTrade(initial, {
   id: 'chronology-buy', symbol: 'TCS.NS', side: 'BUY', quantity: 2, price: 100, fees: 0, executedAt: laterAt

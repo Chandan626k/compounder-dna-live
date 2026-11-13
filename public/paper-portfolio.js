@@ -457,6 +457,10 @@ export function setPaperMark(portfolio, symbolInput, priceInput, markedAt = new 
   }
   const price = positiveNumber(priceInput, 'Manual mark price');
   if (!validIsoUtc(markedAt)) throw new TypeError('Manual mark time must be a canonical UTC ISO timestamp no later than now.');
+  const existingMark = portfolio.marks[symbol];
+  if (existingMark && Date.parse(markedAt) < Date.parse(existingMark.markedAt)) {
+    throw new TypeError('Manual mark time must not move backwards for ' + symbol + '.');
+  }
   const next = {
     version: PAPER_PORTFOLIO_VERSION,
     initialCapital: DEFAULT_VIRTUAL_CAPITAL,
