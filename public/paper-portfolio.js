@@ -244,7 +244,9 @@ export function derivePaperPortfolio(portfolio) {
     position.costBasis = subtractMoney(position.costBasis, allocatedCost);
     if (position.quantity === 0) {
       positions.delete(trade.symbol);
-      if (marks[trade.symbol] && Date.parse(marks[trade.symbol].markedAt) <= executionTimestamp) {
+      // A same-timestamp mark may belong to a position reopened after this close.
+      // If no position is open at the end, the orphan-mark check below still rejects it.
+      if (marks[trade.symbol] && Date.parse(marks[trade.symbol].markedAt) < executionTimestamp) {
         delete marks[trade.symbol];
       }
     } else {
