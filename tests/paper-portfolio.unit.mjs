@@ -177,6 +177,38 @@ const staleReopenedBackup = {
 };
 assert.throws(() => parsePaperPortfolioBackup(JSON.stringify(staleReopenedBackup)), /must reference the latest trade/,
   'a backup must not reuse an unanchored mark across a full close and reopen');
+const sameTimestampPartialSellBackup = {
+  version: 1,
+  initialCapital: 500000,
+  trades: [
+    { id: 'same-time-buy', symbol: 'INFY.NS', side: 'BUY', quantity: 2, price: 100, fees: 0, executedAt: at },
+    { id: 'same-time-partial-sell', symbol: 'INFY.NS', side: 'SELL', quantity: 1, price: 110, fees: 0, executedAt: at }
+  ],
+  marks: { 'INFY.NS': { price: 999, markedAt: at } }
+};
+assert.throws(
+  () => parsePaperPortfolioBackup(JSON.stringify(sameTimestampPartialSellBackup)),
+  /at the latest trade time must reference the latest trade/,
+  'an unanchored same-timestamp mark must not survive a later partial trade'
+);
+const sameTimestampPartialSellAnchored = {
+  ...sameTimestampPartialSellBackup,
+  marks: { 'INFY.NS': { price: 111, markedAt: at, afterTradeId: 'same-time-partial-sell' } }
+};
+assert.equal(
+  derivePaperPortfolio(parsePaperPortfolioBackup(JSON.stringify(sameTimestampPartialSellAnchored))).positions[0].markPrice,
+  111,
+  'a same-timestamp mark explicitly anchored to the latest partial trade remains valid'
+);
+const laterLegacyMarkBackup = {
+  ...sameTimestampPartialSellBackup,
+  marks: { 'INFY.NS': { price: 112, markedAt: laterAt } }
+};
+assert.equal(
+  derivePaperPortfolio(parsePaperPortfolioBackup(JSON.stringify(laterLegacyMarkBackup))).positions[0].markPrice,
+  112,
+  'legacy unanchored marks strictly later than the latest trade remain valid'
+);
 const wronglyAnchoredReopenedBackup = {
   ...reopened,
   marks: { 'INFY.NS': { price: 124, markedAt: at, afterTradeId: 'sell-2' } }
