@@ -515,6 +515,69 @@ assert.equal(emptyCorruptSnapshotHarness.getPersistCalls(), 0,
   'an invalid empty-string snapshot must never be overwritten during page initialization');
 assert.equal(emptyCorruptSnapshotHarness.loader.getLastPersistedRaw(), '',
   'the exact empty-string snapshot must remain captured so a confirmed backup import can replace it');
+
+const storageListenerStart = pageScript[1].indexOf("window.addEventListener('storage', event => {");
+const storageListenerEnd = pageScript[1].indexOf('\\n});', storageListenerStart);
+assert.ok(storageListenerStart >= 0 && storageListenerEnd > storageListenerStart,
+  'paper page must keep its cross-tab storage listener testable');
+const storageListenerSource = pageScript[1].slice(storageListenerStart, storageListenerEnd + 4);
+const createStorageListenerHarness = initialRaw => {
+  let adoptedRaw;
+  let adoptCalls = 0;
+  const messages = [];
+  const fakeWindow = {
+    handler: null,
+    addEventListener(type, callback) {
+      assert.equal(type, 'storage');
+      this.handler = callback;
+    }
+  };
+  const factory = new Function(
+    'window',
+    'STORAGE_KEY',
+    'lastPersistedRaw',
+    'adoptStoredSnapshot',
+    'setMessage',
+    storageListenerSource + '\\nreturn window.handler;'
+  );
+  const handler = factory(
+    fakeWindow,
+    'stocksamjho.paperPortfolio.v1',
+    initialRaw,
+    raw => { adoptCalls += 1; adoptedRaw = raw; return false; },
+    (...args) => messages.push(args)
+  );
+  return {
+    handler,
+    getAdoptCalls: () => adoptCalls,
+    getAdoptedRaw: () => adoptedRaw,
+    messages
+  };
+};
+
+const clearedStorageHarness = createStorageListenerHarness('saved-snapshot');
+clearedStorageHarness.handler({ key: null, newValue: null });
+assert.equal(clearedStorageHarness.getAdoptCalls(), 1,
+  'a localStorage.clear() event must invalidate the stale in-memory portfolio');
+assert.equal(clearedStorageHarness.getAdoptedRaw(), null,
+  'a localStorage.clear() event must adopt the missing snapshot');
+assert.match(clearedStorageHarness.messages[0][1], /cleared or became invalid/,
+  'clearing storage in another tab must show a recovery message');
+
+const unchangedStorageHarness = createStorageListenerHarness('saved-snapshot');
+unchangedStorageHarness.handler({ key: 'stocksamjho.paperPortfolio.v1', newValue: 'saved-snapshot' });
+assert.equal(unchangedStorageHarness.getAdoptCalls(), 0,
+  'an unchanged portfolio storage event must be ignored');
+
+const unrelatedStorageHarness = createStorageListenerHarness('saved-snapshot');
+unrelatedStorageHarness.handler({ key: 'another-key', newValue: null });
+assert.equal(unrelatedStorageHarness.getAdoptCalls(), 0,
+  'unrelated localStorage key changes must be ignored');
+
+const emptyStorageHarness = createStorageListenerHarness(null);
+emptyStorageHarness.handler({ key: null, newValue: null });
+assert.equal(emptyStorageHarness.getAdoptCalls(), 0,
+  'clearing storage when no portfolio snapshot is loaded must not discard in-memory state');
 const rawCaptureIndex = loadPortfolioBody.indexOf('lastPersistedRaw = raw;');
 const rawParseIndex = loadPortfolioBody.indexOf('const saved = JSON.parse(raw);');
 assert.ok(rawCaptureIndex >= 0 && rawParseIndex >= 0 && rawCaptureIndex < rawParseIndex,
