@@ -10,6 +10,7 @@ import trading from '../api/trading.js';
 import actionability from '../api/actionability.js';
 import validateStrategy from '../api/validate-strategy.js';
 
+
 function response() {
   return {
     headers: {},
@@ -23,6 +24,7 @@ function response() {
 }
 
 let providerRequests = 0;
+const { default: finalHoldout } = await import('../api/final-holdout.js');
 const originalFetch = globalThis.fetch;
 globalThis.fetch = async () => {
   providerRequests += 1;
@@ -51,6 +53,8 @@ try {
   await check('api/trading', trading, { method: 'GET', query: { symbol: 'TCS' }, headers: {} });
   await check('api/actionability', actionability, { method: 'GET', query: { symbol: 'TCS' }, headers: {} });
   await check('api/validate-strategy', validateStrategy, { method: 'GET', query: { symbol: 'TCS' }, headers: {} });
+  await check('api/final-holdout prepare', finalHoldout, { method: 'GET', query: { mode: 'prepare' }, headers: {} });
+  await check('api/final-holdout execute', finalHoldout, { method: 'GET', query: { mode: 'execute' }, headers: {} });
 } finally {
   globalThis.fetch = originalFetch;
 }
