@@ -1,0 +1,34 @@
+name: Production Market Data Access Guard
+
+on:
+  push:
+    branches:
+      - fix/production-market-data-access-gate
+  pull_request:
+    branches:
+      - fix/security-dependency-audit-2026-11
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact pushed or pull-request head commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Market-data route access regressions
+        run: node tests/market-data-access-route-guard.unit.mjs
+      - name: Full regression suite
+        run: npm test
+      - name: Dependency audit
+        run: npm audit --audit-level=low
