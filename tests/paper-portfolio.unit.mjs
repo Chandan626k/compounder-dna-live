@@ -517,7 +517,7 @@ assert.equal(emptyCorruptSnapshotHarness.loader.getLastPersistedRaw(), '',
   'the exact empty-string snapshot must remain captured so a confirmed backup import can replace it');
 
 const storageListenerStart = pageScript[1].indexOf("window.addEventListener('storage', event => {");
-const storageListenerEnd = pageScript[1].indexOf('\\n});', storageListenerStart);
+const storageListenerEnd = pageScript[1].indexOf('\n});', storageListenerStart);
 assert.ok(storageListenerStart >= 0 && storageListenerEnd > storageListenerStart,
   'paper page must keep its cross-tab storage listener testable');
 const storageListenerSource = pageScript[1].slice(storageListenerStart, storageListenerEnd + 4);
@@ -538,7 +538,7 @@ const createStorageListenerHarness = initialRaw => {
     'lastPersistedRaw',
     'adoptStoredSnapshot',
     'setMessage',
-    storageListenerSource + '\\nreturn window.handler;'
+    storageListenerSource + '\nreturn window.handler;'
   );
   const handler = factory(
     fakeWindow,
