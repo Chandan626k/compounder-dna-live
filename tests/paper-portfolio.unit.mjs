@@ -30,6 +30,23 @@ const buyTwo = applyPaperTrade(buyOne, {
 });
 const marked = setPaperMark(buyTwo, 'INFY.NS', 120, at);
 const laterAt = '2026-11-12T00:00:01.000Z';
+const importedWithGeneratedIdCollisions = parsePaperPortfolioBackup(JSON.stringify({
+  version: 1,
+  initialCapital: 500000,
+  trades: [
+    { id: 'paper-2', symbol: 'INFY.NS', side: 'BUY', quantity: 1, price: 100, fees: 0, executedAt: at },
+    { id: 'paper-3', symbol: 'INFY.NS', side: 'BUY', quantity: 1, price: 100, fees: 0, executedAt: laterAt },
+    { id: ' paper-4 ', symbol: 'INFY.NS', side: 'BUY', quantity: 1, price: 100, fees: 0, executedAt: '2026-11-12T00:00:02.000Z' }
+  ],
+  marks: {}
+}));
+assert.equal(importedWithGeneratedIdCollisions.trades[2].id, 'paper-4',
+  'backup parsing must normalize imported trade IDs before the next generated ID is selected');
+const afterImportedIdCollisions = applyPaperTrade(importedWithGeneratedIdCollisions, {
+  symbol: 'INFY.NS', side: 'BUY', quantity: 1, price: 100, fees: 0, executedAt: '2026-11-12T00:00:03.000Z'
+});
+assert.equal(afterImportedIdCollisions.trades[3].id, 'paper-5',
+  'default trade IDs must skip collisions with IDs imported from a valid backup');
 const futureAt = new Date(Date.now() + 60_000).toISOString();
 const newerManualMark = setPaperMark(buyOne, 'INFY.NS', 125, laterAt);
 assert.throws(
