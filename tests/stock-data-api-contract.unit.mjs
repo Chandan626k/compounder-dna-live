@@ -88,6 +88,10 @@ assert.equal(validateMarketDataEnvelope(quoteEnvelope({
   status: MARKET_DATA_STATUS.PARTIAL,
   coverage: { expected: 1, received: 1, missing: 0 },
 })).valid, false, 'PARTIAL cannot claim complete coverage');
+assert.equal(validateMarketDataEnvelope(quoteEnvelope({
+  status: MARKET_DATA_STATUS.PARTIAL,
+  coverage: { expected: null, received: null, missing: null },
+})).valid, false, 'PARTIAL requires known coverage and an explicit missing-record count');
 
 const unavailable = {
   apiVersion: 'v1',

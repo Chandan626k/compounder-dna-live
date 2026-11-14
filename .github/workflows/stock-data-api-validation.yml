@@ -1,0 +1,36 @@
+name: Stock Data API Validation
+
+on:
+  push:
+    branches:
+      - 'fix/stock-data-api-*'
+      - 'feature/stock-data-api-*'
+  pull_request:
+    branches:
+      - 'feature/stock-data-api-*'
+      - 'fix/stock-data-api-*'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact pushed or pull-request head commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Stock Data API contract regressions
+        run: node tests/stock-data-api-contract.unit.mjs
+      - name: Full regression suite
+        run: npm test
+      - name: Enforce dependency audit
+        run: npm audit --audit-level=low
