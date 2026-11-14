@@ -437,9 +437,17 @@ export function applyPaperTrade(portfolio, input) {
   if (!validIsoUtc(executedAt)) throw new TypeError('Trade time must be a canonical UTC ISO timestamp no later than now.');
   const note = input.note === undefined ? '' : input.note;
   if (typeof note !== 'string' || note.length > 240) throw new TypeError('Trade note must be text up to 240 characters.');
-  const id = input.id === undefined ? 'paper-' + (portfolio.trades.length + 1) : input.id;
+  const existingTradeIds = new Set(portfolio.trades.map(trade => trade.id.trim()));
+  let id = input.id;
+  if (id === undefined) {
+    let sequence = portfolio.trades.length + 1;
+    do {
+      id = 'paper-' + sequence;
+      sequence += 1;
+    } while (existingTradeIds.has(id));
+  }
   if (typeof id !== 'string' || !id.trim()) throw new TypeError('Paper trade ID must be non-empty text.');
-  if (portfolio.trades.some(trade => trade && trade.id === id.trim())) throw new TypeError('Duplicate paper trade ID: ' + id);
+  if (existingTradeIds.has(id.trim())) throw new TypeError('Duplicate paper trade ID: ' + id);
 
   let closesPosition = false;
   if (side === 'BUY') {
