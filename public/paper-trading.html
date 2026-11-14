@@ -363,8 +363,10 @@ async function loadPortfolio() {
 }
 
 window.addEventListener('storage', event => {
-  if (event.key !== STORAGE_KEY || event.newValue === lastPersistedRaw) return;
-  const adopted = adoptStoredSnapshot(event.newValue);
+  if (event.key !== null && event.key !== STORAGE_KEY) return;
+  const nextRaw = event.key === null ? null : event.newValue;
+  if (nextRaw === lastPersistedRaw) return;
+  const adopted = adoptStoredSnapshot(nextRaw);
   setMessage('storageStatus', adopted
     ? 'Another tab updated this portfolio. The latest saved version was loaded; review before continuing.'
     : 'Portfolio storage was cleared or became invalid in another tab. Reload or import a validated backup.', true);
