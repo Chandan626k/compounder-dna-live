@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { createServer, request as httpRequest } from 'node:http';
+import health from '../api/health.js';
 import data from '../api/data.js';
 import scan from '../api/scan.js';
 import dataFoundation from '../api/data-foundation.js';
@@ -57,6 +58,18 @@ async function check(name, handler, req) {
 }
 
 try {
+  const healthRes = response();
+  await health({ method: 'GET', headers: {} }, healthRes);
+  assert.equal(healthRes.statusCode, 200, 'api/health must remain a liveness response');
+  assert.equal(healthRes.body?.ok, true, 'api/health must report service liveness');
+  assert.equal(healthRes.body?.marketDataAccess?.status, 'NOT_CONFIGURED',
+    'api/health must explicitly distinguish liveness from market-data access');
+  assert.equal(healthRes.body?.marketDataAccess?.providerProbe, 'not_performed',
+    'api/health must not claim a provider health probe');
+  assert.equal(healthRes.body?.marketDataAccess?.providerRequestMade, false,
+    'api/health must state that no provider request was made');
+  assert.equal(providerRequests, 0, 'api/health must not call a provider');
+
   await check('api/data', data, { method: 'POST', body: { type: 'summary', ticker: 'TCS' }, headers: {} });
   await check('api/scan', scan, { method: 'GET', query: { symbols: 'TCS' }, headers: {} });
   await check('api/data-foundation', dataFoundation, { method: 'GET', query: { symbol: 'TCS' }, headers: {} });

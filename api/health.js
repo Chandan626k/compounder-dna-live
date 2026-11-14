@@ -1,3 +1,5 @@
+import { MARKET_DATA_ACCESS_POLICY } from '../lib/market-data-access-policy.js';
+
 const CORS = {
   'Access-Control-Allow-Origin': process.env.ALLOWED_ORIGIN || '*',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
@@ -18,6 +20,12 @@ export default function handler(req, res) {
     service: 'compounder-dna',
     marketEngine: 'available',
     yahooFinance: { usedByMarketEngine: true, liveCheck: 'not_performed' },
+    marketDataAccess: {
+      status: MARKET_DATA_ACCESS_POLICY.status,
+      code: MARKET_DATA_ACCESS_POLICY.code,
+      providerProbe: 'not_performed',
+      providerRequestMade: false,
+    },
     openai: { configured: Boolean(process.env.OPENAI_API_KEY) },
     timestamp: new Date().toISOString(),
   });

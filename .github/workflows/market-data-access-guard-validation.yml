@@ -6,11 +6,13 @@ on:
       - fix/production-market-data-access-gate
       - fix/holdout-market-data-access-gate
       - fix/stock-data-api-node24-runtime-parity
+      - fix/health-report-market-data-access-state
   pull_request:
     branches:
       - fix/security-dependency-audit-2026-11
       - fix/production-market-data-access-gate
       - fix/holdout-market-data-access-gate
+      - fix/health-report-market-data-access-state
 
 permissions:
   contents: read
