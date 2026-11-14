@@ -348,7 +348,7 @@ async function loadPortfolio() {
   // Keep the exact stored bytes even when parsing fails. A confirmed backup import
   // can then replace this unchanged invalid snapshot through the compare-before-write gate.
   lastPersistedRaw = raw;
-  if (!raw) {
+  if (raw === null) {
     portfolio = createPaperPortfolio();
     await persist(portfolio);
     return;
