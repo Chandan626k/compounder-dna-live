@@ -5,6 +5,8 @@ on:
     branches:
       - fix/production-market-data-access-gate
       - fix/holdout-market-data-access-gate
+      - fix/holdout-market-data-access-gate
+      - fix/stock-data-api-node24-runtime-parity
   pull_request:
     branches:
       - fix/security-dependency-audit-2026-11
