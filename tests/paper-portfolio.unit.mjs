@@ -470,6 +470,51 @@ const loadPortfolioEnd = pageScript[1].indexOf('\n}\n\nwindow.addEventListener',
 assert.ok(loadPortfolioStart >= 0 && loadPortfolioEnd > loadPortfolioStart,
   'paper page must keep its storage loading path testable');
 const loadPortfolioBody = pageScript[1].slice(loadPortfolioStart, loadPortfolioEnd);
+const createLoadPortfolioHarness = raw => {
+  let persistCalls = 0;
+  const factory = new Function(
+    'localStorage',
+    'STORAGE_KEY',
+    'createPaperPortfolio',
+    'persist',
+    'derivePaperPortfolio',
+    'enablePortfolioEditing',
+    'render',
+    'setMessage',
+    'let portfolio = null;\n'
+      + 'let storageAvailable = true;\n'
+      + 'let lastPersistedRaw = null;\n'
+      + loadPortfolioBody
+      + '\n}\nreturn { loadPortfolio, getPortfolio: () => portfolio, getLastPersistedRaw: () => lastPersistedRaw };'
+  );
+  const loader = factory(
+    { getItem: () => raw },
+    'stocksamjho.paperPortfolio.v1',
+    createPaperPortfolio,
+    async () => { persistCalls += 1; },
+    derivePaperPortfolio,
+    () => {},
+    () => {},
+    () => {}
+  );
+  return { loader, getPersistCalls: () => persistCalls };
+};
+
+const missingSnapshotHarness = createLoadPortfolioHarness(null);
+await missingSnapshotHarness.loader.loadPortfolio();
+assert.equal(missingSnapshotHarness.getPersistCalls(), 1,
+  'a missing localStorage key must initialize and persist a new empty portfolio');
+
+const emptyCorruptSnapshotHarness = createLoadPortfolioHarness('');
+await assert.rejects(
+  () => emptyCorruptSnapshotHarness.loader.loadPortfolio(),
+  SyntaxError,
+  'an existing empty-string snapshot must be treated as corrupt instead of silently initialized'
+);
+assert.equal(emptyCorruptSnapshotHarness.getPersistCalls(), 0,
+  'an invalid empty-string snapshot must never be overwritten during page initialization');
+assert.equal(emptyCorruptSnapshotHarness.loader.getLastPersistedRaw(), '',
+  'the exact empty-string snapshot must remain captured so a confirmed backup import can replace it');
 const rawCaptureIndex = loadPortfolioBody.indexOf('lastPersistedRaw = raw;');
 const rawParseIndex = loadPortfolioBody.indexOf('const saved = JSON.parse(raw);');
 assert.ok(rawCaptureIndex >= 0 && rawParseIndex >= 0 && rawCaptureIndex < rawParseIndex,
