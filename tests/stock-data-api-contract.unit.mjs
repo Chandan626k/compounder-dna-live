@@ -197,6 +197,14 @@ assert.equal(evaluateMarketDataEntitlement(validQuote, entitlement, {
   use: MARKET_DATA_USES.INTERNAL_USE,
   now: NOW,
 }).allowed, true);
+const futureFetchedAtEnvelope = quoteEnvelope({ time: { fetchedAt: '2026-11-14T10:31:00.000Z' } });
+assert.equal(validateMarketDataEnvelope(futureFetchedAtEnvelope).valid, true,
+  'the envelope validator checks shape; evaluation time is supplied separately');
+assert.equal(evaluateMarketDataEntitlement(futureFetchedAtEnvelope, entitlement, {
+  use: MARKET_DATA_USES.INTERNAL_USE,
+  now: NOW,
+}).code, 'FETCH_TIMESTAMP_IN_FUTURE',
+'entitlement evaluation must reject a retrieval timestamp later than evaluation time');
 assert.equal(evaluateMarketDataEntitlement(validQuote, null, {
   use: MARKET_DATA_USES.INTERNAL_USE,
   now: NOW,
@@ -232,6 +240,8 @@ assert.equal(evaluateMarketDataFreshness(quoteEnvelope({
   data: [{ price: 100, currency: 'INR', asOf: '2026-11-14T10:31:00.000Z' }],
 }), { maxAgeMs: 60_000, now: NOW }).code, 'MARKET_TIMESTAMP_IN_FUTURE');
 assert.equal(evaluateMarketDataFreshness(validQuote, { now: NOW }).code, 'FRESHNESS_POLICY_OR_TIME_UNKNOWN');
+assert.equal(evaluateMarketDataFreshness(futureFetchedAtEnvelope, { maxAgeMs: 60_000, now: NOW }).code,
+  'FETCH_TIMESTAMP_IN_FUTURE', 'freshness must not accept an impossible future retrieval timestamp');
 assert.equal(evaluateMarketDataFreshness(unavailable, { maxAgeMs: 60_000, now: NOW }).fresh, false);
 
 console.log('stock-data-api-contract.unit: PASS');
