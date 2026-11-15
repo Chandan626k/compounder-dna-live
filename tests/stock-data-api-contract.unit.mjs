@@ -193,6 +193,40 @@ const entitlement = {
   permittedIntervals: [],
 };
 assert.equal(validateEntitlementRecord(entitlement).valid, true);
+
+// Market/source timestamps must not claim a state or publication after retrieval.
+const marketTimestampAfterFetch = quoteEnvelope({
+  time: { asOf: '2026-11-14T10:29:20.000Z' },
+  data: [{ price: 100, currency: 'INR', asOf: '2026-11-14T10:29:20.000Z' }],
+});
+assert.equal(validateMarketDataEnvelope(marketTimestampAfterFetch).valid, false,
+  'market asOf cannot be later than the retrieval timestamp');
+assert.equal(evaluateMarketDataEntitlement(marketTimestampAfterFetch, entitlement, {
+  use: MARKET_DATA_USES.INTERNAL_USE,
+  now: NOW,
+}).code, 'INVALID_MARKET_DATA_ENVELOPE');
+assert.equal(evaluateMarketDataFreshness(marketTimestampAfterFetch, {
+  maxAgeMs: 120_000,
+  now: NOW,
+}).code, 'INVALID_MARKET_DATA_ENVELOPE');
+
+const publicationAfterFetch = quoteEnvelope({
+  time: { publishedAt: '2026-11-14T10:29:20.000Z' },
+});
+assert.equal(validateMarketDataEnvelope(publicationAfterFetch).valid, false,
+  'source publication cannot be later than the retrieval timestamp');
+assert.equal(evaluateMarketDataEntitlement(publicationAfterFetch, entitlement, {
+  use: MARKET_DATA_USES.INTERNAL_USE,
+  now: NOW,
+}).code, 'INVALID_MARKET_DATA_ENVELOPE');
+assert.equal(evaluateMarketDataFreshness(publicationAfterFetch, {
+  maxAgeMs: 120_000,
+  now: NOW,
+}).code, 'INVALID_MARKET_DATA_ENVELOPE');
+
+assert.equal(validateMarketDataEnvelope(quoteEnvelope({
+  time: { publishedAt: '2026-11-14T10:29:05.000Z' },
+})).valid, true, 'publication may follow market asOf when it still precedes retrieval');
 assert.equal(evaluateMarketDataEntitlement(validQuote, entitlement, {
   use: MARKET_DATA_USES.INTERNAL_USE,
   now: NOW,
@@ -238,7 +272,8 @@ assert.equal(evaluateMarketDataFreshness(validQuote, { maxAgeMs: 59_999, now: NO
 assert.equal(evaluateMarketDataFreshness(quoteEnvelope({
   time: { asOf: '2026-11-14T10:31:00.000Z' },
   data: [{ price: 100, currency: 'INR', asOf: '2026-11-14T10:31:00.000Z' }],
-}), { maxAgeMs: 60_000, now: NOW }).code, 'MARKET_TIMESTAMP_IN_FUTURE');
+}), { maxAgeMs: 60_000, now: NOW }).code, 'INVALID_MARKET_DATA_ENVELOPE',
+'market timestamps later than retrieval are invalid before freshness evaluation');
 assert.equal(evaluateMarketDataFreshness(validQuote, { now: NOW }).code, 'FRESHNESS_POLICY_OR_TIME_UNKNOWN');
 assert.equal(evaluateMarketDataFreshness(futureFetchedAtEnvelope, { maxAgeMs: 60_000, now: NOW }).code,
   'FETCH_TIMESTAMP_IN_FUTURE', 'freshness must not accept an impossible future retrieval timestamp');
