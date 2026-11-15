@@ -2,7 +2,7 @@
 
 **Review date:** 2026-11-15  
 **Status:** Public-document research only; no provider is authorized or configured  
-**Scope:** Candidate broker APIs for StockSamjho's internal analysis, end-user display, derived analytics and local paper-trading experience
+**Scope:** Candidate broker APIs and exchange-authorised vendor routes for StockSamjho's internal analysis, end-user display, derived analytics and local paper-trading experience
 
 ## Executive decision
 
@@ -11,6 +11,60 @@ Do **not** connect a retail broker API to StockSamjho as a general market-data s
 The public terms reviewed for FYERS and Zerodha contain material restrictions that conflict with at least some of StockSamjho's intended use cases. Angel One's official SmartAPI forum moderator also directly rejects redistribution of broker price-feed data from a retail account to other users. Dhan and Upstox expose market-data APIs, but the public material reviewed here does not establish the exact multi-user display, derived-analytics, storage/cache, redistribution and paper-trading rights StockSamjho would need. A technical endpoint or subscription price is not a data licence.
 
 The repository's market-data access policy must remain `NOT_CONFIGURED`. No adapter, provider request, account, subscription, credential, agreement or entitlement is activated by this audit.
+
+## Exchange-authorised route and regulatory constraints (NSE / SEBI)
+
+### SEBI third-party real-time price-data circular
+
+**Primary source:** [SEBI Circular SEBI/HO/MRD/MRD-PoD-3/P/CIR/2024/56 — Norms for sharing of real time price data to third parties (24 May 2024)](https://www.sebi.gov.in/sebi_data/attachdocs/may-2024/1716559553659.pdf)
+
+The circular responds to platforms offering virtual trading or fantasy games based on real-time listed-share prices. Its conditions include:
+
+- Market Infrastructure Institutions (stock exchanges, clearing corporations and depositories) and registered market intermediaries must ensure real-time price data is not shared with third parties, including platforms, except where sharing is required for orderly functioning of the securities market or regulatory requirements.
+- Where such sharing is permitted, the MII or intermediary must enter an appropriate agreement that identifies the activities for which the data will be used and the justification; the entity/activity list is subject to at least annual board review.
+- Market price data may be shared for investor-education and awareness activities with a **one-day lag**, without offering monetary incentives to participants.
+- The circular also requires due diligence and contractual provisions intended to prevent misuse.
+
+**StockSamjho assessment:** This is a material constraint for the proposed paper-trading and multi-user product. The one-day-lag investor-education provision is a potential route to investigate, not an automatic licence for StockSamjho and not permission to use a retail broker token. It does not establish that a paid product, derived analytics, paper-portfolio valuation, storage/cache or any particular vendor feed is covered. Obtain qualified legal/compliance review and written source-specific terms before relying on it. Keep real-time third-party display blocked unless the precise activity is demonstrably within an applicable exception and agreement.
+
+### NSE Data & Analytics authorised real-time vendor route
+
+**Official sources:**
+- [NSE Paid Real Time Data and Data & Info Vending](https://www.nseindia.com/static/market-data/real-time-data-subscription) — the page states that real-time data may be taken through NSE's infrastructure or from an authorised data vendor; the page was marked updated 22 October 2026 when reviewed.
+- [NSE Authorised Real Time Data Vendors (PDF)](https://nsearchives.nseindia.com/web/sites/default/files/inline-files/Authorized_Realtime_Data_Vendors.pdf) — the linked one-page roster lists 26 vendors and service coverage columns for Capital Market (CM), F&O, Currency Derivatives (CD), Debt and Index.
+- [NSE Data Sharing & Usage Policy](https://www.nseindia.com/static/market-data/nse-data-policy).
+
+The roster marks CM coverage for the following 23 vendors (names reproduced as shown in the NSE PDF):
+
+- Activ Financial
+- Bloomberg
+- Cogencis Information Services Ltd
+- FactSet
+- Fidessa
+- FIS Global
+- Global Financial Datafeeds LLP
+- Imagine Software
+- Instinet
+- ICE Data Services
+- Liquidnet
+- Market Pulse Technologies Private Ltd
+- Morningstar
+- Reliable Software Systems Private Ltd
+- Refinitiv
+- SIX Financial Information
+- Spider Software Private Ltd
+- Transaction Network Services
+- Ticker Data Ltd
+- Trading View Inc.
+- TrueData Financial Information Private Ltd
+- Virtu ITG Holdings LLC
+- Xignite Inc
+
+The PDF lists three additional vendors with F&O coverage but no CM checkmark: Quantsapp Private Ltd, Trading Technologies and Vtrender Charts. Segment checkmarks describe the roster's stated service coverage only; they do not establish a particular product, price, historical-data scope or StockSamjho usage right.
+
+NSE's policy says subscribers must execute a relevant agreement that records intended use and how data will be received, transmitted, handled or disseminated. It also says redistribution is not permitted except as agreed in that relevant agreement, and commercial data is provided under the applicable pricing process. Being on the authorised real-time vendor roster is therefore a useful vendor-discovery signal, **not** a blanket downstream redistribution or public-display licence for StockSamjho.
+
+**StockSamjho next step:** Treat NSE Data & Analytics and the roster's CM vendors as a lawful due-diligence shortlist only. Any future request for quotation must ask the contracting entity to specify, in writing, the exact StockSamjho product, user population, CM universe, real-time versus delayed/historical product, web/mobile display, derived analytics, AI explanations, paper/mock-trading valuation, storage/cache/retention, exports and onward redistribution rights. No vendor has been contacted or selected in this audit; no account, trial, purchase, subscription, credential, agreement or ingestion is authorised.
 
 ## Provider findings
 
