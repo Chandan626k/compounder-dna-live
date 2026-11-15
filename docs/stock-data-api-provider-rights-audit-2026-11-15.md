@@ -8,7 +8,7 @@
 
 Do **not** connect a retail broker API to StockSamjho as a general market-data source merely because it exposes quotes, candles or a low-cost/free developer API.
 
-The public terms reviewed for FYERS and Zerodha contain material restrictions that conflict with at least some of StockSamjho's intended use cases. Dhan and Upstox expose market-data APIs, but the public material reviewed here does not establish the exact multi-user display, derived-analytics, storage/cache, redistribution and paper-trading rights StockSamjho would need. A technical endpoint or subscription price is not a data licence.
+The public terms reviewed for FYERS and Zerodha contain material restrictions that conflict with at least some of StockSamjho's intended use cases. Angel One's official SmartAPI forum moderator also directly rejects redistribution of broker price-feed data from a retail account to other users. Dhan and Upstox expose market-data APIs, but the public material reviewed here does not establish the exact multi-user display, derived-analytics, storage/cache, redistribution and paper-trading rights StockSamjho would need. A technical endpoint or subscription price is not a data licence.
 
 The repository's market-data access policy must remain `NOT_CONFIGURED`. No adapter, provider request, account, subscription, credential, agreement or entitlement is activated by this audit.
 
@@ -40,6 +40,20 @@ Zerodha's support material also describes Kite Connect as an execution suite rat
 
 **StockSamjho assessment:** Not approved as the data source for public StockSamjho pages or the paper-trading simulator under the standard public terms. A paid retail API plan is not evidence of public display, mock-trading or redistribution rights. Do not create an app, subscribe or ingest data for this project unless a separate written permission or exchange-authorised data-vending arrangement expressly covers the intended use.
 
+### Angel One SmartAPI
+
+**Official sources:**
+- [SmartAPI Instruments and live market-data documentation](https://smartapi.angelone.in/docs/Instruments)
+- [SmartAPI FAQ](https://smartapi.angelone.in/faq)
+- [Official SmartAPI moderator response: can I build a platform for users and show data/charts fetched from my account?](https://smartapi.angelone.in/smartapi/forum/topic/5712/can-i-build-a-platform-for-users-and-show-data-charts-fetched-from-my-account/2?lang=en-US)
+- [Official SmartAPI moderator response: personal use and static-IP requirement](https://smartapi.angelone.in/smartapi/forum/topic/5733/use-of-static-api/5?lang=en-US)
+
+The SmartAPI documentation describes authenticated live quote modes (LTP, OHLC and FULL), historical-data APIs and instrument-master access. These establish technical capabilities, not permission to operate a shared market-data service.
+
+In the official SmartAPI forum thread about building a platform where other users would view live, historical and options data fetched through one Angel One account, a SmartAPI moderator answered that this is **not allowed** and that broker-provided price-feed data cannot be further redistributed by the end user. In a separate read-only personal-dashboard discussion, the moderator said personal use is permitted, while a static IP was still required at that time. A separate moderator explanation says the static-IP condition applies across SmartAPI app types, not only order execution.
+
+**StockSamjho assessment:** Not approved as a shared feed for StockSamjho's multi-user pages or user-facing market-data service under ordinary retail SmartAPI access. The personal-use clarification does not grant rights to serve other StockSamjho users. The cited forum response does not independently settle every question about derived analytics, storage/cache or paper-trading valuation; those uses remain unverified and must not be enabled. Any enterprise or other exception would need explicit written permission covering the exact StockSamjho product, data uses and user population. Do not use a personal Angel One account or token as a shared service credential.
+
 ### DhanHQ
 
 **Official sources:**
@@ -69,6 +83,7 @@ The developer documentation describes quote, historical-candle, option-chain, ma
 |---|---|---|---|
 | FYERS | Quotes, historical and real-time APIs are documented | Public terms restrict exchange-data use for charting/technical tools and paper/virtual trading; written consent is required for specified copying, caching and distribution | **NOT APPROVED** under public terms |
 | Zerodha Kite Connect | Live and historical market-data APIs are documented | Public display and virtual/mock trading are prohibited under standard terms; redistribution/copy/cache is restricted | **NOT APPROVED** under public terms |
+| Angel One SmartAPI | Live quotes, historical data, streaming and instrument-master APIs are documented | SmartAPI moderator says retail-account price-feed data cannot be further redistributed to other users; personal use is a separate scope | **NOT APPROVED** as a shared StockSamjho feed |
 | DhanHQ | Live feed, quotes, historical and intraday APIs are documented | Full current API terms and exact multi-user/display/derived/paper-trading rights not verified in this review | **UNKNOWN — no integration** |
 | Upstox | Quote, historical, fundamentals and streaming APIs are documented | Exact multi-user/display/derived/storage/redistribution/paper-trading rights not verified in the API pages reviewed | **UNKNOWN — no integration** |
 | Exchange-authorised data vendor | Product-specific feed may be available | Must verify the precise contract, data scope, retention, display, derived-use and redistribution rights | **Potential path; no purchase or onboarding authorised** |
@@ -93,7 +108,7 @@ A broker login, personal trading account, API key, free API tier, read-only toke
 ## Implementation consequences
 
 - Keep `MARKET_DATA_ACCESS_POLICY.status = NOT_CONFIGURED` and all protected market-data routes fail-closed.
-- Do not connect FYERS or Zerodha to the public app or paper-trading simulator under their standard public terms.
+- Do not connect FYERS, Zerodha or Angel One retail SmartAPI to the public app or paper-trading simulator as a shared data source under the reviewed public terms/support guidance.
 - Keep DhanHQ and Upstox at `UNKNOWN` until their complete current terms and exact written permissions are verified.
 - Do not use a broker's customer-specific token as a shared StockSamjho service credential.
 - Do not change the ₹5,00,000 browser-local paper portfolio, its accounting, or its manual-price-mark behavior as part of this rights audit.
