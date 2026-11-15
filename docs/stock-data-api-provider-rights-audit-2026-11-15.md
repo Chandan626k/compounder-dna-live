@@ -8,7 +8,7 @@
 
 Do **not** connect a retail broker API to StockSamjho as a general market-data source merely because it exposes quotes, candles or a low-cost/free developer API.
 
-The public terms reviewed for FYERS and Zerodha contain material restrictions that conflict with at least some of StockSamjho's intended use cases. Angel One's official SmartAPI forum moderator also directly rejects redistribution of broker price-feed data from a retail account to other users. Dhan and Upstox expose market-data APIs, but the public material reviewed here does not establish the exact multi-user display, derived-analytics, storage/cache, redistribution and paper-trading rights StockSamjho would need. A technical endpoint or subscription price is not a data licence.
+The public terms reviewed for FYERS and Zerodha contain material restrictions that conflict with at least some of StockSamjho's intended use cases. Angel One's official SmartAPI forum moderator also directly rejects redistribution of broker price-feed data from a retail account to other users. Dhan's API documentation distinguishes individual users building their own algorithms/trading systems from partner platforms serving users, but Dhan's support FAQ explicitly says paper trading with virtual funds and live market data is not supported. Dhan is therefore **NOT APPROVED for the existing StockSamjho virtual paper portfolio**, even if the feed is fetched by one individual. Its individual API category may be relevant to private, non-simulation analysis, but exact storage, caching and derived-use rights for a private StockSamjho app still need written clarification. Upstox's public material reviewed here does not establish the exact multi-user display, derived-analytics, storage/cache, redistribution and paper-trading rights StockSamjho would need. A technical endpoint or subscription price is not a data licence.
 
 The repository's market-data access policy must remain `NOT_CONFIGURED`. No adapter, provider request, account, subscription, credential, agreement or entitlement is activated by this audit.
 
@@ -172,14 +172,21 @@ In the official SmartAPI forum thread about building a platform where other user
 ### DhanHQ
 
 **Official sources:**
-- [DhanHQ Data API access and pricing](https://dhan.co/support/platforms/dhanhq-api/how-can-i-access-live-market-data-through-dhan/)
-- [DhanHQ exchange and segment coverage FAQ](https://dhan.co/support/platforms/dhanhq-api/are-data-apis-available-for-all-exchanges-and-segments-on-dhan/)
+- [DhanHQ Data API access and pricing](https://dhan.co/support/platforms/dhanhq-api/how-to-access-dhan-api/)
+- [DhanHQ live market-data features](https://dhan.co/support/platforms/dhanhq-api/how-can-i-access-live-market-data-through-dhan/)
+- [DhanHQ FAQ: paper trading with virtual money and live market data](https://dhan.co/support/platforms/dhanhq-api/can-i-test-my-trading-strategy-with-virtual-money-before-going-live/)
+- [DhanHQ API authentication — Individual and Partner categories](https://dhanhq.co/docs/v2/authentication/)
 - [DhanHQ API Partner Declaration](https://survey.dhan.co/api-partner-declaration-mar25)
 - [DhanHQ Terms & Conditions](https://dhanhq.co/terms/)
 
-The public support pages state that the Data API subscription is ₹499 plus applicable taxes per month and includes live market feed, live quotes, historical data and intraday data. Dhan's partner declaration asks an organisation/product to acknowledge DhanHQ API Terms & Conditions and regulatory/data-usage policies. The linked terms page did not expose readable terms in this review.
+Dhan's official API authentication documentation defines two user categories:
 
-**StockSamjho assessment:** Technical capability is documented, but the rights decision is **UNVERIFIED**. The subscription price and exchange/segment availability do not prove that one account or token may serve StockSamjho's other users, or that data may be publicly displayed, cached, used in derived analytics, exported or used in a paper-trading simulator. Do not subscribe, submit a partner declaration, create an account or integrate until the complete current terms and written source-specific permissions are reviewed.
+- **Individual:** a Dhan account holder building their own algorithm or trading system on DhanHQ APIs.
+- **Partner:** a platform that builds on DhanHQ APIs to serve its own users, such as an algo platform, fintech, bank or PMS.
+
+Dhan's support pages state that its Data API subscription costs ₹499 plus applicable taxes per month and provides live market feed, live quotes, historical data and intraday data. However, Dhan's own FAQ titled **“Can I test my trading strategy with virtual money before going live?”** answers **“No”**: paper trading with virtual funds and live market data is not supported, and it states that paper trading is not permitted. The API documentation separately directs platforms serving users to the Partner route. A personal API subscription must not be treated as a partner or redistribution licence.
+
+**StockSamjho assessment:** **NOT APPROVED for the existing ₹5,00,000 virtual paper portfolio, simulated trades or virtual-position valuation using Dhan live market data**, regardless of whether only one individual operates the simulator. This restriction follows Dhan's published FAQ and is not cured by buying the ₹499 individual Data API subscription. For private, non-simulation analysis, the Individual category may be relevant, but the reviewed public material does not fully settle storage, caching, derived analytics or embedding data in a private StockSamjho instance; obtain written clarification before using it for those purposes. Any StockSamjho service that serves other users must be discussed with Dhan through its Partner route, with written product-specific permissions. Do not subscribe, activate credentials, submit a partner declaration, create an account or integrate as part of this audit.
 
 ### Upstox
 
@@ -199,7 +206,7 @@ The developer documentation describes quote, historical-candle, option-chain, ma
 | FYERS | Quotes, historical and real-time APIs are documented | Public terms restrict exchange-data use for charting/technical tools and paper/virtual trading; written consent is required for specified copying, caching and distribution | **NOT APPROVED** under public terms |
 | Zerodha Kite Connect | Live and historical market-data APIs are documented | Public display and virtual/mock trading are prohibited under standard terms; redistribution/copy/cache is restricted | **NOT APPROVED** under public terms |
 | Angel One SmartAPI | Live quotes, historical data, streaming and instrument-master APIs are documented | SmartAPI moderator says retail-account price-feed data cannot be further redistributed to other users; personal use is a separate scope | **NOT APPROVED** as a shared StockSamjho feed |
-| DhanHQ | Live feed, quotes, historical and intraday APIs are documented | Full current API terms and exact multi-user/display/derived/paper-trading rights not verified in this review | **UNKNOWN — no integration** |
+| DhanHQ | Data API at ₹499 + applicable taxes/month; official docs distinguish Individual and Partner users | Dhan's support FAQ says paper trading with virtual funds and live market data is not supported; other-user/platform rights require the Partner route and written terms | **NOT APPROVED for virtual paper trading; private non-simulation analysis only after written clarification** |
 | Upstox | Quote, historical, fundamentals and streaming APIs are documented | Exact multi-user/display/derived/storage/redistribution/paper-trading rights not verified in the API pages reviewed | **UNKNOWN — no integration** |
 | TrueData | NSE roster lists CM coverage; its API page describes real-time and historical market-data APIs | Public API page restricts data to internal use, requires separate exchange/TrueData approvals for client/public display, and expressly prohibits paper/mock/simulated trading and model portfolios | **NOT APPROVED for paper trading; public display requires separate written approvals** |
 | Global Financial Datafeeds | NSE roster lists CM coverage; WebSocket/REST and other APIs are documented | Standard API guidance is personal-use only; published API terms restrict to a single subscriber and exclude virtual/simulation use unless stated exchange/SEBI approvals are obtained; commercial use requires exchange agreements and fees | **NOT APPROVED under standard API terms for shared service or paper simulation** |
@@ -229,7 +236,9 @@ A broker login, personal trading account, API key, free API tier, read-only toke
 
 - Keep `MARKET_DATA_ACCESS_POLICY.status = NOT_CONFIGURED` and all protected market-data routes fail-closed.
 - Do not connect FYERS, Zerodha or Angel One retail SmartAPI to the public app or paper-trading simulator as a shared data source under the reviewed public terms/support guidance.
-- Keep DhanHQ and Upstox at `UNKNOWN` until their complete current terms and exact written permissions are verified.
+- Do not use Dhan Data API live market data to value the ₹5,00,000 virtual paper portfolio or to run paper/simulated trades; Dhan's published FAQ explicitly says paper trading with virtual funds and live market data is not supported.
+- Keep Dhan's Individual API category separate from its Partner integration route. For private, non-simulation analysis, obtain written confirmation of the exact data use, storage, caching and derived-analytics rights. Any StockSamjho service serving other users requires the Partner route and product-specific written permissions.
+- Keep Upstox at `UNKNOWN` until its complete current terms and exact written permissions are verified.
 - Do not use TrueData data to price the existing paper portfolio or run simulations under its published API restrictions. Treat it as a possible internal-analysis candidate only after the exact API contract, data scope, storage rights and exchange permissions are confirmed in writing.
 - Do not use Global Datafeeds' standard API plan for a shared StockSamjho feed or paper/simulation use under its published single-subscriber and approval conditions.
 - Do not redistribute Spider Software data or repurpose a single-terminal subscription for StockSamjho users under its published terms.
