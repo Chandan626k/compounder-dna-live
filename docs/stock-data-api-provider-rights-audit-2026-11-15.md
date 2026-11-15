@@ -12,6 +12,8 @@ The public terms reviewed for FYERS and Zerodha contain material restrictions th
 
 The repository's market-data access policy must remain `NOT_CONFIGURED`. No adapter, provider request, account, subscription, credential, agreement or entitlement is activated by this audit.
 
+The exchange-vendor review also found that Global Financial Datafeeds' published API terms limit the standard API service to a single subscriber and exclude virtual/simulation use unless the stated exchange/SEBI approvals are obtained; its purchase page limits the APIs to individual personal use and requires exchange agreements and fees for commercial use. Spider Software's published software/data terms prohibit redistribution and limit a subscription to one terminal. Cogencis exposes an enterprise API and institutional data platform, but its public pages do not establish StockSamjho's downstream rights. These findings narrow the usable shortlist; none authorizes a provider.
+
 ## Exchange-authorised route and regulatory constraints (NSE / SEBI)
 
 ### SEBI third-party real-time price-data circular
@@ -82,6 +84,48 @@ TrueData appears on the NSE authorised real-time vendor roster with a Capital Ma
 - The page describes institutional bulk and multi-user API setups, but that technical/enterprise capability does not override the stated paper/simulation prohibition or establish StockSamjho's downstream display and redistribution rights.
 
 **StockSamjho assessment:** **NOT APPROVED for the existing paper-trading simulator or model-portfolio valuation under the published API usage restrictions.** Public/client display and redistribution are also not approved without separate written approvals and licensing. Internal proprietary analysis may fit the page's stated internal-use category, but the exact API product, exchange scope, storage rights, fees and contract must still be confirmed in writing. Do not request a trial, create an account, subscribe or integrate as part of this audit.
+
+
+### Global Financial Datafeeds (GFDL): standard API terms exclude shared and simulation use
+
+**Official sources:**
+- [Who can purchase Global Datafeeds APIs](https://globaldatafeeds.in/global-datafeeds-apis/global-datafeeds-apis/pricing-sales/who-can-purchase/)
+- [Global Datafeeds APIs and published API conditions](https://globaldatafeeds.in/apis/)
+- [NSE Authorised Real Time Data Vendors (PDF)](https://nsearchives.nseindia.com/web/sites/default/files/inline-files/Authorized_Realtime_Data_Vendors.pdf)
+
+Global Financial Datafeeds LLP appears on the NSE real-time vendor roster with Capital Market (CM) coverage. Its public API purchase guidance says the APIs available there are for **individual users for personal use**; commercial use requires an agreement with the respective exchanges and payment of the requisite fees.
+
+The API page describes WebSocket, REST, .NET, COM and FIX delivery for web, mobile and desktop development. However, the same page's published conditions say that:
+- Information received from Global Datafeeds must be terminated at the subscriber's end.
+- Data is not provided for gaming, lottery, virtual trading or simulation applications; customers with such requirements are told to obtain approvals from NSE and SEBI first.
+- Data is for charting/analysis use of a **single subscriber only**.
+
+**StockSamjho assessment:** **NOT APPROVED under the published standard API conditions** for a shared multi-user StockSamjho feed or the existing paper-trading/simulation workflow. The vendor's NSE roster status and technical API breadth do not override the single-subscriber and simulation restrictions. The public pages do not evidence that StockSamjho has the required approvals or a separate commercial agreement. Do not use a personal API plan, request a trial, subscribe or integrate. Any distinct enterprise route would need written exchange approvals and an executed agreement that expressly covers the product, user population, derived use, storage, display and simulations.
+
+### Spider Software: single-terminal licence and redistribution prohibition
+
+**Official sources:**
+- [Spider Software Terms & Conditions](https://www.spidersoftwareindia.com/terms-conditions.php)
+- [NSE Authorised Real Time Data Vendors (PDF)](https://nsearchives.nseindia.com/web/sites/default/files/inline-files/Authorized_Realtime_Data_Vendors.pdf)
+
+Spider Software appears on the NSE vendor roster with CM coverage and publicly markets software using live NSE data. Its published subscriber terms state that a subscription is for one instance on one computer / one terminal, is non-exclusive and non-assignable, and that redistribution of data from its software in any form is strictly prohibited.
+
+**StockSamjho assessment:** **NOT APPROVED under the published standard software/data subscription** as a shared StockSamjho market-data source. A single-terminal, non-assignable licence and an express redistribution prohibition conflict with serving data to multiple StockSamjho users. The public terms reviewed do not establish a separate enterprise feed licence or paper-trading permission. Do not repurpose a desktop subscription or redistribute its data. Any claimed exception must be evidenced by a separate written agreement and the necessary exchange permissions before use.
+
+### NSE Cogencis Enterprise Solutions: enterprise integration candidate, rights unverified
+
+**Official sources:**
+- [Cogencis Data Platform](https://www.cogencis.com/data)
+- [Cogencis Enterprise Solutions](https://www.cogencis.com/cogencis_enterprise_solutions)
+- [NSE Authorised Real Time Data Vendors (PDF)](https://nsearchives.nseindia.com/web/sites/default/files/inline-files/Authorized_Realtime_Data_Vendors.pdf)
+
+Cogencis describes a Data Platform covering real-time and historical market data, reference/entity data, corporate actions, fundamentals and estimates. It says the platform can be accessed through Cogencis WorkStation or an open API deployed into enterprise applications. Its enterprise page lists institutional use cases including portfolio valuation, risk management, trading/investment strategy and regulatory compliance.
+
+**StockSamjho assessment:** This is the most directly enterprise-oriented integration route identified in this public-source review, so it merits priority in a future written due-diligence request. However, the public pages do **not** establish the exact StockSamjho rights for multi-user web/mobile display, derived analytics and AI explanations, paper/mock-trading valuation, storage/cache/retention, exports, onward redistribution, permitted user population, data sources, latency, historical depth or fees. Keep the rights status **UNKNOWN — no integration or onboarding** until a source-specific written proposal and agreement explicitly cover each intended use. No demo, account, subscription or commercial contact has been initiated in this run.
+
+### Ticker Data Ltd: legal-entity match not established
+
+The NSE vendor roster names **Ticker Data Ltd**. A similarly named public website, tickerdata.com, identifies its operator in its Terms of Service as **TickerData LLC** in Tennessee. The public materials reviewed do not establish that this LLC is the same legal entity as the NSE roster entry. Do not attribute tickerdata.com products, terms or data rights to the NSE-listed Ticker Data Ltd without first verifying the legal contracting entity and its authority for the specific feed.
 
 ## Provider findings
 
@@ -158,6 +202,10 @@ The developer documentation describes quote, historical-candle, option-chain, ma
 | DhanHQ | Live feed, quotes, historical and intraday APIs are documented | Full current API terms and exact multi-user/display/derived/paper-trading rights not verified in this review | **UNKNOWN — no integration** |
 | Upstox | Quote, historical, fundamentals and streaming APIs are documented | Exact multi-user/display/derived/storage/redistribution/paper-trading rights not verified in the API pages reviewed | **UNKNOWN — no integration** |
 | TrueData | NSE roster lists CM coverage; its API page describes real-time and historical market-data APIs | Public API page restricts data to internal use, requires separate exchange/TrueData approvals for client/public display, and expressly prohibits paper/mock/simulated trading and model portfolios | **NOT APPROVED for paper trading; public display requires separate written approvals** |
+| Global Financial Datafeeds | NSE roster lists CM coverage; WebSocket/REST and other APIs are documented | Standard API guidance is personal-use only; published API terms restrict to a single subscriber and exclude virtual/simulation use unless stated exchange/SEBI approvals are obtained; commercial use requires exchange agreements and fees | **NOT APPROVED under standard API terms for shared service or paper simulation** |
+| Spider Software | NSE roster lists CM coverage; live-data analysis software is documented | Published subscription is single-terminal, non-assignable and expressly prohibits redistribution of data from its software | **NOT APPROVED under published standard subscription for shared service** |
+| NSE Cogencis Enterprise Solutions | Enterprise Data Platform and open API for enterprise applications are documented | Public pages do not specify StockSamjho multi-user display, derived, paper-trading, storage or redistribution rights | **UNKNOWN — priority enterprise due diligence; no integration** |
+| Ticker Data Ltd | NSE roster includes this legal name | A similarly named tickerdata.com site identifies TickerData LLC; legal-entity mapping to the NSE roster entry is not established | **UNKNOWN — do not conflate entities** |
 | Exchange-authorised data vendor | Product-specific feed may be available | Must verify the precise contract, data scope, retention, display, derived-use and redistribution rights | **Potential path; no purchase or onboarding authorised** |
 
 ## Required evidence before any adapter can be enabled
@@ -183,6 +231,10 @@ A broker login, personal trading account, API key, free API tier, read-only toke
 - Do not connect FYERS, Zerodha or Angel One retail SmartAPI to the public app or paper-trading simulator as a shared data source under the reviewed public terms/support guidance.
 - Keep DhanHQ and Upstox at `UNKNOWN` until their complete current terms and exact written permissions are verified.
 - Do not use TrueData data to price the existing paper portfolio or run simulations under its published API restrictions. Treat it as a possible internal-analysis candidate only after the exact API contract, data scope, storage rights and exchange permissions are confirmed in writing.
+- Do not use Global Datafeeds' standard API plan for a shared StockSamjho feed or paper/simulation use under its published single-subscriber and approval conditions.
+- Do not redistribute Spider Software data or repurpose a single-terminal subscription for StockSamjho users under its published terms.
+- Keep Cogencis Enterprise Solutions at `UNKNOWN`; public enterprise API capability is not a substitute for a written StockSamjho-specific licence covering display, derived analytics, simulations, storage and redistribution.
+- Do not treat tickerdata.com / TickerData LLC as the NSE roster's Ticker Data Ltd unless the legal-entity relationship is independently verified.
 - Do not use a broker's customer-specific token as a shared StockSamjho service credential.
 - Do not change the ₹5,00,000 browser-local paper portfolio, its accounting, or its manual-price-mark behavior as part of this rights audit.
 - No provider adapter, ingestion, cache, database, API activation, credential, account, subscription, agreement or purchase is introduced here.
