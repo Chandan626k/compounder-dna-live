@@ -194,6 +194,36 @@ const entitlement = {
 };
 assert.equal(validateEntitlementRecord(entitlement).valid, true);
 
+// A currently active entitlement cannot retroactively authorize a fetch made
+// before its validity window began. The retrieval timestamp must be inside the
+// same half-open window as the current entitlement evaluation.
+const fetchedBeforeEntitlement = quoteEnvelope({
+  time: {
+    asOf: '2026-10-31T23:59:00.000Z',
+    fetchedAt: '2026-10-31T23:59:10.000Z',
+  },
+  data: [{ price: 100, currency: 'INR', asOf: '2026-10-31T23:59:00.000Z' }],
+});
+assert.equal(validateMarketDataEnvelope(fetchedBeforeEntitlement).valid, true,
+  'the envelope is structurally valid even though retrieval predates entitlement');
+assert.equal(evaluateMarketDataEntitlement(fetchedBeforeEntitlement, entitlement, {
+  use: MARKET_DATA_USES.INTERNAL_USE,
+  now: NOW,
+}).code, 'FETCH_TIMESTAMP_OUTSIDE_ENTITLEMENT_WINDOW',
+'entitlement evaluation must reject data fetched before the entitlement begins');
+
+const fetchedAtEntitlementStart = quoteEnvelope({
+  time: {
+    asOf: '2026-11-01T00:00:00.000Z',
+    fetchedAt: '2026-11-01T00:00:00.000Z',
+  },
+  data: [{ price: 100, currency: 'INR', asOf: '2026-11-01T00:00:00.000Z' }],
+});
+assert.equal(evaluateMarketDataEntitlement(fetchedAtEntitlementStart, entitlement, {
+  use: MARKET_DATA_USES.INTERNAL_USE,
+  now: '2026-11-01T00:00:01.000Z',
+}).allowed, true, 'the entitlement validFrom boundary is inclusive');
+
 // Market/source timestamps must not claim a state or publication after retrieval.
 const marketTimestampAfterFetch = quoteEnvelope({
   time: { asOf: '2026-11-14T10:29:20.000Z' },
