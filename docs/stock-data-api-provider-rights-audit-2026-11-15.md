@@ -66,6 +66,23 @@ NSE's policy says subscribers must execute a relevant agreement that records int
 
 **StockSamjho next step:** Treat NSE Data & Analytics and the roster's CM vendors as a lawful due-diligence shortlist only. Any future request for quotation must ask the contracting entity to specify, in writing, the exact StockSamjho product, user population, CM universe, real-time versus delayed/historical product, web/mobile display, derived analytics, AI explanations, paper/mock-trading valuation, storage/cache/retention, exports and onward redistribution rights. No vendor has been contacted or selected in this audit; no account, trial, purchase, subscription, credential, agreement or ingestion is authorised.
 
+### TrueData: exchange-listed, but public terms exclude paper trading
+
+**Official sources:**
+- [TrueData Market Data API — compliance requirements and usage restrictions](https://www.truedata.in/market-data-apis)
+- [TrueData Terms & Conditions](https://www.truedata.in/terms-and-conditions)
+- [NSE Authorised Real Time Data Vendors (PDF)](https://nsearchives.nseindia.com/web/sites/default/files/inline-files/Authorized_Realtime_Data_Vendors.pdf)
+
+TrueData appears on the NSE authorised real-time vendor roster with a Capital Market (CM) coverage mark and describes APIs for NSE/BSE/MCX market data. Its public Market Data API compliance page, reviewed on 2026-11-15, states that:
+
+- Data is licensed for individual or institutional **internal use only**; redistribution, resale or public sharing is not allowed without prior written permission.
+- Display on a website/app for public or client access, or integration of live feeds into a commercial platform, requires written approval from both the exchanges and TrueData, plus separate licensing/exchange documentation.
+- The page expressly lists gamification, trading-based competitions, virtual/simulated trading, paper trading, trading simulators, mock-trading environments, virtual-money setups and model portfolios that replicate trading behaviour as prohibited activities, including for educational institutions and training platforms.
+- For trading-education applications, the page says real-time feeds must not be displayed; delayed data with a minimum one-day lag still requires the necessary exchange approval or licence.
+- The page describes institutional bulk and multi-user API setups, but that technical/enterprise capability does not override the stated paper/simulation prohibition or establish StockSamjho's downstream display and redistribution rights.
+
+**StockSamjho assessment:** **NOT APPROVED for the existing paper-trading simulator or model-portfolio valuation under the published API usage restrictions.** Public/client display and redistribution are also not approved without separate written approvals and licensing. Internal proprietary analysis may fit the page's stated internal-use category, but the exact API product, exchange scope, storage rights, fees and contract must still be confirmed in writing. Do not request a trial, create an account, subscribe or integrate as part of this audit.
+
 ## Provider findings
 
 ### FYERS
@@ -140,6 +157,7 @@ The developer documentation describes quote, historical-candle, option-chain, ma
 | Angel One SmartAPI | Live quotes, historical data, streaming and instrument-master APIs are documented | SmartAPI moderator says retail-account price-feed data cannot be further redistributed to other users; personal use is a separate scope | **NOT APPROVED** as a shared StockSamjho feed |
 | DhanHQ | Live feed, quotes, historical and intraday APIs are documented | Full current API terms and exact multi-user/display/derived/paper-trading rights not verified in this review | **UNKNOWN — no integration** |
 | Upstox | Quote, historical, fundamentals and streaming APIs are documented | Exact multi-user/display/derived/storage/redistribution/paper-trading rights not verified in the API pages reviewed | **UNKNOWN — no integration** |
+| TrueData | NSE roster lists CM coverage; its API page describes real-time and historical market-data APIs | Public API page restricts data to internal use, requires separate exchange/TrueData approvals for client/public display, and expressly prohibits paper/mock/simulated trading and model portfolios | **NOT APPROVED for paper trading; public display requires separate written approvals** |
 | Exchange-authorised data vendor | Product-specific feed may be available | Must verify the precise contract, data scope, retention, display, derived-use and redistribution rights | **Potential path; no purchase or onboarding authorised** |
 
 ## Required evidence before any adapter can be enabled
@@ -164,6 +182,7 @@ A broker login, personal trading account, API key, free API tier, read-only toke
 - Keep `MARKET_DATA_ACCESS_POLICY.status = NOT_CONFIGURED` and all protected market-data routes fail-closed.
 - Do not connect FYERS, Zerodha or Angel One retail SmartAPI to the public app or paper-trading simulator as a shared data source under the reviewed public terms/support guidance.
 - Keep DhanHQ and Upstox at `UNKNOWN` until their complete current terms and exact written permissions are verified.
+- Do not use TrueData data to price the existing paper portfolio or run simulations under its published API restrictions. Treat it as a possible internal-analysis candidate only after the exact API contract, data scope, storage rights and exchange permissions are confirmed in writing.
 - Do not use a broker's customer-specific token as a shared StockSamjho service credential.
 - Do not change the ₹5,00,000 browser-local paper portfolio, its accounting, or its manual-price-mark behavior as part of this rights audit.
 - No provider adapter, ingestion, cache, database, API activation, credential, account, subscription, agreement or purchase is introduced here.
