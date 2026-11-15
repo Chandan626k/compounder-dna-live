@@ -217,6 +217,40 @@ Twelve Data's commercial/personal usage guidance distinguishes:
 
 **StockSamjho assessment:** **NOT APPROVED for the existing ₹5,00,000 virtual portfolio or simulated trading under the published individual-plan terms.** The student-competition carve-out is not a general personal paper-trading permission. Twelve Data may be a future commercial due-diligence candidate for internal analytics and/or display only if it confirms the relevant Indian exchange coverage, exchange-specific approvals, Venture/Enterprise scope, derived-data rights, attribution, redistribution add-on/agreement, retention and fees in writing. The public guidance does not establish that a suitable NSE commercial licence fits the ₹2,000/month target. Do not create an account, use a trial, subscribe or integrate as part of this audit.
 
+### BharatStock: low-cost candidate for statutory disclosures and derived analytics only
+
+**Official sources (reviewed 15 November 2026):**
+- [BharatStock product, API coverage and published pricing](https://bharatstockapi.com/)
+- [BharatStock Terms & Conditions](https://bharatstockapi.com/terms)
+- [BharatStock Data Sources](https://bharatstockapi.com/data-sources)
+- [BharatStock API Reference](https://bharatstockapi.com/reference)
+- [BharatStock Privacy Policy](https://bharatstockapi.com/privacy)
+- [BharatStock builder discussion and operator's public response (23 October 2026)](https://www.reddit.com/r/indiandevs/comments/1xd04ir/we_built_bharatstock_bharatstockapicom_a_clean/)
+
+The product page advertises an end-of-day REST API (not a live/tick feed), with company financials, shareholding, corporate actions, insider/PIT disclosures, mutual-fund data and NSE/BSE EOD prices. Its data-sources page attributes prices to NSE/BSE, company financial and shareholding disclosures to company/SEBI filings, and mutual-fund NAV/holdings to AMFI and AMC disclosures.
+
+Published monthly prices, exclusive of applicable tax, are Starter ₹500 (1,000 requests/day), Growth ₹700 (5,000/day), Developer ₹1,000 (10,000/day) and Pro ₹5,000 (40,000/day). The site says plans differ by request quota/history rather than end-user count, and says a cached backend can serve multiple end-users. This is a potentially budget-compatible route for a narrow statutory-disclosure/derived-analytics scope, not a blanket market-data licence.
+
+**Material terms and limitations:**
+- Terms sections 35–45 permit paid-tier display to the customer's own end-users of company financials, shareholding patterns, corporate actions, insider/PIT disclosures, mutual-fund holdings/NAV and genuine Customer Derivatives (original scores, indicators, rankings, reports and analytics that do not reproduce or allow reconstruction of source data).
+- The same terms expressly exclude public display of exchange-owned EOD prices/OHLCV, index values, bulk/block-deal and FII/DII data unless the customer obtains its own direct exchange display/redistribution licence. BharatStock's subscription does not pass through an exchange redistribution licence. Its terms also state that underlying third-party rights may apply and do not represent that every dataset is free of third-party rights.
+- The operator's public Reddit response on 23 October 2026 said it was working toward incorporating the entity and obtaining an exchange data-feed licence, including for EOD data. That is a historical public statement, not proof that a licence has since been obtained. No current exchange authorisation or licence for StockSamjho's use was verified in this review. Treat all exchange-sourced price/indices/deals/flows as **NOT APPROVED** pending current written proof of the upstream rights and the exact downstream permission.
+- API keys are bound to the registered user/entity and must not be shared. Keep any key server-side. The terms allow the provider to require disclosure of public/client end-user display and business verification. They say no self-serve white-label/redistribution tier is offered.
+- Caching/storage and public serving are conditional on an active paid subscription. On lapse/termination, the terms require stopping public serving and removing cached data from public-facing surfaces within 30 days; private internal records may be retained subject to the terms.
+- The AI clauses permit an AI agent/application to retrieve data at request time to answer a user query, but separately require a Model Training License for training, fine-tuning, grounding or embedding an AI/ML model, or building/evaluating a model/product for distribution. Developer/Pro model evaluation and backtesting are described as personal/internal only and may not be used to distribute the resulting model/product. The interaction between request-time retrieval and the broad word “ground” is not sufficiently clear for StockSamjho's LLM explanations/RAG workflow.
+- The terms define “Competing Product” broadly and prohibit using the service to build or operate a competing feed, dataset, API, score or model. Obtain written confirmation that StockSamjho's proposed analysis product and its derived outputs are not treated as a competing product.
+- The terms identify the Platform Owner as “BharatStock, a sole proprietorship” but the reviewed terms do not name the proprietor or provide a full contracting address. Verify the contracting legal identity, invoice/GST issuer and upstream source-rights chain before relying on a paid contract.
+
+**StockSamjho assessment:** **CONDITIONAL — statutory-disclosure data and genuine derived analytics only; NOT APPROVED for raw exchange-price display or paper-portfolio valuation; AI/model-use rights remain UNKNOWN.** The ₹500–₹1,000 published tiers fit the ₹2,000/month target before tax, but price alone does not establish suitability. Do not use exchange prices to mark the ₹5,00,000 paper portfolio, show raw OHLCV/charts, or enable a provider adapter under the current evidence. Before any future onboarding, obtain written confirmation of the legal contracting entity; statutory dataset provenance and end-user display rights; whether the specific StockSamjho analytics are permitted Customer Derivatives and non-competing; request-time LLM/RAG use; any model-evaluation/backtesting scope; paper/virtual-portfolio valuation; retention and termination handling; request quota; and all taxes/fees. No account, API key, trial, subscription, quote request, purchase or integration is initiated by this audit.
+
+### TejHQ: commercial EOD use is outside budget and upstream exchange rights are unconfirmed
+
+**Official source:** [TejHQ data terms, updated 8 November 2026](https://tejhq.dev/data-terms).
+
+TejHQ says its EOD dataset is built from NSE/BSE bhavcopy and corporate-action files, but expressly states that it holds **no licence from NSE, BSE or NSE Indices and has no written clarification from them**. Its terms distinguish personal use (including private research, backtesting and paper trading) from commercial use for a business, app or other people. Commercial use requires Pro at ₹4,999/month or Team at ₹24,999/month; raw data publishing/resale is prohibited, while non-reconstructable derived research outputs may be published. Its paid commercial plan therefore exceeds the ₹2,000/month target and does not cure the stated absence of exchange licensing/clarification.
+
+**StockSamjho assessment:** **NOT APPROVED** as a commercial StockSamjho market-data source under the reviewed terms. Do not use the free, keyless or Retail plan in the commercial app, and do not treat its open-source code licence as a licence to the underlying exchange data. No account, key, trial, subscription, data ingestion or adapter is authorised.
+
 ## Cross-provider decision matrix
 
 | Provider | Technical market-data API evidence | Restriction or unresolved right | StockSamjho decision |
@@ -232,6 +266,8 @@ Twelve Data's commercial/personal usage guidance distinguishes:
 | Spider Software | NSE roster lists CM coverage; live-data analysis software is documented | Published subscription is single-terminal, non-assignable and expressly prohibits redistribution of data from its software | **NOT APPROVED under published standard subscription for shared service** |
 | NSE Cogencis Enterprise Solutions | Enterprise Data Platform and open API for enterprise applications are documented | Public pages do not specify StockSamjho multi-user display, derived, paper-trading, storage or redistribution rights | **UNKNOWN — priority enterprise due diligence; no integration** |
 | Ticker Data Ltd | NSE roster includes this legal name | A similarly named tickerdata.com site identifies TickerData LLC; legal-entity mapping to the NSE roster entry is not established | **UNKNOWN — do not conflate entities** |
+| BharatStock | EOD REST API for prices plus statutory financials, shareholding, corporate actions, insider disclosures and AMFI/AMC mutual-fund data; published Starter ₹500 / Developer ₹1,000 per month | Paid terms permit display of statutory data and genuine Customer Derivatives, but exclude public exchange-price display without a direct exchange licence; AI grounding/model distribution and paper valuation need written clarification; operator's exchange-feed licence status is unverified | **CONDITIONAL for statutory disclosures/derived analytics only; NOT APPROVED for exchange prices or paper valuation** |
+| TejHQ | EOD API and Parquet dataset built from NSE/BSE bhavcopy and corporate-action files | Terms say no NSE/BSE/NSE Indices licence or written clarification; commercial Pro ₹4,999/month and Team ₹24,999/month; raw-data redistribution prohibited | **NOT APPROVED for commercial StockSamjho use** |
 | Exchange-authorised data vendor | Product-specific feed may be available | Must verify the precise contract, data scope, retention, display, derived-use and redistribution rights | **Potential path; no purchase or onboarding authorised** |
 
 ## Required evidence before any adapter can be enabled
@@ -264,6 +300,9 @@ A broker login, personal trading account, API key, free API tier, read-only toke
 - Do not redistribute Spider Software data or repurpose a single-terminal subscription for StockSamjho users under its published terms.
 - Keep Cogencis Enterprise Solutions at `UNKNOWN`; public enterprise API capability is not a substitute for a written StockSamjho-specific licence covering display, derived analytics, simulations, storage and redistribution.
 - Do not treat tickerdata.com / TickerData LLC as the NSE roster's Ticker Data Ltd unless the legal-entity relationship is independently verified.
+- Keep BharatStock at **CONDITIONAL** only for paid-tier statutory disclosures and genuine non-reconstructable Customer Derivatives. Do not display its raw exchange prices/OHLCV/index/deals/flows, use them for paper-portfolio marks, or activate an adapter unless current upstream exchange rights and StockSamjho-specific permissions are evidenced in writing.
+- Before any BharatStock onboarding, resolve the contracting proprietor/legal entity, statutory-data source rights, public end-user display scope, Customer Derivatives/Competing Product interpretation, request-time LLM/RAG versus Model Training License boundary, commercial backtesting scope, paper-portfolio valuation, data retention and fees in writing.
+- Do not use TejHQ's free/keyless/Retail plans for StockSamjho's commercial product. Its published Pro/Team pricing exceeds the target and its terms state that it has no exchange data licence or written exchange clarification.
 - Do not use a broker's customer-specific token as a shared StockSamjho service credential.
 - Do not change the ₹5,00,000 browser-local paper portfolio, its accounting, or its manual-price-mark behavior as part of this rights audit.
 - No provider adapter, ingestion, cache, database, API activation, credential, account, subscription, agreement or purchase is introduced here.
