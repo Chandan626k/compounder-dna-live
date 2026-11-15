@@ -69,6 +69,19 @@ function quoteEnvelope(overrides = {}) {
 const validQuote = quoteEnvelope();
 assert.equal(validateMarketDataEnvelope(validQuote).valid, true, 'explicit synthetic quote contract is valid');
 
+assert.equal(validateMarketDataEnvelope(quoteEnvelope({
+  instrument: { isin: 'US0378331005' },
+})).valid, true, 'ISO 6166 checksum-valid ISIN is accepted');
+assert.equal(validateMarketDataEnvelope(quoteEnvelope({
+  instrument: { isin: 'US0378331006' },
+})).valid, false, 'an ISIN with an incorrect check digit is rejected');
+assert.equal(validateMarketDataEnvelope(quoteEnvelope({
+  instrument: { isin: 'US037833100A' },
+})).valid, false, 'the final ISIN check digit must be numeric');
+assert.equal(validateMarketDataEnvelope(quoteEnvelope({
+  instrument: { isin: 'us0378331005' },
+})).valid, false, 'ISIN validation requires canonical uppercase text');
+
 // Unknown or malformed metadata is rejected instead of being defaulted.
 assert.equal(validateMarketDataEnvelope(quoteEnvelope({ apiVersion: 'v2' })).valid, false);
 assert.equal(validateMarketDataEnvelope(quoteEnvelope({ time: { fetchedAt: '14/11/2026 10:29' } })).valid, false);
