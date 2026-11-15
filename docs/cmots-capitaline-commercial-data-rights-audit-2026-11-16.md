@@ -8,7 +8,7 @@
 
 - **CMOTS / APIDataFeed:** A **priority conditional RFQ candidate** for a multi-user website/API data arrangement. Its public terms expressly describe JSON/XML web-services APIs and FTP/CSV delivery, say sourced data is redistributed to clients, and contemplate display on specifically named client websites. This is more relevant to StockSamjho than a personal retail API. However, the public terms are a quotation-dependent template, prices are not published, upstream exchange authority is not verified for every product, and AI/RAG, persistent cache, derived analytics and virtual-paper use are not expressly resolved. Do not integrate or activate it yet.
 - **Capitaline:** A potentially strong **human analyst workstation**, but its published standard single-user annual price is ₹2,50,000 plus applicable GST on the registration page. That is far outside the previously considered ₹2,000/month budget. No public developer API or StockSamjho SaaS redistribution licence was found. Do not treat a Capitaline user subscription or exports as a backend feed.
-- **NSE real-time authorization:** CMOTS is absent from the current NSE Data & Analytics authorized real-time vendor PDF linked from the NSE page updated 22 October 2026. CMOTS's broad statement that it is empanelled with NSE/BSE/MCX/NCDEX must not be interpreted as proof that it is currently an NSE-authorized real-time vendor. Absence from this real-time list does not prove it lacks separate EOD, delayed, corporate-data, or other upstream arrangements; those require product-specific evidence.
+- **NSE real-time authorization:** CMOTS is absent from the 26-name Authorized Realtime Data Vendors PDF currently linked from the NSE page, which displays an update date of 22 October 2026. The PDF itself has no visible issue/effective date, so the parent-page update date must not be misrepresented as the PDF's own publication date. CMOTS's broad statement that it is empanelled with NSE/BSE/MCX/NCDEX must not be interpreted as proof that it is currently an NSE-authorized real-time vendor. Absence from this real-time list does not prove it lacks separate EOD, delayed, corporate-data, or other upstream arrangements; those require product-specific evidence.
 
 Keep `MARKET_DATA_ACCESS_POLICY.status = NOT_CONFIGURED`. No provider adapter, source registry entry, entitlement, ingestion, persistent cache or API credential was created.
 
@@ -40,7 +40,7 @@ The official APIDataFeed Terms of Use contains four schedules:
 **Schedule II — client use and redistribution**
 - The client may use subscribed data only for exhibition on its website, with all platforms and website/product names to be listed.
 - The client may not redistribute or resell subscribed data to another data vendor.
-- It permits hard-copy printouts of data or parts of it for distribution to the client's own clients, and inclusion in printed client documents, subject to a specified C-MOTS attribution.
+- It permits hard-copy printouts of data or parts thereof for distribution to the client's own clients, or inclusion in printed client documents, subject to a specified C-MOTS attribution.
 - This is promising for a named StockSamjho website, but it does not by itself settle mobile-app display, downstream API access, user exports, derived metrics, AI-generated explanations, LLM/RAG retrieval, model training, caching/backups or paper/virtual portfolio use.
 
 **Schedule III — delivery**
@@ -73,13 +73,15 @@ These are mandatory before financial evidence can be treated as validated by Sto
 
 ### NSE vendor-list cross-check
 
-The NSE page for paid real-time data was updated 22 October 2026 and links the current one-page **Authorized Realtime Data Vendors** PDF. That PDF lists 26 vendors and does not list CMOTS. It lists products/segments such as CM, F&O, CD, debt and index for each named vendor.
+The NSE page for paid real-time data displays **Updated on: 22/10/2026** and links a one-page **Authorized Realtime Data Vendors** PDF. The linked PDF lists 26 vendors and does not list CMOTS. It lists products/segments such as CM, F&O, CD, debt and index for each named vendor.
+
+**Source-version limitation:** The rendered one-page PDF has no visible issue/effective date. The 22 October 2026 date belongs to the parent NSE web page; it is not evidence that the PDF itself was reissued on that date. The careful conclusion is that CMOTS is absent from the roster currently linked by NSE, not that this file independently proves a date-stamped authorization status as of 22 October. Obtain product-specific written confirmation before relying on this as a contractual or legal determination.
 
 Therefore:
 - Do not describe CMOTS as independently verified for NSE real-time equity data.
 - Do not infer that its website's general empanelment statement grants NSE real-time redistribution rights.
 - Ask CMOTS to identify the exact upstream agreement/authorized vendor and product scope for NSE CM EOD, delayed, historical, corporate data and any real-time product separately.
-- The current NSE real-time list does not determine whether CMOTS has separate EOD/delayed, corporate-data or non-NSE exchange arrangements.
+- The currently linked NSE real-time list does not determine whether CMOTS has separate EOD/delayed, corporate-data or non-NSE exchange arrangements.
 
 ### StockSamjho decision
 
@@ -103,15 +105,15 @@ No contact form was submitted and no vendor was contacted in this audit. The con
 
 ### Product capability
 
-Capitaline advertises a broad Indian company and industry research database. Its current public website describes more than 55,000 listed and unlisted companies, 300+ industries, more than 10 years of financial history, standalone and consolidated financials, P&L, balance sheet, cash flow, segment data, forex/R&D data, ratios, quarterly results, shareholding, finished products/raw materials, share-price data, corporate announcements, news and screener/peer-analysis tools.
+Capitaline advertises a broad Indian company and industry research database. Its current Capitaline Enterprise and database product pages describe more than 55,000 listed and unlisted companies, 300+ industries, more than 10 years of financial history, standalone and consolidated financials, P&L, balance sheet, cash flow, segment data, forex/R&D data, ratios, quarterly results, shareholding, finished products/raw materials, share-price data, corporate announcements, news and screener/peer-analysis tools.
 
 This could be valuable for a human research analyst who needs standardized Indian-company financials and sector comparisons. It is not evidence of a callable StockSamjho API or a licence to display, store or redistribute its content.
 
-### Published pricing
+### Published pricing and package-scope caveat
 
 Capitaline's official database page lists:
 - **₹2,50,000 per user per year** for Capitaline.
-- **₹6,250 per user per year** in USD on the same page.
+- **USD 6,250 per user per year** on the same page.
 
 The official registration page lists:
 - Capitaline online version: ₹2,50,000 + GST per year.
@@ -119,6 +121,8 @@ The official registration page lists:
 - Capitaline + NAV India combined: ₹4,00,000 + GST per year; special IAIP-member offer ₹50,000 + GST.
 
 The IAIP discount is eligibility-specific and must not be treated as a generally available price. The standard ₹2,50,000 + GST single-user price is approximately ₹20,833 per month before GST, more than ten times the ₹2,000/month target. The combined product is more expensive.
+
+**Coverage/package reconciliation:** The current `/Demo/Plus.aspx` page advertises 55,000+ companies and the ₹2,50,000 annual per-user price. The older `/CFA/RegisterUser.aspx` registration page still describes 35,000 companies and 313 industries while showing the same standard price and IAIP offer. The current landing page also distinguishes Capitaline Enterprise from other product modules. These public pages do not clearly map the 55,000+ Enterprise coverage to every registration-page package or entitlement. Treat 55,000+ as an advertised Enterprise/database figure, not a guaranteed count for the exact product to be quoted; request the package name, coverage universe and included modules in writing.
 
 No public developer API specification, machine-readable commercial licence, multi-user SaaS display rights, AI/RAG permission, storage/cache rights or paper-trading permission was located in the reviewed public pages.
 
@@ -165,10 +169,10 @@ No public developer API specification, machine-readable commercial licence, mult
 4. APIDataFeed — Terms of Use, Schedules I–IV: https://www.apidatafeed.com/terms-of-use
 5. APIDataFeed — Corporate contact form: https://www.apidatafeed.com/contact-us
 6. NSE — Paid Real Time Data, page updated 22 October 2026: https://www.nseindia.in/static/market-data/real-time-data-subscription
-7. NSE Data & Analytics — current Authorized Realtime Data Vendors PDF linked from the above page: https://nsearchives.nseindia.com/web/sites/default/files/inline-files/Authorized_Realtime_Data_Vendors.pdf
+7. NSE Data & Analytics — Authorized Realtime Data Vendors PDF linked from the above page (no visible issue/effective date in the PDF): https://nsearchives.nseindia.com/web/sites/default/files/inline-files/Authorized_Realtime_Data_Vendors.pdf
 8. NSE Data Sharing & Usage Policy: https://betanseapi.nseindia.com/static/market-data/nse-data-policy
-9. Capitaline — official product website: https://www.capitaline.com/
+9. Capitaline — official product website and Enterprise coverage: https://www.capitaline.com/
 10. Capitaline — database features and standard subscription price: https://www.capitaline.com/Demo/Plus.aspx
-11. Capitaline — registration page and single-user annual prices / IAIP special offer: https://www.capitaline.com/CFA/RegisterUser.aspx
+11. Capitaline — registration page, older coverage description and single-user annual prices / IAIP special offer: https://www.capitaline.com/CFA/RegisterUser.aspx
 
-**Bottom line:** CMOTS is worth a written, product-specific commercial quotation request before any integration decision. Capitaline is a strong research workstation but not a low-cost backend. No provider is approved or activated by this audit.
+**Bottom line:** CMOTS is worth a written, product-specific commercial quotation request before any integration decision. Capitaline is a strong research workstation but not a low-cost backend. The NSE vendor roster and Capitaline coverage/package scope both have source-version caveats that must be resolved in writing. No provider is approved or activated by this audit.
