@@ -2,7 +2,7 @@ import express from 'express';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { sendMarketDataUnavailable } from './lib/market-data-access-policy.js';
+import { MARKET_DATA_ACCESS_POLICY, sendMarketDataUnavailable } from './lib/market-data-access-policy.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -26,15 +26,24 @@ app.get('/', async (req, res) => {
   }
 });
 
+const marketDataAccessHealth = () => ({
+  status: MARKET_DATA_ACCESS_POLICY.status,
+  providerProbe: 'not_performed',
+  providerRequestMade: false,
+});
+
 app.get('/api/health', (req, res) => res.json({
   ok: true,
   time: new Date().toISOString(),
-  marketDataAccess: { status: 'NOT_CONFIGURED', providerProbe: 'not_performed', providerRequestMade: false }
+  marketDataAccess: marketDataAccessHealth()
 }));
 
 app.get('/api/analyze', (req, res) => sendMarketDataUnavailable(res));
 
-app.get('/api/data/health', (req, res) => res.json({ ok: true }));
+app.get('/api/data/health', (req, res) => res.json({
+  ok: true,
+  marketDataAccess: marketDataAccessHealth()
+}));
 
 export default app;
 
