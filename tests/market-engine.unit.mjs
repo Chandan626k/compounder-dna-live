@@ -7,6 +7,8 @@ import {
   technical,
   buildFinancials,
   buildValuation,
+  buildProviderFinancialEvidence,
+  buildProviderValuationEvidence,
   buildDataQuality,
   scoreStock,
   decision,
@@ -116,7 +118,7 @@ const raw = {
   rawAvailability: undefined,
 };
 
-const financials = buildFinancials(raw);
+const financials = buildProviderFinancialEvidence(raw);
 assert.equal(financials.current.revenue, 1000);
 assert.equal(financials.ratios.debtToEquity, 0.2);
 assert.equal(financials.derived.interestCoverage, 10);
@@ -167,9 +169,37 @@ assert.equal(missingFinancials.current.cash, null);
 assert.equal(missingFinancials.current.freeCashFlow, null);
 assert.notEqual(missingFinancials.current.totalDebt, 0, 'missing values must not become zero');
 
-const valuation = buildValuation(raw, 200);
+const valuation = buildProviderValuationEvidence(raw, 200);
 assert.equal(valuation.marketCap, 2000);
 assert.ok(valuation.fairValue > 0);
+
+
+const canonicalFinancials = mergeStatementEvidence(buildFinancials(raw), statementEvidence);
+assert.equal(canonicalFinancials.current.revenue, null, 'provider-only fundamentals must not populate canonical financial fields');
+assert.equal(canonicalFinancials.ratios.roe, null);
+assert.equal(canonicalFinancials.rawAvailability.annualStatements, false);
+assert.equal(canonicalFinancials.periods.annualHistoryCount, 0);
+assert.equal(canonicalFinancials.providerEvidence.status, 'SUPPLEMENTAL_ONLY');
+assert.equal(canonicalFinancials.providerEvidence.pitEligibility, 'PIT_UNKNOWN');
+assert.equal(canonicalFinancials.providerEvidence.fields.current.revenue, 1000, 'provider values remain inspectable as supplemental evidence');
+assert.equal(canonicalFinancials.statementEvidencePromotion.pitEligibility, 'PIT_UNKNOWN');
+
+const canonicalValuation = buildValuation(raw, 200);
+assert.equal(canonicalValuation.trailingPE, null, 'provider valuation fields must not enter canonical valuation');
+assert.equal(canonicalValuation.fairValue, null);
+assert.equal(canonicalValuation.verdict, 'DATA INSUFFICIENT');
+assert.equal(canonicalValuation.providerEvidence.status, 'SUPPLEMENTAL_ONLY');
+assert.equal(canonicalValuation.providerEvidence.pitEligibility, 'PIT_UNKNOWN');
+assert.equal(canonicalValuation.providerEvidence.fields.trailingPE, 13.3);
+
+const canonicalQuality = buildDataQuality(canonicalFinancials, canonicalValuation, {}, tech, {
+  marketAsOf: new Date().toISOString(),
+});
+assert.ok(canonicalQuality.confidence < 60, 'missing canonical financial evidence must keep confidence below the decision threshold');
+const canonicalScore = scoreStock(canonicalFinancials, canonicalValuation, tech, canonicalQuality);
+assert.equal(canonicalScore.dataLimited, true);
+const canonicalDecision = decision(canonicalScore, canonicalValuation, tech, canonicalQuality);
+assert.equal(canonicalDecision.action, 'DATA INSUFFICIENT', 'provider-only fundamentals must not produce an investment action');
 
 const quality = buildDataQuality(financials, valuation, {}, tech);
 assert.ok(quality.completeness >= 0 && quality.completeness <= 100);
@@ -189,7 +219,7 @@ console.log('market-engine.unit: PASS');
 
 
 // Phase 4: valuation terminology and evidence-aware financial strength.
-const valuationFixture = buildValuation({
+const valuationFixture = buildProviderValuationEvidence({
   summary: {
     summaryDetail: { trailingPE: 16, forwardPE: 15 },
     defaultKeyStatistics: { trailingEps: 100, forwardEps: 100, returnOnEquity: 0.3, priceToBook: 5 },
