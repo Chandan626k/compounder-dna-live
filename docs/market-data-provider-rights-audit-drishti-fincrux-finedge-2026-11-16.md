@@ -34,6 +34,7 @@ Published plans:
 
 - Sandbox: free, 1,000 one-time credits, 10 requests/minute, 1,000 requests/day plan-wide, REST only and no WebSocket live streams.
 - Starter: ₹2,000/month, 10,000 credits per billing cycle, 60 requests/minute, 60,000 requests/day plan-wide and WebSocket products for up to 100 active symbols account-wide.
+- **Tax / budget treatment:** The Terms say fees are exclusive of taxes and GST is added at the prevailing rate. The published ₹2,000 Starter price is therefore pre-tax, not a confirmed all-in price within StockSamjho's ₹2,000/month budget. The reviewed pricing page and Terms do not state the exact tax-inclusive total; do not assume a rate or quote a final payable amount.
 - Pro: ₹10,000/month, 50,000 credits per billing cycle, 180 requests/minute, 180,000 requests/day and up to 1,000 active symbols account-wide.
 - Enterprise: custom commercial terms and full-market WebSocket access by agreement.
 
@@ -144,7 +145,7 @@ The Individual tier is not evidence of permission to serve data through StockSam
 | Paper/mock trading and valuation | Not established; competing-product clause is a blocker | Not established | Not established |
 | Current decision | **NOT APPROVED** | **UNKNOWN / NOT APPROVED** | **UNKNOWN / NOT APPROVED** |
 
-None currently qualifies as the cheapest legally suitable source for the commercial multi-user StockSamjho product. Fincrux is the cheapest published API plan, not a verified licence. Drishti's ₹2,000 Starter price does not overcome the competing-product restriction. FinEdge's Individual price is not a multi-user licence, while its Professional and Enterprise prices exceed the target.
+None currently qualifies as the cheapest legally suitable source for the commercial multi-user StockSamjho product. Fincrux is the cheapest published API plan, not a verified licence. Drishti's ₹2,000 Starter price is before applicable GST and therefore is not a confirmed all-in fit for the ₹2,000/month budget; it also does not overcome the competing-product restriction. FinEdge's Individual price is not a multi-user licence, while its Professional and Enterprise prices exceed the target.
 
 ## Written evidence required before any future onboarding
 
