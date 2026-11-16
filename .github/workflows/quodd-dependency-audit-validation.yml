@@ -3,14 +3,16 @@ name: QUODD Node 24 dependency and statement-evidence validation
 on:
   push:
     branches:
-      - fix/quodd-node24-dependency-audit-and-statement-fixture
+      - 'fix/quodd-*'
   pull_request:
     branches:
-      - fix/quodd-preview-node24-runtime-parity
+      - 'fix/quodd-*'
     paths:
       - package.json
       - package-lock.json
-      - tests/market-engine.unit.mjs
+      - lib/statement-evidence.js
+      - lib/market-engine.js
+      - tests/**
       - .github/workflows/quodd-dependency-audit-validation.yml
 
 permissions:
