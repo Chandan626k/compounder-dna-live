@@ -12,7 +12,6 @@ import trading from '../api/trading.js';
 import actionability from '../api/actionability.js';
 import validateStrategy from '../api/validate-strategy.js';
 
-
 function response() {
   return {
     headers: {},
@@ -98,11 +97,23 @@ try {
     assert.equal(expressAnalyze.statusCode, 503, 'Express /api/analyze must fail closed');
     assert.equal(expressAnalyze.body?.policy?.sourceAccess, 'NOT_CONFIGURED', 'Express route must expose the access state');
     assert.equal(expressAnalyze.body?.policy?.providerRequestMade, false, 'Express route must not call a provider');
+
     const expressHealth = await httpGet(expressServer, '/api/health');
     assert.equal(expressHealth.statusCode, 200, 'Express health must remain a liveness response');
     assert.equal(expressHealth.body?.marketDataAccess?.status, 'NOT_CONFIGURED', 'Express health must distinguish liveness from data access');
     assert.equal(expressHealth.body?.marketDataAccess?.providerProbe, 'not_performed', 'Express health must not claim a provider health probe');
-    assert.equal(providerRequests, 0, 'Express route must not call a provider');
+    assert.equal(expressHealth.body?.marketDataAccess?.providerRequestMade, false, 'Express health must state that no provider request was made');
+
+    const expressDataHealth = await httpGet(expressServer, '/api/data/health');
+    assert.equal(expressDataHealth.statusCode, 200, 'Express data health must remain a liveness response');
+    assert.equal(expressDataHealth.body?.ok, true, 'Express data health must report service liveness');
+    assert.equal(expressDataHealth.body?.marketDataAccess?.status, 'NOT_CONFIGURED',
+      'Express data health must not imply that market data is configured');
+    assert.equal(expressDataHealth.body?.marketDataAccess?.providerProbe, 'not_performed',
+      'Express data health must not claim a provider health probe');
+    assert.equal(expressDataHealth.body?.marketDataAccess?.providerRequestMade, false,
+      'Express data health must state that no provider request was made');
+    assert.equal(providerRequests, 0, 'Express health routes must not call a provider');
   } finally {
     if (expressServer?.listening) await new Promise((resolve) => expressServer.close(resolve));
     if (originalVercel === undefined) delete process.env.VERCEL;
