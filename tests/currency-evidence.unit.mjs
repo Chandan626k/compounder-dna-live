@@ -77,10 +77,17 @@ const matched = mergeStatementEvidence(
     },
   },
 );
-assert.equal(matched.current.totalDebt, 250);
-assert.equal(matched.current.cash, 75);
-assert.equal(matched.current.freeCashFlow, 175);
-assert.equal(matched.derived.debtToEquityFromStatements, 0.2);
-assert.equal(matched.rawAvailability.annualStatements, true);
+assert.equal(matched.current.totalDebt, null, 'matched currency is necessary but insufficient for provider-only promotion');
+assert.equal(matched.current.cash, null);
+assert.equal(matched.current.freeCashFlow, null);
+assert.equal(matched.derived.debtToEquityFromStatements, undefined);
+assert.notEqual(matched.rawAvailability.annualStatements, true);
+assert.equal(matched.statementEvidencePromotion.pitEligibility, 'PIT_UNKNOWN');
+
+const matchedExisting = mergeStatementEvidence(baseFinancials, matched.statementEvidence);
+assert.equal(matchedExisting.current.totalDebt, baseFinancials.current.totalDebt, 'matched supplemental evidence must not overwrite existing base financials');
+assert.equal(matchedExisting.current.cash, baseFinancials.current.cash);
+assert.equal(matchedExisting.current.freeCashFlow, baseFinancials.current.freeCashFlow);
+assert.equal(matchedExisting.rawAvailability.annualStatements, true);
 
 console.log('currency-evidence.unit: PASS');

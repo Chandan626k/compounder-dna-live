@@ -140,11 +140,15 @@ const mergedFinancials = mergeStatementEvidence(
   buildFinancials({ summary: {}, annual: [], trailing: [] }),
   statementEvidence,
 );
-assert.equal(mergedFinancials.current.totalDebt, 250, 'canonical analysis should propagate statement evidence');
-assert.equal(mergedFinancials.current.cash, 75);
-assert.equal(mergedFinancials.current.freeCashFlow, 175);
-assert.equal(mergedFinancials.derived.debtToEquityFromStatements, 0.2);
-assert.equal(mergedFinancials.statementEvidence, statementEvidence, 'statement provenance should be preserved');
+assert.equal(mergedFinancials.current.totalDebt, null, 'currency match alone must not promote provider-only statement evidence');
+assert.equal(mergedFinancials.current.cash, null);
+assert.equal(mergedFinancials.current.freeCashFlow, null);
+assert.equal(mergedFinancials.derived.debtToEquityFromStatements, null);
+assert.equal(mergedFinancials.rawAvailability.annualStatements, false, 'supplemental evidence must not manufacture canonical statement availability');
+assert.equal(mergedFinancials.statementEvidence, statementEvidence, 'raw statement evidence should remain available for inspection');
+assert.equal(mergedFinancials.statementEvidencePromotion.status, 'UNAVAILABLE');
+assert.equal(mergedFinancials.statementEvidencePromotion.pitEligibility, 'PIT_UNKNOWN');
+assert.match(mergedFinancials.sourceNote, /PIT eligibility remains PIT_UNKNOWN/);
 
 const unverifiedCurrencyFinancials = mergeStatementEvidence(
   buildFinancials({ summary: {}, annual: [], trailing: [] }),
