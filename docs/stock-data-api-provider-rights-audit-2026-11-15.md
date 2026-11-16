@@ -14,18 +14,30 @@ The repository's market-data access policy must remain `NOT_CONFIGURED`. No adap
 
 ## Exchange-authorised route and regulatory constraints (NSE / SEBI)
 
-### SEBI third-party real-time price-data circular
+### SEBI third-party real-time price-data circular and 2026 amendment
 
-**Primary source:** [SEBI Circular SEBI/HO/MRD/MRD-PoD-3/P/CIR/2024/56 — Norms for sharing of real time price data to third parties (24 May 2024)](https://www.sebi.gov.in/sebi_data/attachdocs/may-2024/1716559553659.pdf)
+**Primary sources:**
 
-The circular responds to platforms offering virtual trading or fantasy games based on real-time listed-share prices. Its conditions include:
+- [SEBI Circular SEBI/HO/MRD/MRD-PoD-3/P/CIR/2024/56 — Norms for sharing of real time price data to third parties (24 May 2024)](https://www.sebi.gov.in/sebi_data/attachdocs/may-2024/1716559553659.pdf)
+- [SEBI Circular HO/47/17/12(11)2025-MRD-POD3/I/11107/2026 — Norms for sharing and usage of price data for educational purposes (8 May 2026)](https://www.sebi.gov.in/sebi_data/attachdocs/may-2026/1778242522289.pdf), effective **1 July 2026**
+- [SEBI Circular SEBI/HO/MIRSD/MIRSD-PoD-1/P/CIR/2025/11 — Details/clarifications on association of regulated persons and agents with persons engaged in prohibited activities (29 January 2025)](https://www.sebi.gov.in/legal/circulars/jan-2025/details-clarifications-on-provisions-related-to-association-of-persons-regulated-by-the-board-miis-and-their-agents-with-persons-engaged-in-prohibited-activities_91356.html)
 
-- Market Infrastructure Institutions (stock exchanges, clearing corporations and depositories) and registered market intermediaries must ensure real-time price data is not shared with third parties, including platforms, except where sharing is required for orderly functioning of the securities market or regulatory requirements.
-- Where such sharing is permitted, the MII or intermediary must enter an appropriate agreement that identifies the activities for which the data will be used and the justification; the entity/activity list is subject to at least annual board review.
-- Market price data may be shared for investor-education and awareness activities with a **one-day lag**, without offering monetary incentives to participants.
-- The circular also requires due diligence and contractual provisions intended to prevent misuse.
+The 24 May 2024 circular addresses platforms providing virtual trading or fantasy games based on real-time listed-share prices. It directs Market Infrastructure Institutions (MIIs: stock exchanges, clearing corporations and depositories) and registered market intermediaries not to share real-time price data with third parties, including platforms, except where sharing is required for orderly functioning of the securities market or regulatory requirements. It also requires appropriate agreements for permitted real-time sharing and due diligence to prevent misuse.
 
-**StockSamjho assessment:** This is a material constraint for the proposed paper-trading and multi-user product. The one-day-lag investor-education provision is a potential route to investigate, not an automatic licence for StockSamjho and not permission to use a retail broker token. It does not establish that a paid product, derived analytics, paper-portfolio valuation, storage/cache or any particular vendor feed is covered. Obtain qualified legal/compliance review and written source-specific terms before relying on it. Keep real-time third-party display blocked unless the precise activity is demonstrably within an applicable exception and agreement.
+The 2024 circular originally allowed market price data to be shared for investor education and awareness without monetary incentives with a one-day lag. **That education lag is no longer the current rule.**
+
+#### May 2026 amendment — current education-specific lag
+
+The 8 May 2026 SEBI circular amended the 2024 circular and the related FAQ in the 29 January 2025 circular:
+
+- For investor education and awareness activities **without monetary incentives**, the permitted lag is now **30 days for both sharing and usage**, effective 1 July 2026.
+- NISM has a narrow exception for using price data with a one-day lag solely in its simulation lab. This is an NISM-specific exception, not a general simulation or paper-trading permission.
+- MIIs and registered market intermediaries sharing data under the education provision must enter an appropriate legal agreement. The agreement must prevent misuse and provide for an audit trail of data usage.
+- The amended FAQ says a person engaged **solely in education** must not use price data from the preceding 30 days to mention or display a security name or code in a talk, video, ticker or screen share in a way that indicates a future price, advice or recommendation.
+
+The 30-day rule is an education-specific sharing/usage condition. It does not create a general commercial data licence, does not grant a right to redistribute exchange data, and does not displace the applicable provider/exchange agreement or other regulatory requirements. The NISM exception must not be generalized to other apps or simulated portfolios.
+
+**StockSamjho assessment:** This is a material source-side constraint for StockSamjho's multi-user research, analytics and paper-portfolio experience. StockSamjho is not established as a person engaged solely in investor education; its proposed research, scoring and paper-portfolio features must not be assumed to qualify for the 30-day education provision. Nor does the 2026 amendment turn the 2024 real-time third-party restriction into a general paper-trading exception. The exact source, regulated sharing party, product, data lag, user population, monetary consideration, display, derived analytics, paper/mock-trading valuation, storage/cache and onward-distribution rights require qualified legal/compliance review and explicit written source-specific terms. Keep real-time third-party data blocked unless the precise use is demonstrably authorized; do not rely on the NISM exception or an education-only lag as a workaround.
 
 ### NSE Data & Analytics authorised real-time vendor route
 
