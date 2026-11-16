@@ -126,6 +126,7 @@ assert.ok(financials.derived.fcfConversion > 0);
 const statementEvidence = {
   provider: 'fixture provider',
   coverage: { income: true, balanceSheet: true, cashFlow: true },
+  currency: { status: 'MATCH' },
   evidence: {
     balance: {
       totalDebt: { value: 250, key: 'totalDebt', date: '2025-03-31T00:00:00.000Z' },
@@ -144,6 +145,14 @@ assert.equal(mergedFinancials.current.cash, 75);
 assert.equal(mergedFinancials.current.freeCashFlow, 175);
 assert.equal(mergedFinancials.derived.debtToEquityFromStatements, 0.2);
 assert.equal(mergedFinancials.statementEvidence, statementEvidence, 'statement provenance should be preserved');
+
+const unverifiedCurrencyFinancials = mergeStatementEvidence(
+  buildFinancials({ summary: {}, annual: [], trailing: [] }),
+  { ...statementEvidence, currency: undefined },
+);
+assert.equal(unverifiedCurrencyFinancials.current.totalDebt, null, 'unknown statement currency must not be promoted');
+assert.equal(unverifiedCurrencyFinancials.current.cash, null);
+assert.equal(unverifiedCurrencyFinancials.current.freeCashFlow, null);
 
 const missingFinancials = mergeStatementEvidence(
   buildFinancials({ summary: {}, annual: [], trailing: [] }),

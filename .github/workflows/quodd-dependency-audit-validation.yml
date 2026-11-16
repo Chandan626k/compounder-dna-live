@@ -1,0 +1,39 @@
+name: QUODD Node 24 dependency and statement-evidence validation
+
+on:
+  push:
+    branches:
+      - fix/quodd-node24-dependency-audit-and-statement-fixture
+  pull_request:
+    branches:
+      - fix/quodd-preview-node24-runtime-parity
+    paths:
+      - package.json
+      - package-lock.json
+      - tests/market-engine.unit.mjs
+      - .github/workflows/quodd-dependency-audit-validation.yml
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact pushed or pull-request head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Run repository regression suite
+        run: npm test
+      - name: Audit dependencies (run even if tests fail)
+        if: always()
+        run: npm audit --audit-level=low
