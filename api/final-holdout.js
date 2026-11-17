@@ -32,6 +32,116 @@ function isIsoTimestamp(value) {
   return Number.isFinite(timestamp) && new Date(timestamp).toISOString() === value;
 }
 
+function isFiniteNumber(value) {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+function isNullableFiniteNumber(value) {
+  return value === null || isFiniteNumber(value);
+}
+
+function isNonNegativeInteger(value) {
+  return Number.isInteger(value) && value >= 0;
+}
+
+function isRate(value) {
+  return value === null || (isFiniteNumber(value) && value >= 0 && value <= 100);
+}
+
+function isSha256(value) {
+  return typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
+}
+
+function isBacktestMetrics(value) {
+  return isRecord(value)
+    && isNonNegativeInteger(value.trades)
+    && isNonNegativeInteger(value.wins)
+    && isNonNegativeInteger(value.losses)
+    && value.wins + value.losses === value.trades
+    && (value.trades === 0 ? value.winRate === null : isRate(value.winRate) && value.winRate !== null)
+    && isFiniteNumber(value.totalReturnPct)
+    && isNullableFiniteNumber(value.avgTradePct)
+    && isNullableFiniteNumber(value.medianTradePct)
+    && (value.profitFactor === null || (isFiniteNumber(value.profitFactor) && value.profitFactor >= 0))
+    && isFiniteNumber(value.maxDrawdownPct)
+    && value.maxDrawdownPct >= 0
+    && isNonNegativeInteger(value.recoveryBars)
+    && isNullableFiniteNumber(value.expectancyPct)
+    && (value.stdevTradePct === null || (isFiniteNumber(value.stdevTradePct) && value.stdevTradePct >= 0))
+    && isNullableFiniteNumber(value.tStat)
+    && (value.approx95CI === null || (Array.isArray(value.approx95CI)
+      && value.approx95CI.length === 2 && value.approx95CI.every(isFiniteNumber)))
+    && (value.avgWinPct === null || (isFiniteNumber(value.avgWinPct) && value.avgWinPct >= 0))
+    && (value.avgLossPct === null || (isFiniteNumber(value.avgLossPct) && value.avgLossPct <= 0))
+    && isRate(value.targetRate)
+    && isRate(value.stopRate)
+    && isRate(value.timeExitRate);
+}
+
+function isBenchmarkMetrics(value) {
+  return isRecord(value)
+    && value.status === 'COMPLETED'
+    && isFiniteNumber(value.totalReturnPct)
+    && isFiniteNumber(value.maxDrawdownPct)
+    && value.maxDrawdownPct >= 0
+    && isFiniteNumber(value.entryRaw)
+    && value.entryRaw > 0
+    && isFiniteNumber(value.exitRaw)
+    && value.exitRaw > 0;
+}
+
+function isCompletedStock(stock, index) {
+  if (!isRecord(stock) || stock.symbol !== SYMBOLS[index]
+    || !isSha256(stock.artifactHash) || !isSha256(stock.historyFingerprint)
+    || !isBacktestMetrics(stock.holdout) || !isBenchmarkMetrics(stock.benchmark)
+    || !isRecord(stock.comparison)
+    || !isFiniteNumber(stock.comparison.excessReturnPct)
+    || !isRecord(stock.statisticalEvidence)) return false;
+
+  const expectedExcessReturn = stock.holdout.totalReturnPct - stock.benchmark.totalReturnPct;
+  const evidence = stock.statisticalEvidence;
+  const confidenceIntervalMatches = evidence.confidenceInterval95 === null
+    ? stock.holdout.approx95CI === null
+    : Array.isArray(evidence.confidenceInterval95)
+      && JSON.stringify(evidence.confidenceInterval95) === JSON.stringify(stock.holdout.approx95CI);
+
+  return Math.abs(stock.comparison.excessReturnPct - expectedExcessReturn) <= 1e-9
+    && isNullableFiniteNumber(evidence.tStat)
+    && evidence.tStat === stock.holdout.tStat
+    && confidenceIntervalMatches
+    && evidence.pValue === null
+    && typeof evidence.significanceNote === 'string'
+    && evidence.significanceNote.trim().length > 0;
+}
+
+function isCompletedAggregate(value, stocks) {
+  const trades = stocks.reduce((total, stock) => total + stock.holdout.trades, 0);
+  return isRecord(value)
+    && value.stocks === SYMBOLS.length
+    && isNonNegativeInteger(value.trades)
+    && value.trades === trades
+    && (trades === 0 ? value.winRate === null : isRate(value.winRate) && value.winRate !== null)
+    && isNullableFiniteNumber(value.expectancyPct)
+    && (value.profitFactor === null || (isFiniteNumber(value.profitFactor) && value.profitFactor >= 0))
+    && isFiniteNumber(value.maxDrawdownPct)
+    && value.maxDrawdownPct >= 0
+    && isFiniteNumber(value.benchmarkMeanReturnPct)
+    && isFiniteNumber(value.strategyMeanReturnPct);
+}
+
+function isGateResult(value) {
+  const keys = ['winRate', 'profitFactor', 'expectancy', 'rollingStability', 'drawdown', 'survivorship', 'marketImpact'];
+  if (!isRecord(value) || !isRecord(value.checks)
+    || Object.keys(value.checks).length !== keys.length
+    || !keys.every(key => typeof value.checks[key] === 'boolean')
+    || !Array.isArray(value.blockers)) return false;
+
+  const expectedBlockers = keys.filter(key => !value.checks[key]);
+  return value.classification === (expectedBlockers.length === 0 ? 'PASS' : 'NO VALID SIGNAL')
+    && value.blockers.length === expectedBlockers.length
+    && value.blockers.every((blocker, index) => blocker === expectedBlockers[index]);
+}
+
 function parseHoldoutRunState(raw) {
   const state = parseState(raw);
   if (!state) return null;
@@ -46,7 +156,7 @@ function parseHoldoutRunState(raw) {
     && metadata.symbols.every((symbol, index) => symbol === SYMBOLS[index])
     && Array.isArray(metadata.artifactHashes)
     && metadata.artifactHashes.length === SYMBOLS.length
-    && metadata.artifactHashes.every(hash => typeof hash === 'string' && hash.length > 0);
+    && metadata.artifactHashes.every(isSha256);
 
   const result = state.result;
   const validCompleted = state.protocolId === FROZEN_PROTOCOL_ID
@@ -61,17 +171,12 @@ function parseHoldoutRunState(raw) {
     && result.parameterChangesAfterFreeze === false
     && Array.isArray(result.stocks)
     && result.stocks.length === SYMBOLS.length
-    && result.stocks.every((stock, index) => isRecord(stock)
-      && stock.symbol === SYMBOLS[index]
-      && typeof stock.artifactHash === 'string' && stock.artifactHash.length > 0
-      && typeof stock.historyFingerprint === 'string' && stock.historyFingerprint.length > 0
-      && isRecord(stock.holdout)
-      && isRecord(stock.benchmark)
-      && isRecord(stock.comparison)
-      && isRecord(stock.statisticalEvidence))
-    && isRecord(result.aggregate)
-    && isRecord(result.gate)
-    && Array.isArray(result.limitations);
+    && result.stocks.every(isCompletedStock)
+    && isCompletedAggregate(result.aggregate, result.stocks)
+    && isGateResult(result.gate)
+    && Array.isArray(result.limitations)
+    && result.limitations.length > 0
+    && result.limitations.every(item => typeof item === 'string' && item.trim().length > 0);
 
   if (!validRunning && !validCompleted) throw new Error('HOLDOUT_LEDGER_STATE_INVALID');
   return state;
