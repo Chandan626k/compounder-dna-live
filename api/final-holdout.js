@@ -105,7 +105,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ success:false, error:'mode must be status, prepare, or execute' });
   } catch (e) {
     const failure = classifyHoldoutLedgerFailure(e);
-    console.error('[FINAL HOLDOUT]', failure.code);
+    console.error('[FINAL HOLDOUT]', failure.code, failure.diagnosticCode);
     return res.status(failure.httpStatus).json({
       success:false,
       status:'SAFE_BLOCK',
