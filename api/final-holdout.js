@@ -81,13 +81,13 @@ function isBacktestMetrics(value) {
 function isBenchmarkMetrics(value) {
   return isRecord(value)
     && value.status === 'COMPLETED'
-    && isFiniteNumber(value.returnPct)
+    && isFiniteNumber(value.totalReturnPct)
     && isFiniteNumber(value.maxDrawdownPct)
     && value.maxDrawdownPct >= 0
-    && isFiniteNumber(value.rawEntry)
-    && value.rawEntry > 0
-    && isFiniteNumber(value.rawExit)
-    && value.rawExit > 0;
+    && isFiniteNumber(value.entryRaw)
+    && value.entryRaw > 0
+    && isFiniteNumber(value.exitRaw)
+    && value.exitRaw > 0;
 }
 
 function isCompletedStock(stock, index) {
@@ -98,7 +98,7 @@ function isCompletedStock(stock, index) {
     || !isFiniteNumber(stock.comparison.excessReturnPct)
     || !isRecord(stock.statisticalEvidence)) return false;
 
-  const expectedExcessReturn = stock.holdout.totalReturnPct - stock.benchmark.returnPct;
+  const expectedExcessReturn = stock.holdout.totalReturnPct - stock.benchmark.totalReturnPct;
   const evidence = stock.statisticalEvidence;
   const confidenceIntervalMatches = evidence.confidenceInterval95 === null
     ? stock.holdout.approx95CI === null
