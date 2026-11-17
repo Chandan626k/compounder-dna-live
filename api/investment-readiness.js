@@ -31,4 +31,18 @@ export default async function handler(req, res) {
       return res.status(404).json({
         success: false,
         status: 'DATA_UNAVAILABLE',
-        clas���q�^
+        classification: 'RESEARCH ONLY',
+        action: 'NO ACTION',
+        error: 'Verified market/fundamental data is unavailable; no synthetic fallback used.',
+      });
+    }
+    console.error('[INVESTMENT READINESS ERROR]', { symbol, message, stack: error?.stack });
+    return res.status(502).json({
+      success: false,
+      status: 'UNAVAILABLE',
+      classification: 'RESEARCH ONLY',
+      action: 'NO ACTION',
+      error: 'Investment readiness could not be computed from verified data.',
+    });
+  }
+}
