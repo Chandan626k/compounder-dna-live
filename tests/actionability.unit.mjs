@@ -263,7 +263,8 @@ for (const payload of invalidLedgerPayloads) {
   assert.equal(invalidStateResponse.body?.retryable, false);
   assert.equal(invalidStateResponse.body?.error, 'Holdout ledger state is invalid; read-only state could not be verified.');
   assert.deepEqual(invalidStateLogs, [['[FINAL HOLDOUT]', 'HOLDOUT_SAFE_BLOCK', 'LEDGER_STATE_INVALID']]);
-  assert.doesNotMatch(JSON.stringify(invalidStateLogs), /invalid-json|OTHER_PROTOCOL|ledger\\.invalid|test-token/i);
+  assert.doesNotMatch(invalidStateResponse.body?.error || '', /invalid-json|OTHER_PROTOCOL|ledger\.invalid|test-token/i);
+  assert.doesNotMatch(JSON.stringify(invalidStateLogs), /invalid-json|OTHER_PROTOCOL|ledger\.invalid|test-token/i);
 }
 globalThis.fetch = async () => ({ ok: true, json: async () => ({ result: null }) });
 const notStartedResponse = {
@@ -284,6 +285,11 @@ else process.env.UPSTASH_REDIS_REST_TOKEN = previousTokenForInvalidState;
 
  // Holdout ledger HTTP failures must distinguish transient outages from permanent rejections.
 const { classifyHoldoutLedgerFailure } = await import('../lib/holdout-ledger.js');
+const invalidLedgerStateFailure = classifyHoldoutLedgerFailure(new Error('HOLDOUT_LEDGER_STATE_INVALID'));
+assert.equal(invalidLedgerStateFailure.httpStatus, 409);
+assert.equal(invalidLedgerStateFailure.code, 'HOLDOUT_SAFE_BLOCK');
+assert.equal(invalidLedgerStateFailure.retryable, false);
+assert.equal(invalidLedgerStateFailure.diagnosticCode, 'LEDGER_STATE_INVALID');
 for (const status of [400, 401, 403, 404, 409, 501, 505]) {
   const failure = classifyHoldoutLedgerFailure(new Error(`HOLDOUT_LEDGER_HTTP_${status}`));
   assert.equal(failure.httpStatus, 503, `upstream HTTP ${status} must keep state verification unavailable`);
