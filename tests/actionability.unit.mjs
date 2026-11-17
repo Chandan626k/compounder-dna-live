@@ -235,6 +235,41 @@ const previousTokenForInvalidState = process.env.UPSTASH_REDIS_REST_TOKEN;
 process.env.UPSTASH_REDIS_REST_URL = 'https://ledger.invalid';
 process.env.UPSTASH_REDIS_REST_TOKEN = 'test-token';
 const { FROZEN_PROTOCOL_ID: invalidStateProtocolId } = await import('../lib/final-holdout-artifact-v2.js');
+const holdoutSymbolsForState = ['TCS', 'ICICIBANK', 'HDFCBANK', 'INFY'];
+const incompleteRunningState = {
+  protocolId: invalidStateProtocolId,
+  status: 'RUNNING',
+  claimedAt: '2026-11-18T00:00:00.000Z',
+  metadata: {
+    symbols: holdoutSymbolsForState,
+    artifactHashes: holdoutSymbolsForState.map((symbol, index) => (index + 10).toString(16).repeat(64)),
+  },
+};
+const incompleteCompletedState = {
+  protocolId: invalidStateProtocolId,
+  status: 'COMPLETED',
+  completedAt: '2026-11-18T00:00:00.000Z',
+  result: {
+    protocolId: invalidStateProtocolId,
+    status: 'COMPLETED',
+    finalHoldout: 'EXECUTED_ONCE',
+    protocolFrozen: true,
+    selectionUsedHoldout: false,
+    parameterChangesAfterFreeze: false,
+    stocks: holdoutSymbolsForState.map(symbol => ({
+      symbol,
+      artifactHash: 'artifact-' + symbol,
+      historyFingerprint: 'fingerprint-' + symbol,
+      holdout: {},
+      benchmark: {},
+      comparison: {},
+      statisticalEvidence: {},
+    })),
+    aggregate: {},
+    gate: {},
+    limitations: [],
+  },
+};
 const invalidLedgerPayloads = [
   { result: '{invalid-json' },
   { result: 'null' },
@@ -243,6 +278,8 @@ const invalidLedgerPayloads = [
   { result: JSON.stringify({ protocolId: 'OTHER_PROTOCOL', status: 'COMPLETED', result: {} }) },
   { result: JSON.stringify({ protocolId: invalidStateProtocolId, status: 'RUNNING', claimedAt: '2026-11-18T00:00:00.000Z', metadata: {} }) },
   { result: JSON.stringify({ protocolId: invalidStateProtocolId, status: 'COMPLETED', completedAt: '2026-11-18T00:00:00.000Z', result: {} }) },
+  { result: JSON.stringify(incompleteRunningState) },
+  { result: JSON.stringify(incompleteCompletedState) },
   {},
 ];
 for (const payload of invalidLedgerPayloads) {
@@ -280,7 +317,6 @@ await holdoutHandler({ method: 'GET', query: { mode: 'status' }, headers: {} }, 
 assert.equal(notStartedResponse.statusCode, 200, 'a genuinely absent ledger key remains NOT_STARTED');
 assert.equal(notStartedResponse.body?.status, 'NOT_STARTED');
 
-const holdoutSymbolsForState = ['TCS', 'ICICIBANK', 'HDFCBANK', 'INFY'];
 const validRunningState = {
   protocolId: invalidStateProtocolId,
   status: 'RUNNING',
@@ -302,6 +338,27 @@ assert.equal(validRunningResponse.statusCode, 200, 'a structurally valid RUNNING
 assert.equal(validRunningResponse.body?.status, 'RUNNING');
 assert.equal(validRunningResponse.body?.finalHoldoutOpened, false);
 
+const holdoutMetricsForState = {
+  trades: 0,
+  wins: 0,
+  losses: 0,
+  winRate: null,
+  totalReturnPct: 0,
+  avgTradePct: null,
+  medianTradePct: null,
+  profitFactor: null,
+  maxDrawdownPct: 0,
+  recoveryBars: 0,
+  expectancyPct: null,
+  stdevTradePct: null,
+  tStat: null,
+  approx95CI: null,
+  avgWinPct: null,
+  avgLossPct: null,
+  targetRate: null,
+  stopRate: null,
+  timeExitRate: null,
+};
 const validCompletedResult = {
   protocolId: invalidStateProtocolId,
   status: 'COMPLETED',
@@ -309,18 +366,44 @@ const validCompletedResult = {
   protocolFrozen: true,
   selectionUsedHoldout: false,
   parameterChangesAfterFreeze: false,
-  stocks: holdoutSymbolsForState.map(symbol => ({
+  stocks: holdoutSymbolsForState.map((symbol, index) => ({
     symbol,
-    artifactHash: 'artifact-' + symbol,
-    historyFingerprint: 'fingerprint-' + symbol,
-    holdout: {},
-    benchmark: {},
-    comparison: {},
-    statisticalEvidence: {},
+    artifactHash: (index + 10).toString(16).repeat(64),
+    historyFingerprint: (index + 14).toString(16).repeat(64),
+    holdout: { ...holdoutMetricsForState },
+    benchmark: { status: 'COMPLETED', returnPct: 0, maxDrawdownPct: 0, rawEntry: 100, rawExit: 100 },
+    comparison: { excessReturnPct: 0 },
+    statisticalEvidence: {
+      tStat: null,
+      confidenceInterval95: null,
+      pValue: null,
+      significanceNote: 'No p-value is asserted by this descriptive evidence fixture.',
+    },
   })),
-  aggregate: {},
-  gate: {},
-  limitations: [],
+  aggregate: {
+    stocks: holdoutSymbolsForState.length,
+    trades: 0,
+    winRate: null,
+    expectancyPct: null,
+    profitFactor: null,
+    maxDrawdownPct: 0,
+    benchmarkMeanReturnPct: 0,
+    strategyMeanReturnPct: 0,
+  },
+  gate: {
+    checks: {
+      winRate: false,
+      profitFactor: false,
+      expectancy: false,
+      rollingStability: false,
+      drawdown: true,
+      survivorship: false,
+      marketImpact: false,
+    },
+    classification: 'NO VALID SIGNAL',
+    blockers: ['winRate', 'profitFactor', 'expectancy', 'rollingStability', 'survivorship', 'marketImpact'],
+  },
+  limitations: ['Point-in-time universe evidence remains unavailable.', 'Market-impact evidence remains unavailable.'],
 };
 const validCompletedState = {
   protocolId: invalidStateProtocolId,
