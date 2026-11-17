@@ -369,7 +369,7 @@ const validCompletedResult = {
   stocks: holdoutSymbolsForState.map((symbol, index) => ({
     symbol,
     artifactHash: (index + 10).toString(16).repeat(64),
-    historyFingerprint: (index + 14).toString(16).repeat(64),
+    historyFingerprint: (index + 14).toString(16).padStart(2, '0').repeat(32),
     holdout: { ...holdoutMetricsForState },
     benchmark: { status: 'COMPLETED', returnPct: 0, maxDrawdownPct: 0, rawEntry: 100, rawExit: 100 },
     comparison: { excessReturnPct: 0 },
