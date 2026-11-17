@@ -114,30 +114,58 @@ function isCompletedStock(stock, index) {
     && evidence.significanceNote.trim().length > 0;
 }
 
-function isCompletedAggregate(value, stocks) {
-  const trades = stocks.reduce((total, stock) => total + stock.holdout.trades, 0);
-  return isRecord(value)
-    && value.stocks === SYMBOLS.length
-    && isNonNegativeInteger(value.trades)
-    && value.trades === trades
-    && (trades === 0 ? value.winRate === null : isRate(value.winRate) && value.winRate !== null)
-    && isNullableFiniteNumber(value.expectancyPct)
-    && (value.profitFactor === null || (isFiniteNumber(value.profitFactor) && value.profitFactor >= 0))
-    && isFiniteNumber(value.maxDrawdownPct)
-    && value.maxDrawdownPct >= 0
-    && isFiniteNumber(value.benchmarkMeanReturnPct)
-    && isFiniteNumber(value.strategyMeanReturnPct);
+function sameNullableNumber(actual, expected) {
+  if (expected === null) return actual === null;
+  return isFiniteNumber(actual) && isFiniteNumber(expected) && Math.abs(actual - expected) <= 1e-9;
 }
 
-function isGateResult(value) {
+function isCompletedAggregate(value, stocks) {
+  const trades = stocks.reduce((total, stock) => total + stock.holdout.trades, 0);
+  const wins = stocks.reduce((total, stock) => total + stock.holdout.wins, 0);
+  const grossWins = stocks.reduce((total, stock) => total + (stock.holdout.avgWinPct || 0) * (stock.holdout.wins || 0), 0);
+  const grossLoss = stocks.reduce((total, stock) => total + Math.abs((stock.holdout.avgLossPct || 0) * (stock.holdout.losses || 0)), 0);
+  const expected = {
+    stocks: stocks.length,
+    trades,
+    winRate: trades ? wins / trades * 100 : null,
+    expectancyPct: trades ? stocks.reduce((total, stock) => total + (stock.holdout.expectancyPct || 0) * (stock.holdout.trades || 0), 0) / trades : null,
+    profitFactor: grossLoss ? grossWins / grossLoss : null,
+    maxDrawdownPct: Math.max(...stocks.map(stock => stock.holdout.maxDrawdownPct || 0)),
+    benchmarkMeanReturnPct: stocks.reduce((total, stock) => total + (stock.benchmark.totalReturnPct || 0), 0) / stocks.length,
+    strategyMeanReturnPct: stocks.reduce((total, stock) => total + (stock.holdout.totalReturnPct || 0), 0) / stocks.length,
+  };
+
+  return isRecord(value)
+    && value.stocks === expected.stocks
+    && isNonNegativeInteger(value.trades)
+    && value.trades === expected.trades
+    && sameNullableNumber(value.winRate, expected.winRate)
+    && sameNullableNumber(value.expectancyPct, expected.expectancyPct)
+    && sameNullableNumber(value.profitFactor, expected.profitFactor)
+    && sameNullableNumber(value.maxDrawdownPct, expected.maxDrawdownPct)
+    && sameNullableNumber(value.benchmarkMeanReturnPct, expected.benchmarkMeanReturnPct)
+    && sameNullableNumber(value.strategyMeanReturnPct, expected.strategyMeanReturnPct);
+}
+
+function isGateResult(value, aggregate) {
   const keys = ['winRate', 'profitFactor', 'expectancy', 'rollingStability', 'drawdown', 'survivorship', 'marketImpact'];
   if (!isRecord(value) || !isRecord(value.checks)
     || Object.keys(value.checks).length !== keys.length
     || !keys.every(key => typeof value.checks[key] === 'boolean')
     || !Array.isArray(value.blockers)) return false;
 
-  const expectedBlockers = keys.filter(key => !value.checks[key]);
-  return value.classification === (expectedBlockers.length === 0 ? 'PASS' : 'NO VALID SIGNAL')
+  const expectedChecks = {
+    winRate: aggregate.winRate >= PROMOTION_CRITERIA.minOutOfSampleWinRatePct,
+    profitFactor: aggregate.profitFactor != null && aggregate.profitFactor >= PROMOTION_CRITERIA.minOutOfSampleProfitFactor,
+    expectancy: aggregate.expectancyPct != null && aggregate.expectancyPct > PROMOTION_CRITERIA.minOutOfSampleExpectancyPct,
+    rollingStability: false,
+    drawdown: aggregate.maxDrawdownPct <= PROMOTION_CRITERIA.maxRollingWorstDrawdownPct,
+    survivorship: false,
+    marketImpact: false,
+  };
+  const expectedBlockers = keys.filter(key => !expectedChecks[key]);
+  return keys.every(key => value.checks[key] === expectedChecks[key])
+    && value.classification === (expectedBlockers.length === 0 ? 'PASS' : 'NO VALID SIGNAL')
     && value.blockers.length === expectedBlockers.length
     && value.blockers.every((blocker, index) => blocker === expectedBlockers[index]);
 }
@@ -173,7 +201,7 @@ function parseHoldoutRunState(raw) {
     && result.stocks.length === SYMBOLS.length
     && result.stocks.every(isCompletedStock)
     && isCompletedAggregate(result.aggregate, result.stocks)
-    && isGateResult(result.gate)
+    && isGateResult(result.gate, result.aggregate)
     && Array.isArray(result.limitations)
     && result.limitations.length > 0
     && result.limitations.every(item => typeof item === 'string' && item.trim().length > 0);
