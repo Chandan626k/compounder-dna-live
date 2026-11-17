@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - 'fix/quodd-*'
+      - 'fix/actionability-*'
   pull_request:
     branches:
       - 'fix/quodd-*'
+      - 'fix/actionability-*'
     paths:
       - package.json
       - package-lock.json
