@@ -22,15 +22,57 @@ function parseState(raw) {
   }
 }
 
+function isRecord(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isIsoTimestamp(value) {
+  if (typeof value !== 'string') return false;
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) && new Date(timestamp).toISOString() === value;
+}
+
 function parseHoldoutRunState(raw) {
   const state = parseState(raw);
   if (!state) return null;
+
+  const metadata = state.metadata;
   const validRunning = state.protocolId === FROZEN_PROTOCOL_ID
     && state.status === 'RUNNING'
-    && state.metadata && typeof state.metadata === 'object' && !Array.isArray(state.metadata);
+    && isIsoTimestamp(state.claimedAt)
+    && isRecord(metadata)
+    && Array.isArray(metadata.symbols)
+    && metadata.symbols.length === SYMBOLS.length
+    && metadata.symbols.every((symbol, index) => symbol === SYMBOLS[index])
+    && Array.isArray(metadata.artifactHashes)
+    && metadata.artifactHashes.length === SYMBOLS.length
+    && metadata.artifactHashes.every(hash => typeof hash === 'string' && hash.length > 0);
+
+  const result = state.result;
   const validCompleted = state.protocolId === FROZEN_PROTOCOL_ID
     && state.status === 'COMPLETED'
-    && state.result && typeof state.result === 'object' && !Array.isArray(state.result);
+    && isIsoTimestamp(state.completedAt)
+    && isRecord(result)
+    && result.protocolId === FROZEN_PROTOCOL_ID
+    && result.status === 'COMPLETED'
+    && result.finalHoldout === 'EXECUTED_ONCE'
+    && result.protocolFrozen === true
+    && result.selectionUsedHoldout === false
+    && result.parameterChangesAfterFreeze === false
+    && Array.isArray(result.stocks)
+    && result.stocks.length === SYMBOLS.length
+    && result.stocks.every((stock, index) => isRecord(stock)
+      && stock.symbol === SYMBOLS[index]
+      && typeof stock.artifactHash === 'string' && stock.artifactHash.length > 0
+      && typeof stock.historyFingerprint === 'string' && stock.historyFingerprint.length > 0
+      && isRecord(stock.holdout)
+      && isRecord(stock.benchmark)
+      && isRecord(stock.comparison)
+      && isRecord(stock.statisticalEvidence))
+    && isRecord(result.aggregate)
+    && isRecord(result.gate)
+    && Array.isArray(result.limitations);
+
   if (!validRunning && !validCompleted) throw new Error('HOLDOUT_LEDGER_STATE_INVALID');
   return state;
 }
