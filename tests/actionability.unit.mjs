@@ -58,8 +58,9 @@ const readyAnalysis = {
   dataLimited: false,
   stock: { ...analysis.stock, dataLimited: false },
   valuation: { ...analysis.valuation, verdict: 'FAIRLY VALUED' },
-  dataQuality: { confidence: 82, warnings: [], sectorFramework: { available: 7, total: 8 } },
-  score: { financialStrengthCoverage: 'FULL', sectorFramework: { available: 7, total: 8 }, overall: 84 },
+  sectorFramework: { classificationStatus: 'INDEPENDENTLY_VERIFIED' }, // synthetic fixture only
+  dataQuality: { confidence: 82, warnings: [], sectorFramework: { available: 7, total: 8, classificationStatus: 'INDEPENDENTLY_VERIFIED' } },
+  score: { financialStrengthCoverage: 'FULL', sectorFramework: { available: 7, total: 8, classificationStatus: 'INDEPENDENTLY_VERIFIED' }, overall: 84 },
 };
 const readyTrading = {
   technical: {
@@ -73,6 +74,38 @@ const readyTrading = {
 const ready = buildActionability(readyAnalysis, readyTrading);
 assert.equal(ready.horizons.longTerm.action, 'STAGED ACCUMULATION CANDIDATE');
 assert.equal(ready.horizons.swing.action, 'CONDITIONAL BUY SETUP');
+
+// A high heuristic confidence and strong sector KPI coverage cannot override
+// provider-only sector classification at the separate actionability boundary.
+const supplementalSectorAnalysis = {
+  ...readyAnalysis,
+  sectorFramework: { classificationStatus: 'SUPPLEMENTAL_ONLY' },
+  dataQuality: {
+    ...readyAnalysis.dataQuality,
+    sectorFramework: { ...readyAnalysis.dataQuality.sectorFramework, classificationStatus: 'SUPPLEMENTAL_ONLY' },
+  },
+  score: {
+    ...readyAnalysis.score,
+    sectorFramework: { ...readyAnalysis.score.sectorFramework, classificationStatus: 'SUPPLEMENTAL_ONLY' },
+  },
+  decision: { action: 'DATA INSUFFICIENT', blockers: ['Sector classification is not independently verified'] },
+};
+const supplementalSector = buildActionability(supplementalSectorAnalysis, readyTrading);
+assert.equal(supplementalSector.horizons.longTerm.action, 'WATCH / WAIT FOR EVIDENCE');
+assert.equal(supplementalSector.horizons.swing.action, 'WAIT — DATA / VALIDATION');
+assert.equal(supplementalSector.overallStance, 'WAIT — EVIDENCE FIRST');
+
+// Missing classification provenance also fails closed rather than inheriting
+// an apparently high confidence score from another analysis path.
+const unknownSectorAnalysis = {
+  ...readyAnalysis,
+  sectorFramework: undefined,
+  dataQuality: { ...readyAnalysis.dataQuality, sectorFramework: { available: 7, total: 8 } },
+  score: { ...readyAnalysis.score, sectorFramework: { available: 7, total: 8 } },
+};
+const unknownSector = buildActionability(unknownSectorAnalysis, readyTrading);
+assert.equal(unknownSector.horizons.longTerm.action, 'WATCH / WAIT FOR EVIDENCE');
+assert.equal(unknownSector.horizons.swing.action, 'WAIT — DATA / VALIDATION');
 
 const technicalOnlyAnalysis = {
   ...readyAnalysis,
