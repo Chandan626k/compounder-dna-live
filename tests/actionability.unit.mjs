@@ -234,12 +234,15 @@ const previousUrlForInvalidState = process.env.UPSTASH_REDIS_REST_URL;
 const previousTokenForInvalidState = process.env.UPSTASH_REDIS_REST_TOKEN;
 process.env.UPSTASH_REDIS_REST_URL = 'https://ledger.invalid';
 process.env.UPSTASH_REDIS_REST_TOKEN = 'test-token';
+const { FROZEN_PROTOCOL_ID: invalidStateProtocolId } = await import('../lib/final-holdout-artifact-v2.js');
 const invalidLedgerPayloads = [
   { result: '{invalid-json' },
   { result: 'null' },
   { result: '[]' },
   { result: '{}' },
   { result: JSON.stringify({ protocolId: 'OTHER_PROTOCOL', status: 'COMPLETED', result: {} }) },
+  { result: JSON.stringify({ protocolId: invalidStateProtocolId, status: 'RUNNING', claimedAt: '2026-11-18T00:00:00.000Z', metadata: {} }) },
+  { result: JSON.stringify({ protocolId: invalidStateProtocolId, status: 'COMPLETED', completedAt: '2026-11-18T00:00:00.000Z', result: {} }) },
   {},
 ];
 for (const payload of invalidLedgerPayloads) {
@@ -276,6 +279,67 @@ const notStartedResponse = {
 await holdoutHandler({ method: 'GET', query: { mode: 'status' }, headers: {} }, notStartedResponse);
 assert.equal(notStartedResponse.statusCode, 200, 'a genuinely absent ledger key remains NOT_STARTED');
 assert.equal(notStartedResponse.body?.status, 'NOT_STARTED');
+
+const holdoutSymbolsForState = ['TCS', 'ICICIBANK', 'HDFCBANK', 'INFY'];
+const validRunningState = {
+  protocolId: invalidStateProtocolId,
+  status: 'RUNNING',
+  claimedAt: '2026-11-18T00:00:00.000Z',
+  metadata: {
+    symbols: holdoutSymbolsForState,
+    artifactHashes: holdoutSymbolsForState.map(symbol => 'artifact-' + symbol),
+  },
+};
+globalThis.fetch = async () => ({ ok: true, json: async () => ({ result: JSON.stringify(validRunningState) }) });
+const validRunningResponse = {
+  statusCode: null, body: null,
+  setHeader() { return this; },
+  status(code) { this.statusCode = code; return this; },
+  json(body) { this.body = body; return this; },
+};
+await holdoutHandler({ method: 'GET', query: { mode: 'status' }, headers: {} }, validRunningResponse);
+assert.equal(validRunningResponse.statusCode, 200, 'a structurally valid RUNNING state remains readable');
+assert.equal(validRunningResponse.body?.status, 'RUNNING');
+assert.equal(validRunningResponse.body?.finalHoldoutOpened, false);
+
+const validCompletedResult = {
+  protocolId: invalidStateProtocolId,
+  status: 'COMPLETED',
+  finalHoldout: 'EXECUTED_ONCE',
+  protocolFrozen: true,
+  selectionUsedHoldout: false,
+  parameterChangesAfterFreeze: false,
+  stocks: holdoutSymbolsForState.map(symbol => ({
+    symbol,
+    artifactHash: 'artifact-' + symbol,
+    historyFingerprint: 'fingerprint-' + symbol,
+    holdout: {},
+    benchmark: {},
+    comparison: {},
+    statisticalEvidence: {},
+  })),
+  aggregate: {},
+  gate: {},
+  limitations: [],
+};
+const validCompletedState = {
+  protocolId: invalidStateProtocolId,
+  status: 'COMPLETED',
+  completedAt: '2026-11-18T00:00:00.000Z',
+  result: validCompletedResult,
+};
+globalThis.fetch = async () => ({ ok: true, json: async () => ({ result: JSON.stringify(validCompletedState) }) });
+const validCompletedResponse = {
+  statusCode: null, body: null,
+  setHeader() { return this; },
+  status(code) { this.statusCode = code; return this; },
+  json(body) { this.body = body; return this; },
+};
+await holdoutHandler({ method: 'GET', query: { mode: 'status' }, headers: {} }, validCompletedResponse);
+assert.equal(validCompletedResponse.statusCode, 200, 'a structurally valid COMPLETED state remains readable');
+assert.equal(validCompletedResponse.body?.status, 'COMPLETED');
+assert.equal(validCompletedResponse.body?.finalHoldoutOpened, true);
+
 globalThis.fetch = previousFetchForInvalidState;
 if (previousUrlForInvalidState === undefined) delete process.env.UPSTASH_REDIS_REST_URL;
 else process.env.UPSTASH_REDIS_REST_URL = previousUrlForInvalidState;
