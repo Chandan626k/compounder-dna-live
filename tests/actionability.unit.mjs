@@ -422,6 +422,40 @@ await holdoutHandler({ method: 'GET', query: { mode: 'status' }, headers: {} }, 
 assert.equal(validCompletedResponse.statusCode, 200, 'a structurally valid COMPLETED state remains readable');
 assert.equal(validCompletedResponse.body?.status, 'COMPLETED');
 assert.equal(validCompletedResponse.body?.finalHoldoutOpened, true);
+ 
+// A completed state cannot claim a passing gate when the frozen gate builder's
+// own checks (including unresolved rolling, survivorship, and impact evidence) fail.
+const forgedGateState = JSON.parse(JSON.stringify(validCompletedState));
+forgedGateState.result.gate = {
+  checks: { winRate: true, profitFactor: true, expectancy: true, rollingStability: true, drawdown: true, survivorship: true, marketImpact: true },
+  classification: 'PASS',
+  blockers: [],
+};
+globalThis.fetch = async () => ({ ok: true, json: async () => ({ result: JSON.stringify(forgedGateState) }) });
+const forgedGateResponse = {
+  statusCode: null, body: null,
+  setHeader() { return this; },
+  status(code) { this.statusCode = code; return this; },
+  json(body) { this.body = body; return this; },
+};
+await holdoutHandler({ method: 'GET', query: { mode: 'status' }, headers: {} }, forgedGateResponse);
+assert.equal(forgedGateResponse.statusCode, 409, 'a gate result inconsistent with the frozen gate builder must be rejected');
+assert.equal(forgedGateResponse.body?.code, 'HOLDOUT_SAFE_BLOCK');
+
+// Aggregate figures must reconcile to the four persisted per-stock results.
+const forgedAggregateState = JSON.parse(JSON.stringify(validCompletedState));
+forgedAggregateState.result.aggregate.strategyMeanReturnPct = 1234;
+globalThis.fetch = async () => ({ ok: true, json: async () => ({ result: JSON.stringify(forgedAggregateState) }) });
+const forgedAggregateResponse = {
+  statusCode: null, body: null,
+  setHeader() { return this; },
+  status(code) { this.statusCode = code; return this; },
+  json(body) { this.body = body; return this; },
+};
+await holdoutHandler({ method: 'GET', query: { mode: 'status' }, headers: {} }, forgedAggregateResponse);
+assert.equal(forgedAggregateResponse.statusCode, 409, 'aggregate metrics that do not reconcile to stock results must be rejected');
+assert.equal(forgedAggregateResponse.body?.code, 'HOLDOUT_SAFE_BLOCK');
+
 
 globalThis.fetch = previousFetchForInvalidState;
 if (previousUrlForInvalidState === undefined) delete process.env.UPSTASH_REDIS_REST_URL;
