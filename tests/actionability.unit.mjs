@@ -234,7 +234,7 @@ const previousUrlForInvalidState = process.env.UPSTASH_REDIS_REST_URL;
 const previousTokenForInvalidState = process.env.UPSTASH_REDIS_REST_TOKEN;
 process.env.UPSTASH_REDIS_REST_URL = 'https://ledger.invalid';
 process.env.UPSTASH_REDIS_REST_TOKEN = 'test-token';
-const { FROZEN_PROTOCOL_ID: invalidStateProtocolId } = await import('../lib/final-holdout-artifact-v2.js');
+const { FROZEN_PROTOCOL_ID: invalidStateProtocolId, stableHash: stableHoldoutHash } = await import('../lib/final-holdout-artifact-v2.js');
 const holdoutSymbolsForState = ['TCS', 'ICICIBANK', 'HDFCBANK', 'INFY'];
 const incompleteRunningState = {
   protocolId: invalidStateProtocolId,
@@ -359,6 +359,17 @@ const holdoutMetricsForState = {
   stopRate: null,
   timeExitRate: null,
 };
+const validFrozenArtifacts = holdoutSymbolsForState.map((symbol, index) => {
+  const artifact = {
+    protocolId: invalidStateProtocolId,
+    protocolVersion: 1,
+    symbol,
+    historyFingerprint: (index + 14).toString(16).padStart(2, '0').repeat(32),
+    finalHoldout: { status: 'UNTOUCHED', evaluated: false, selectionUsed: false },
+  };
+  artifact.artifactHash = stableHoldoutHash(artifact);
+  return artifact;
+});
 const validCompletedResult = {
   protocolId: invalidStateProtocolId,
   status: 'COMPLETED',
@@ -368,8 +379,8 @@ const validCompletedResult = {
   parameterChangesAfterFreeze: false,
   stocks: holdoutSymbolsForState.map((symbol, index) => ({
     symbol,
-    artifactHash: (index + 10).toString(16).repeat(64),
-    historyFingerprint: (index + 14).toString(16).padStart(2, '0').repeat(32),
+    artifactHash: validFrozenArtifacts[index].artifactHash,
+    historyFingerprint: validFrozenArtifacts[index].historyFingerprint,
     holdout: { ...holdoutMetricsForState },
     benchmark: { status: 'COMPLETED', totalReturnPct: 0, maxDrawdownPct: 0, entryRaw: 100, exitRaw: 100 },
     comparison: { excessReturnPct: 0 },
@@ -411,7 +422,23 @@ const validCompletedState = {
   completedAt: '2026-11-18T00:00:00.000Z',
   result: validCompletedResult,
 };
-globalThis.fetch = async () => ({ ok: true, json: async () => ({ result: JSON.stringify(validCompletedState) }) });
+const artifactKeyPrefix = 'stocksamjho:holdout:' + invalidStateProtocolId + ':artifact:';
+const stateKey = 'stocksamjho:holdout:' + invalidStateProtocolId + ':state';
+function mockHoldoutLedger(state, artifacts = validFrozenArtifacts) {
+  const bySymbol = new Map(artifacts.map(artifact => [artifact.symbol, artifact]));
+  globalThis.fetch = async (_url, options) => {
+    const [command, key] = JSON.parse(options.body);
+    assert.equal(command, 'GET');
+    let value = null;
+    if (key === stateKey) value = JSON.stringify(state);
+    else if (typeof key === 'string' && key.startsWith(artifactKeyPrefix)) {
+      const artifact = bySymbol.get(key.slice(artifactKeyPrefix.length));
+      if (artifact) value = JSON.stringify(artifact);
+    }
+    return { ok: true, json: async () => ({ result: value }) };
+  };
+}
+mockHoldoutLedger(validCompletedState);
 const validCompletedResponse = {
   statusCode: null, body: null,
   setHeader() { return this; },
@@ -422,7 +449,35 @@ await holdoutHandler({ method: 'GET', query: { mode: 'status' }, headers: {} }, 
 assert.equal(validCompletedResponse.statusCode, 200, 'a structurally valid COMPLETED state remains readable');
 assert.equal(validCompletedResponse.body?.status, 'COMPLETED');
 assert.equal(validCompletedResponse.body?.finalHoldoutOpened, true);
- 
+
+// A COMPLETED status is only valid while every result still points to the
+// corresponding untouched, self-consistent frozen artifact in the ledger.
+mockHoldoutLedger(validCompletedState, []);
+const missingArtifactResponse = {
+  statusCode: null, body: null,
+  setHeader() { return this; },
+  status(code) { this.statusCode = code; return this; },
+  json(body) { this.body = body; return this; },
+};
+await holdoutHandler({ method: 'GET', query: { mode: 'status' }, headers: {} }, missingArtifactResponse);
+assert.equal(missingArtifactResponse.statusCode, 409, 'a completed state with missing frozen artifacts must be rejected');
+assert.equal(missingArtifactResponse.body?.code, 'HOLDOUT_SAFE_BLOCK');
+
+const tamperedArtifacts = validFrozenArtifacts.map(artifact => ({ ...artifact }));
+tamperedArtifacts[0].historyFingerprint = 'f'.repeat(64);
+const { artifactHash: ignoredTamperedHash, ...tamperedArtifactIdentity } = tamperedArtifacts[0];
+tamperedArtifacts[0].artifactHash = stableHoldoutHash(tamperedArtifactIdentity);
+mockHoldoutLedger(validCompletedState, tamperedArtifacts);
+const tamperedArtifactResponse = {
+  statusCode: null, body: null,
+  setHeader() { return this; },
+  status(code) { this.statusCode = code; return this; },
+  json(body) { this.body = body; return this; },
+};
+await holdoutHandler({ method: 'GET', query: { mode: 'status' }, headers: {} }, tamperedArtifactResponse);
+assert.equal(tamperedArtifactResponse.statusCode, 409, 'tampered frozen artifact identity must be rejected');
+assert.equal(tamperedArtifactResponse.body?.code, 'HOLDOUT_SAFE_BLOCK');
+
 // A completed state cannot claim a passing gate when the frozen gate builder's
 // own checks (including unresolved rolling, survivorship, and impact evidence) fail.
 const forgedGateState = JSON.parse(JSON.stringify(validCompletedState));
@@ -431,7 +486,7 @@ forgedGateState.result.gate = {
   classification: 'PASS',
   blockers: [],
 };
-globalThis.fetch = async () => ({ ok: true, json: async () => ({ result: JSON.stringify(forgedGateState) }) });
+mockHoldoutLedger(forgedGateState);
 const forgedGateResponse = {
   statusCode: null, body: null,
   setHeader() { return this; },
@@ -445,7 +500,7 @@ assert.equal(forgedGateResponse.body?.code, 'HOLDOUT_SAFE_BLOCK');
 // Aggregate figures must reconcile to the four persisted per-stock results.
 const forgedAggregateState = JSON.parse(JSON.stringify(validCompletedState));
 forgedAggregateState.result.aggregate.strategyMeanReturnPct = 1234;
-globalThis.fetch = async () => ({ ok: true, json: async () => ({ result: JSON.stringify(forgedAggregateState) }) });
+mockHoldoutLedger(forgedAggregateState);
 const forgedAggregateResponse = {
   statusCode: null, body: null,
   setHeader() { return this; },
