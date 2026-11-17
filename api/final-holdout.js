@@ -3,7 +3,7 @@ import { verifiedHistory } from '../lib/market-data-provider.js';
 import { runValidationBacktest } from '../lib/strategy-validation.js';
 import { buyAndHoldBenchmark } from '../lib/predictive-research.js';
 import { buildResearchArtifact, FROZEN_PROTOCOL_ID, FROZEN_COSTS, stableHash } from '../lib/final-holdout-artifact-v2.js';
-import { getLedger, setLedger, claimHoldoutOnce, completeHoldoutOnce } from '../lib/holdout-ledger.js';
+import { getLedger, setLedger, claimHoldoutOnce, completeHoldoutOnce, classifyHoldoutLedgerFailure } from '../lib/holdout-ledger.js';
 import { PROMOTION_CRITERIA } from '../lib/validation-gate.js';
 
 const SYMBOLS = Object.freeze(['TCS', 'ICICIBANK', 'HDFCBANK', 'INFY']);
@@ -104,9 +104,14 @@ export default async function handler(req, res) {
     if (mode === 'execute') { const out = await executeOnce(); return res.status(out.http).json(out.body); }
     return res.status(400).json({ success:false, error:'mode must be status, prepare, or execute' });
   } catch (e) {
-    const msg = String(e?.message || e);
-    console.error('[FINAL HOLDOUT]', msg);
-    const status = /HOLDOUT_LEDGER_NOT_CONFIGURED|HOLDOUT_LEDGER_HTTP/.test(msg) ? 503 : 409;
-    return res.status(status).json({ success:false, status:'SAFE_BLOCK', error:msg });
+    const failure = classifyHoldoutLedgerFailure(e);
+    console.error('[FINAL HOLDOUT]', failure.code);
+    return res.status(failure.httpStatus).json({
+      success:false,
+      status:'SAFE_BLOCK',
+      code:failure.code,
+      error:failure.message,
+      retryable:failure.retryable,
+    });
   }
 }
