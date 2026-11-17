@@ -218,4 +218,33 @@ else process.env.UPSTASH_REDIS_REST_URL = previousUpstashUrl;
 if (previousUpstashToken === undefined) delete process.env.UPSTASH_REDIS_REST_TOKEN;
 else process.env.UPSTASH_REDIS_REST_TOKEN = previousUpstashToken;
 
+
+ // Holdout ledger HTTP failures must distinguish transient outages from permanent rejections.
+const { classifyHoldoutLedgerFailure } = await import('../lib/holdout-ledger.js');
+for (const status of [400, 401, 403, 404, 409]) {
+  const failure = classifyHoldoutLedgerFailure(new Error(`HOLDOUT_LEDGER_HTTP_${status}`));
+  assert.equal(failure.httpStatus, 503, `upstream HTTP ${status} must keep state verification unavailable`);
+  assert.equal(failure.code, 'HOLDOUT_LEDGER_REJECTED');
+  assert.equal(failure.retryable, false, `upstream HTTP ${status} must not trigger blind retries`);
+  assert.doesNotMatch(failure.message, /HOLDOUT_LEDGER_HTTP_/);
+}
+for (const status of [408, 425, 429, 500, 503, 599]) {
+  const failure = classifyHoldoutLedgerFailure(new Error(`HOLDOUT_LEDGER_HTTP_${status}`));
+  assert.equal(failure.httpStatus, 503);
+  assert.equal(failure.code, 'HOLDOUT_LEDGER_UNAVAILABLE');
+  assert.equal(failure.retryable, true, `upstream HTTP ${status} is transient`);
+}
+const unconfiguredLedger = classifyHoldoutLedgerFailure(new Error('HOLDOUT_LEDGER_NOT_CONFIGURED'));
+assert.equal(unconfiguredLedger.httpStatus, 503);
+assert.equal(unconfiguredLedger.code, 'HOLDOUT_LEDGER_UNAVAILABLE');
+assert.equal(unconfiguredLedger.retryable, false, 'configuration errors require intervention, not retries');
+const frozenArtifactConflict = classifyHoldoutLedgerFailure(new Error('FROZEN_ARTIFACT_CONFLICT:TCS'));
+assert.equal(frozenArtifactConflict.httpStatus, 409);
+assert.equal(frozenArtifactConflict.code, 'HOLDOUT_SAFE_BLOCK');
+assert.equal(frozenArtifactConflict.retryable, false);
+const networkFailure = classifyHoldoutLedgerFailure(new TypeError('fetch failed'));
+assert.equal(networkFailure.httpStatus, 503);
+assert.equal(networkFailure.code, 'HOLDOUT_LEDGER_UNAVAILABLE');
+assert.equal(networkFailure.retryable, true);
+
 console.log('actionability unit tests passed');
