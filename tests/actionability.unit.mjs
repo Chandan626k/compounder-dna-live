@@ -242,7 +242,7 @@ const incompleteRunningState = {
   claimedAt: '2026-11-18T00:00:00.000Z',
   metadata: {
     symbols: holdoutSymbolsForState,
-    artifactHashes: holdoutSymbolsForState.map((symbol, index) => (index + 10).toString(16).repeat(64)),
+    artifactHashes: holdoutSymbolsForState.map(symbol => 'artifact-' + symbol),
   },
 };
 const incompleteCompletedState = {
@@ -323,7 +323,7 @@ const validRunningState = {
   claimedAt: '2026-11-18T00:00:00.000Z',
   metadata: {
     symbols: holdoutSymbolsForState,
-    artifactHashes: holdoutSymbolsForState.map(symbol => 'artifact-' + symbol),
+    artifactHashes: holdoutSymbolsForState.map((symbol, index) => (index + 10).toString(16).repeat(64)),
   },
 };
 globalThis.fetch = async () => ({ ok: true, json: async () => ({ result: JSON.stringify(validRunningState) }) });
