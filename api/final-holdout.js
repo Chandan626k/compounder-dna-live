@@ -10,7 +10,30 @@ const SYMBOLS = Object.freeze(['TCS', 'ICICIBANK', 'HDFCBANK', 'INFY']);
 const ARTIFACT_PREFIX = `stocksamjho:holdout:${FROZEN_PROTOCOL_ID}:artifact:`;
 const headers = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET,OPTIONS', 'Cache-Control': 'no-store' };
 
-function parseState(raw) { try { return raw ? JSON.parse(raw) : null; } catch { return null; } }
+function parseState(raw) {
+  if (raw === null) return null;
+  if (typeof raw !== 'string' || raw.length === 0) throw new Error('HOLDOUT_LEDGER_STATE_INVALID');
+  try {
+    const state = JSON.parse(raw);
+    if (!state || typeof state !== 'object' || Array.isArray(state)) throw new Error('HOLDOUT_LEDGER_STATE_INVALID');
+    return state;
+  } catch {
+    throw new Error('HOLDOUT_LEDGER_STATE_INVALID');
+  }
+}
+
+function parseHoldoutRunState(raw) {
+  const state = parseState(raw);
+  if (!state) return null;
+  const validRunning = state.protocolId === FROZEN_PROTOCOL_ID
+    && state.status === 'RUNNING'
+    && state.metadata && typeof state.metadata === 'object' && !Array.isArray(state.metadata);
+  const validCompleted = state.protocolId === FROZEN_PROTOCOL_ID
+    && state.status === 'COMPLETED'
+    && state.result && typeof state.result === 'object' && !Array.isArray(state.result);
+  if (!validRunning && !validCompleted) throw new Error('HOLDOUT_LEDGER_STATE_INVALID');
+  return state;
+}
 async function fetchFrozenRows(symbol) { return (await verifiedHistory(`${symbol}.NS`, { interval: '1d', days: 2500, minBars: 300 })).rows; }
 
 async function prepare() {
@@ -52,7 +75,7 @@ function gate(result) {
 }
 
 async function executeOnce() {
-  const current = parseState(await import('../lib/holdout-ledger.js').then(({ durableHoldoutState }) => durableHoldoutState(FROZEN_PROTOCOL_ID)));
+  const current = parseHoldoutRunState(await import('../lib/holdout-ledger.js').then(({ durableHoldoutState }) => durableHoldoutState(FROZEN_PROTOCOL_ID)));
   if (current?.status === 'COMPLETED') return { http: 409, body: { success: false, status: 'ALREADY_EXECUTED', protocolId: FROZEN_PROTOCOL_ID, result: current.result } };
   if (current?.status === 'RUNNING') return { http: 409, body: { success: false, status: 'ALREADY_RUNNING', protocolId: FROZEN_PROTOCOL_ID } };
 
@@ -68,7 +91,7 @@ async function executeOnce() {
 
   const claimed = await claimHoldoutOnce(FROZEN_PROTOCOL_ID, { symbols: SYMBOLS, artifactHashes: artifacts.map(x => x.artifact.artifactHash) });
   if (!claimed) {
-    const after = parseState(await import('../lib/holdout-ledger.js').then(({ durableHoldoutState }) => durableHoldoutState(FROZEN_PROTOCOL_ID)));
+    const after = parseHoldoutRunState(await import('../lib/holdout-ledger.js').then(({ durableHoldoutState }) => durableHoldoutState(FROZEN_PROTOCOL_ID)));
     return { http: 409, body: { success: false, status: after?.status === 'COMPLETED' ? 'ALREADY_EXECUTED' : 'ALREADY_RUNNING', protocolId: FROZEN_PROTOCOL_ID, result: after?.result || null } };
   }
 
@@ -97,7 +120,7 @@ export default async function handler(req, res) {
     const mode = String(req.query?.mode || 'status').toLowerCase();
     if (mode === 'prepare' || mode === 'execute') return sendMarketDataUnavailable(res);
     if (mode === 'status') {
-      const state = parseState(await import('../lib/holdout-ledger.js').then(({ durableHoldoutState }) => durableHoldoutState(FROZEN_PROTOCOL_ID)));
+      const state = parseHoldoutRunState(await import('../lib/holdout-ledger.js').then(({ durableHoldoutState }) => durableHoldoutState(FROZEN_PROTOCOL_ID)));
       return res.status(200).json({ success:true, protocolId:FROZEN_PROTOCOL_ID, status:state?.status || 'NOT_STARTED', finalHoldoutOpened:Boolean(state && state.status === 'COMPLETED') });
     }
     if (mode === 'prepare') return res.status(200).json({ success:true, ...(await prepare()) });

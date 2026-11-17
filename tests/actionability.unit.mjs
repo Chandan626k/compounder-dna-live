@@ -228,8 +228,68 @@ if (previousUpstashToken === undefined) delete process.env.UPSTASH_REDIS_REST_TO
 else process.env.UPSTASH_REDIS_REST_TOKEN = previousUpstashToken;
 
 
+// Corrupt or structurally invalid durable state must never be reported as NOT_STARTED.
+const previousFetchForInvalidState = globalThis.fetch;
+const previousUrlForInvalidState = process.env.UPSTASH_REDIS_REST_URL;
+const previousTokenForInvalidState = process.env.UPSTASH_REDIS_REST_TOKEN;
+process.env.UPSTASH_REDIS_REST_URL = 'https://ledger.invalid';
+process.env.UPSTASH_REDIS_REST_TOKEN = 'test-token';
+const invalidLedgerPayloads = [
+  { result: '{invalid-json' },
+  { result: 'null' },
+  { result: '[]' },
+  { result: '{}' },
+  { result: JSON.stringify({ protocolId: 'OTHER_PROTOCOL', status: 'COMPLETED', result: {} }) },
+  {},
+];
+for (const payload of invalidLedgerPayloads) {
+  globalThis.fetch = async () => ({ ok: true, json: async () => payload });
+  const invalidStateResponse = {
+    statusCode: null, body: null,
+    setHeader() { return this; },
+    status(code) { this.statusCode = code; return this; },
+    json(body) { this.body = body; return this; },
+  };
+  const invalidStateLogs = [];
+  const originalConsoleErrorForInvalidState = console.error;
+  console.error = (...args) => invalidStateLogs.push(args);
+  try {
+    await holdoutHandler({ method: 'GET', query: { mode: 'status' }, headers: {} }, invalidStateResponse);
+  } finally {
+    console.error = originalConsoleErrorForInvalidState;
+  }
+  assert.equal(invalidStateResponse.statusCode, 409, 'corrupt durable state must be a safe conflict, not NOT_STARTED');
+  assert.equal(invalidStateResponse.body?.code, 'HOLDOUT_SAFE_BLOCK');
+  assert.equal(invalidStateResponse.body?.retryable, false);
+  assert.equal(invalidStateResponse.body?.error, 'Holdout ledger state is invalid; read-only state could not be verified.');
+  assert.deepEqual(invalidStateLogs, [['[FINAL HOLDOUT]', 'HOLDOUT_SAFE_BLOCK', 'LEDGER_STATE_INVALID']]);
+  assert.doesNotMatch(invalidStateResponse.body?.error || '', /invalid-json|OTHER_PROTOCOL|ledger\.invalid|test-token/i);
+  assert.doesNotMatch(JSON.stringify(invalidStateLogs), /invalid-json|OTHER_PROTOCOL|ledger\.invalid|test-token/i);
+}
+globalThis.fetch = async () => ({ ok: true, json: async () => ({ result: null }) });
+const notStartedResponse = {
+  statusCode: null, body: null,
+  setHeader() { return this; },
+  status(code) { this.statusCode = code; return this; },
+  json(body) { this.body = body; return this; },
+};
+await holdoutHandler({ method: 'GET', query: { mode: 'status' }, headers: {} }, notStartedResponse);
+assert.equal(notStartedResponse.statusCode, 200, 'a genuinely absent ledger key remains NOT_STARTED');
+assert.equal(notStartedResponse.body?.status, 'NOT_STARTED');
+globalThis.fetch = previousFetchForInvalidState;
+if (previousUrlForInvalidState === undefined) delete process.env.UPSTASH_REDIS_REST_URL;
+else process.env.UPSTASH_REDIS_REST_URL = previousUrlForInvalidState;
+if (previousTokenForInvalidState === undefined) delete process.env.UPSTASH_REDIS_REST_TOKEN;
+else process.env.UPSTASH_REDIS_REST_TOKEN = previousTokenForInvalidState;
+
+
  // Holdout ledger HTTP failures must distinguish transient outages from permanent rejections.
 const { classifyHoldoutLedgerFailure } = await import('../lib/holdout-ledger.js');
+const invalidLedgerStateFailure = classifyHoldoutLedgerFailure(new Error('HOLDOUT_LEDGER_STATE_INVALID'));
+assert.equal(invalidLedgerStateFailure.httpStatus, 409);
+assert.equal(invalidLedgerStateFailure.code, 'HOLDOUT_SAFE_BLOCK');
+assert.equal(invalidLedgerStateFailure.retryable, false);
+assert.equal(invalidLedgerStateFailure.diagnosticCode, 'LEDGER_STATE_INVALID');
 for (const status of [400, 401, 403, 404, 409, 501, 505]) {
   const failure = classifyHoldoutLedgerFailure(new Error(`HOLDOUT_LEDGER_HTTP_${status}`));
   assert.equal(failure.httpStatus, 503, `upstream HTTP ${status} must keep state verification unavailable`);
