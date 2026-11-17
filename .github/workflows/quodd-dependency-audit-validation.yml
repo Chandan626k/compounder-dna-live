@@ -5,15 +5,19 @@ on:
     branches:
       - 'fix/quodd-*'
       - 'fix/actionability-*'
+      - 'fix/holdout-ledger-*'
   pull_request:
     branches:
       - 'fix/quodd-*'
       - 'fix/actionability-*'
+      - 'fix/holdout-ledger-*'
     paths:
       - package.json
       - package-lock.json
       - lib/statement-evidence.js
       - lib/market-engine.js
+      - lib/holdout-ledger.js
+      - api/final-holdout.js
       - tests/**
       - .github/workflows/quodd-dependency-audit-validation.yml
 
