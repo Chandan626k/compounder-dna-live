@@ -221,14 +221,14 @@ else process.env.UPSTASH_REDIS_REST_TOKEN = previousUpstashToken;
 
  // Holdout ledger HTTP failures must distinguish transient outages from permanent rejections.
 const { classifyHoldoutLedgerFailure } = await import('../lib/holdout-ledger.js');
-for (const status of [400, 401, 403, 404, 409]) {
+for (const status of [400, 401, 403, 404, 409, 501, 505]) {
   const failure = classifyHoldoutLedgerFailure(new Error(`HOLDOUT_LEDGER_HTTP_${status}`));
   assert.equal(failure.httpStatus, 503, `upstream HTTP ${status} must keep state verification unavailable`);
   assert.equal(failure.code, 'HOLDOUT_LEDGER_REJECTED');
   assert.equal(failure.retryable, false, `upstream HTTP ${status} must not trigger blind retries`);
   assert.doesNotMatch(failure.message, /HOLDOUT_LEDGER_HTTP_/);
 }
-for (const status of [408, 425, 429, 500, 503, 599]) {
+for (const status of [408, 425, 429, 500, 502, 503, 504, 599]) {
   const failure = classifyHoldoutLedgerFailure(new Error(`HOLDOUT_LEDGER_HTTP_${status}`));
   assert.equal(failure.httpStatus, 503);
   assert.equal(failure.code, 'HOLDOUT_LEDGER_UNAVAILABLE');
