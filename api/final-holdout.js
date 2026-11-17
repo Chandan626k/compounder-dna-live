@@ -209,6 +209,34 @@ function parseHoldoutRunState(raw) {
   if (!validRunning && !validCompleted) throw new Error('HOLDOUT_LEDGER_STATE_INVALID');
   return state;
 }
+
+function isStoredFrozenArtifact(artifact, stock, symbol) {
+  if (!isRecord(artifact)
+    || artifact.protocolId !== FROZEN_PROTOCOL_ID
+    || artifact.symbol !== symbol
+    || !isSha256(artifact.artifactHash)
+    || !isSha256(artifact.historyFingerprint)
+    || artifact.artifactHash !== stock.artifactHash
+    || artifact.historyFingerprint !== stock.historyFingerprint
+    || !isRecord(artifact.finalHoldout)
+    || artifact.finalHoldout.status !== 'UNTOUCHED'
+    || artifact.finalHoldout.evaluated !== false
+    || artifact.finalHoldout.selectionUsed !== false) return false;
+
+  const { artifactHash, ...identity } = artifact;
+  return stableHash(identity) === artifactHash;
+}
+
+async function verifyCompletedArtifacts(result) {
+  const artifacts = await Promise.all(SYMBOLS.map(async symbol => (
+    parseState(await getLedger(ARTIFACT_PREFIX + symbol))
+  )));
+  const valid = artifacts.every((artifact, index) => (
+    isStoredFrozenArtifact(artifact, result.stocks[index], SYMBOLS[index])
+  ));
+  if (!valid) throw new Error('HOLDOUT_LEDGER_STATE_INVALID');
+}
+
 async function fetchFrozenRows(symbol) { return (await verifiedHistory(`${symbol}.NS`, { interval: '1d', days: 2500, minBars: 300 })).rows; }
 
 async function prepare() {
@@ -296,6 +324,7 @@ export default async function handler(req, res) {
     if (mode === 'prepare' || mode === 'execute') return sendMarketDataUnavailable(res);
     if (mode === 'status') {
       const state = parseHoldoutRunState(await import('../lib/holdout-ledger.js').then(({ durableHoldoutState }) => durableHoldoutState(FROZEN_PROTOCOL_ID)));
+      if (state?.status === 'COMPLETED') await verifyCompletedArtifacts(state.result);
       return res.status(200).json({ success:true, protocolId:FROZEN_PROTOCOL_ID, status:state?.status || 'NOT_STARTED', finalHoldoutOpened:Boolean(state && state.status === 'COMPLETED') });
     }
     if (mode === 'prepare') return res.status(200).json({ success:true, ...(await prepare()) });
