@@ -206,7 +206,16 @@ const holdoutStatusResponse = {
   status(code) { this.statusCode = code; return this; },
   json(body) { this.body = body; return this; },
 };
-await holdoutHandler({ method: 'GET', query: { mode: 'status' }, headers: {} }, holdoutStatusResponse);
+const originalConsoleError = console.error;
+const holdoutLogs = [];
+console.error = (...args) => holdoutLogs.push(args);
+try {
+  await holdoutHandler({ method: 'GET', query: { mode: 'status' }, headers: {} }, holdoutStatusResponse);
+} finally {
+  console.error = originalConsoleError;
+}
+assert.deepEqual(holdoutLogs, [['[FINAL HOLDOUT]', 'HOLDOUT_LEDGER_UNAVAILABLE', 'NETWORK_FAILURE']], 'only safe diagnostic categories are logged');
+assert.doesNotMatch(JSON.stringify(holdoutLogs), /fetch failed|ledger\.invalid|test-token/i, 'raw error details and credentials must not be logged');
 assert.equal(holdoutStatusResponse.statusCode, 503, 'ledger network failure must return HTTP 503');
 assert.equal(holdoutStatusResponse.body?.code, 'HOLDOUT_LEDGER_UNAVAILABLE');
 assert.equal(holdoutStatusResponse.body?.retryable, true);
@@ -246,5 +255,24 @@ const networkFailure = classifyHoldoutLedgerFailure(new TypeError('fetch failed'
 assert.equal(networkFailure.httpStatus, 503);
 assert.equal(networkFailure.code, 'HOLDOUT_LEDGER_UNAVAILABLE');
 assert.equal(networkFailure.retryable, true);
+assert.equal(networkFailure.diagnosticCode, 'NETWORK_FAILURE');
+
+const dnsCause = Object.assign(new Error('getaddrinfo ENOTFOUND private-host.example'), { code: 'ENOTFOUND' });
+const dnsFailure = classifyHoldoutLedgerFailure(new TypeError('fetch failed', { cause: dnsCause }));
+assert.equal(dnsFailure.diagnosticCode, 'NETWORK_DNS_FAILURE');
+const refusedCause = Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' });
+const refusedFailure = classifyHoldoutLedgerFailure(new TypeError('fetch failed', { cause: refusedCause }));
+assert.equal(refusedFailure.diagnosticCode, 'NETWORK_CONNECTION_REFUSED');
+const resetCause = Object.assign(new Error('socket reset'), { code: 'ECONNRESET' });
+const resetFailure = classifyHoldoutLedgerFailure(new TypeError('fetch failed', { cause: resetCause }));
+assert.equal(resetFailure.diagnosticCode, 'NETWORK_CONNECTION_RESET');
+const timeoutFailureInput = new Error('The operation was aborted due to timeout');
+timeoutFailureInput.name = 'TimeoutError';
+const timeoutFailure = classifyHoldoutLedgerFailure(timeoutFailureInput);
+assert.equal(timeoutFailure.diagnosticCode, 'NETWORK_TIMEOUT');
+assert.equal(classifyHoldoutLedgerFailure(new Error('HOLDOUT_LEDGER_HTTP_503')).diagnosticCode, 'UPSTREAM_HTTP_503');
+assert.equal(unconfiguredLedger.diagnosticCode, 'LEDGER_CONFIG_MISSING');
+assert.equal(frozenArtifactConflict.diagnosticCode, 'FROZEN_ARTIFACT_CONFLICT');
+assert.equal(classifyHoldoutLedgerFailure(new Error('unexpected ledger exception')).diagnosticCode, 'UNCLASSIFIED_LEDGER_ERROR');
 
 console.log('actionability unit tests passed');
