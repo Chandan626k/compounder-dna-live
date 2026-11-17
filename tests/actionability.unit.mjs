@@ -49,4 +49,147 @@ assert.equal(out.horizons.swing.action, 'WAIT — DATA / VALIDATION');
 assert.equal(out.horizons.shortTerm.action, 'WAIT / NO FRESH LONG');
 assert.equal(out.sectorCoverage, 25);
 assert.equal(out.technical.triggers.reclaim, 1425.36);
-assert.equal(out.technical.triggers.breakdown���q�^
+assert.equal(out.technical.triggers.breakdown, 1401);
+assert.ok(out.technical.triggers.stop < 1401);
+assert.equal(out.productionTradingEnabled, false);
+
+const readyAnalysis = {
+  ...analysis,
+  dataLimited: false,
+  stock: { ...analysis.stock, dataLimited: false },
+  valuation: { ...analysis.valuation, verdict: 'FAIRLY VALUED' },
+  decision: { action: 'BUY / ACCUMULATE', blockers: [] }, // synthetic fixture only
+  sectorFramework: { classificationStatus: 'INDEPENDENTLY_VERIFIED' }, // synthetic fixture only
+  dataQuality: { confidence: 82, warnings: [], sectorFramework: { available: 7, total: 8, classificationStatus: 'INDEPENDENTLY_VERIFIED' } },
+  score: { financialStrengthCoverage: 'FULL', sectorFramework: { available: 7, total: 8, classificationStatus: 'INDEPENDENTLY_VERIFIED' }, overall: 84 },
+};
+const readyTrading = {
+  technical: {
+    ...trading.technical,
+    last: 1435,
+    rsi: 60,
+    relativeVolume: 1.35,
+    macd: { histogram: 4.2 },
+  },
+};
+const ready = buildActionability(readyAnalysis, readyTrading);
+assert.equal(ready.horizons.longTerm.action, 'STAGED ACCUMULATION CANDIDATE');
+assert.equal(ready.horizons.swing.action, 'CONDITIONAL BUY SETUP');
+
+// Long-term actionability must not upgrade the primary engine's explicit WAIT.
+// A very expensive valuation is a concrete case where the primary decision
+// returns WAIT / WATCH even when the synthetic evidence-quality fields are high.
+const primaryWaitAnalysis = {
+  ...readyAnalysis,
+  valuation: { ...readyAnalysis.valuation, verdict: 'VERY EXPENSIVE' },
+  decision: { action: 'WAIT / WATCH', blockers: ['Valuation is very expensive.'] },
+};
+const primaryWait = buildActionability(primaryWaitAnalysis, readyTrading);
+assert.equal(primaryWait.horizons.longTerm.action, 'WATCH / WAIT FOR EVIDENCE');
+assert.match(primaryWait.horizons.longTerm.reason, /Primary investment decision is WAIT \/ WATCH/);
+
+// Missing primary decision authority is not permission to create a long-term candidate.
+const missingPrimaryDecision = buildActionability({
+  ...readyAnalysis,
+  decision: { blockers: [] },
+}, readyTrading);
+assert.equal(missingPrimaryDecision.horizons.longTerm.action, 'WATCH / WAIT FOR EVIDENCE');
+
+// The existing positive primary decision remains eligible for the existing
+// long-term actionability path; no score or threshold math is changed.
+const weaknessHold = buildActionability({
+  ...readyAnalysis,
+  decision: { action: 'BUY ON WEAKNESS / HOLD', blockers: [] },
+}, readyTrading);
+assert.equal(weaknessHold.horizons.longTerm.action, 'STAGED ACCUMULATION CANDIDATE');
+
+// A high heuristic confidence and strong sector KPI coverage cannot override
+// provider-only sector classification at the separate actionability boundary.
+const supplementalSectorAnalysis = {
+  ...readyAnalysis,
+  sectorFramework: { classificationStatus: 'SUPPLEMENTAL_ONLY' },
+  dataQuality: {
+    ...readyAnalysis.dataQuality,
+    sectorFramework: { ...readyAnalysis.dataQuality.sectorFramework, classificationStatus: 'SUPPLEMENTAL_ONLY' },
+  },
+  score: {
+    ...readyAnalysis.score,
+    sectorFramework: { ...readyAnalysis.score.sectorFramework, classificationStatus: 'SUPPLEMENTAL_ONLY' },
+  },
+  decision: { action: 'DATA INSUFFICIENT', blockers: ['Sector classification is not independently verified'] },
+};
+const supplementalSector = buildActionability(supplementalSectorAnalysis, readyTrading);
+assert.equal(supplementalSector.horizons.longTerm.action, 'WATCH / WAIT FOR EVIDENCE');
+assert.equal(supplementalSector.horizons.swing.action, 'WAIT — DATA / VALIDATION');
+assert.equal(supplementalSector.overallStance, 'WAIT — EVIDENCE FIRST');
+
+// Missing classification provenance also fails closed rather than inheriting
+// an apparently high confidence score from another analysis path.
+const unknownSectorAnalysis = {
+  ...readyAnalysis,
+  sectorFramework: undefined,
+  dataQuality: { ...readyAnalysis.dataQuality, sectorFramework: { available: 7, total: 8 } },
+  score: { ...readyAnalysis.score, sectorFramework: { available: 7, total: 8 } },
+};
+const unknownSector = buildActionability(unknownSectorAnalysis, readyTrading);
+assert.equal(unknownSector.horizons.longTerm.action, 'WATCH / WAIT FOR EVIDENCE');
+assert.equal(unknownSector.horizons.swing.action, 'WAIT — DATA / VALIDATION');
+
+const technicalOnlyAnalysis = {
+  ...readyAnalysis,
+  fundamentals: undefined,
+  valuation: { verdict: 'FAIRLY VALUED', fairValue: null },
+};
+const technicalOnly = buildActionability(technicalOnlyAnalysis, readyTrading);
+assert.equal(technicalOnly.horizons.swing.action, 'CONDITIONAL BUY SETUP', 'missing fundamentals do not automatically block Swing');
+assert.equal(technicalOnly.horizons.shortTerm.action, 'WAIT', 'missing fundamentals do not automatically block Short-Term');
+
+const evidenceLimited = buildActionability({
+  ...technicalOnlyAnalysis,
+  dataLimited: true,
+  stock: { ...technicalOnlyAnalysis.stock, dataLimited: true },
+}, readyTrading);
+assert.equal(evidenceLimited.horizons.longTerm.action, 'WATCH / WAIT FOR EVIDENCE', 'Long-Term remains evidence-limited');
+
+const actionabilitySource = await import('node:fs/promises');
+const actionabilitySourceText = await actionabilitySource.readFile(new URL('../api/actionability.js', import.meta.url), 'utf8');
+assert.equal((actionabilitySourceText.match(/fetchStatementEvidence/g) || []).length, 0, 'actionability must not fetch statement evidence independently');
+assert.equal((actionabilitySourceText.match(/mergeStatementEvidence/g) || []).length, 0, 'actionability must not merge statement evidence independently');
+assert.match(actionabilitySourceText, /analysis\.fundamentals\?\.statementEvidence/);
+
+
+ // Public provider-backed API routes must fail closed before invoking providers.
+const policyCode = 'AUTHORIZED_MARKET_DATA_SOURCE_NOT_CONFIGURED';
+const routeCases = [
+  ['actionability', (await import('../api/actionability.js')).default, { method: 'GET', query: { symbol: 'TCS.NS' }, headers: {} }],
+  ['analyze GET', (await import('../api/analyze.js')).default, { method: 'GET', query: { symbol: 'TCS.NS' }, headers: {} }],
+  ['analyze POST', (await import('../api/analyze.js')).default, { method: 'POST', body: { symbol: 'TCS.NS' }, query: {}, headers: {} }],
+  ['analyze-gated', (await import('../api/analyze-gated.js')).default, { method: 'GET', query: { symbol: 'TCS.NS' }, headers: {} }],
+  ['backtest', (await import('../api/backtest.js')).default, { method: 'GET', query: { symbol: 'TCS.NS' }, headers: {} }],
+  ['data-foundation', (await import('../api/data-foundation.js')).default, { method: 'GET', query: { symbol: 'TCS.NS' }, headers: {} }],
+  ['data', (await import('../api/data.js')).default, { method: 'POST', body: { type: 'quote', symbol: 'TCS.NS' }, query: {}, headers: {} }],
+  ['investment-readiness', (await import('../api/investment-readiness.js')).default, { method: 'GET', query: { symbol: 'TCS.NS' }, headers: {} }],
+  ['scan GET', (await import('../api/scan.js')).default, { method: 'GET', query: { symbols: 'TCS.NS' }, headers: {} }],
+  ['scan POST', (await import('../api/scan.js')).default, { method: 'POST', body: { symbols: ['TCS.NS'] }, query: {}, headers: {} }],
+  ['trading', (await import('../api/trading.js')).default, { method: 'GET', query: { symbol: 'TCS.NS' }, headers: {} }],
+  ['validate-strategy', (await import('../api/validate-strategy.js')).default, { method: 'GET', query: { symbol: 'TCS.NS' }, headers: {} }],
+  ['holdout prepare', (await import('../api/final-holdout.js')).default, { method: 'GET', query: { mode: 'prepare' }, headers: {} }],
+  ['holdout execute', (await import('../api/final-holdout.js')).default, { method: 'GET', query: { mode: 'execute' }, headers: {} }],
+];
+for (const [name, handler, req] of routeCases) {
+  const res = {
+    statusCode: null, headers: {}, body: null,
+    setHeader(key, value) { this.headers[key] = value; return this; },
+    status(code) { this.statusCode = code; return this; },
+    json(body) { this.body = body; return this; },
+    end() { this.ended = true; return this; },
+  };
+  await handler(req, res);
+  assert.equal(res.statusCode, 503, name + ' must return HTTP 503');
+  assert.equal(res.body?.code, policyCode, name + ' must return the shared access-policy code');
+  assert.equal(res.body?.policy?.providerRequestMade, false, name + ' must not call a provider');
+}
+const finalHoldoutSource = await (await import('node:fs/promises')).readFile(new URL('../api/final-holdout.js', import.meta.url), 'utf8');
+assert.match(finalHoldoutSource, /if \(mode === 'status'\)/, 'read-only final-holdout status mode must remain available');
+
+console.log('actionability unit tests passed');

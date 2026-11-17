@@ -36,4 +36,10 @@ app.get('/api/health', (req, res) => res.json({
 
 app.get('/api/analyze', (req, res) => sendMarketDataUnavailable(res));
 
-app.get('/api/data/hea���q�^
+app.get('/api/data/health', (req, res) => res.json({ ok: true }));
+
+export default app;
+
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => console.log(`Compounder DNA LIVE running at http://localhost:${PORT}`));
+}
