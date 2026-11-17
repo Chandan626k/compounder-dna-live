@@ -192,4 +192,30 @@ for (const [name, handler, req] of routeCases) {
 const finalHoldoutSource = await (await import('node:fs/promises')).readFile(new URL('../api/final-holdout.js', import.meta.url), 'utf8');
 assert.match(finalHoldoutSource, /if \(mode === 'status'\)/, 'read-only final-holdout status mode must remain available');
 
+// A read-only status lookup must report ledger network failure as unavailable, not conflict.
+const holdoutHandler = (await import('../api/final-holdout.js')).default;
+const previousFetch = globalThis.fetch;
+const previousUpstashUrl = process.env.UPSTASH_REDIS_REST_URL;
+const previousUpstashToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+process.env.UPSTASH_REDIS_REST_URL = 'https://ledger.invalid';
+process.env.UPSTASH_REDIS_REST_TOKEN = 'test-token';
+globalThis.fetch = async () => { throw new TypeError('fetch failed'); };
+const holdoutStatusResponse = {
+  statusCode: null, body: null,
+  setHeader() { return this; },
+  status(code) { this.statusCode = code; return this; },
+  json(body) { this.body = body; return this; },
+};
+await holdoutHandler({ method: 'GET', query: { mode: 'status' }, headers: {} }, holdoutStatusResponse);
+assert.equal(holdoutStatusResponse.statusCode, 503, 'ledger network failure must return HTTP 503');
+assert.equal(holdoutStatusResponse.body?.code, 'HOLDOUT_LEDGER_UNAVAILABLE');
+assert.equal(holdoutStatusResponse.body?.retryable, true);
+assert.match(holdoutStatusResponse.body?.error || '', /could not be verified/i);
+assert.doesNotMatch(holdoutStatusResponse.body?.error || '', /fetch failed/i, 'raw network errors must not leak to clients');
+globalThis.fetch = previousFetch;
+if (previousUpstashUrl === undefined) delete process.env.UPSTASH_REDIS_REST_URL;
+else process.env.UPSTASH_REDIS_REST_URL = previousUpstashUrl;
+if (previousUpstashToken === undefined) delete process.env.UPSTASH_REDIS_REST_TOKEN;
+else process.env.UPSTASH_REDIS_REST_TOKEN = previousUpstashToken;
+
 console.log('actionability unit tests passed');
