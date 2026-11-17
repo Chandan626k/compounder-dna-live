@@ -201,6 +201,44 @@ assert.equal(canonicalScore.dataLimited, true);
 const canonicalDecision = decision(canonicalScore, canonicalValuation, tech, canonicalQuality);
 assert.equal(canonicalDecision.action, 'DATA INSUFFICIENT', 'provider-only fundamentals must not produce an investment action');
 
+const providerSectorFramework = {
+  key: 'BANKING',
+  coverage: 100,
+  classificationStatus: 'SUPPLEMENTAL_ONLY',
+};
+const sectorQuality = buildDataQuality(canonicalFinancials, canonicalValuation, {}, tech, {
+  marketAsOf: new Date().toISOString(),
+  fundamentalsAsOf: new Date().toISOString(),
+}, providerSectorFramework);
+assert.ok(sectorQuality.criticalMissingFields.includes('Sector/industry classification'));
+assert.ok(sectorQuality.confidence <= 65, 'provider-only sector classification must cap evidence confidence');
+
+const highConfidenceSectorQuality = {
+  ...sectorQuality,
+  confidence: 95,
+  criticalMissingFields: [],
+  sectorFramework: providerSectorFramework,
+};
+const highConfidenceSectorScore = {
+  ...canonicalScore,
+  overall: 90,
+  risk: 20,
+  financialStrengthCoverage: 'FULL',
+  dataLimited: false,
+};
+const highConfidenceSectorDecision = decision(
+  highConfidenceSectorScore,
+  { ...canonicalValuation, verdict: 'ATTRACTIVE' },
+  { trend: 'UPTREND' },
+  highConfidenceSectorQuality,
+);
+assert.equal(
+  highConfidenceSectorDecision.action,
+  'DATA INSUFFICIENT',
+  'provider-only sector classification must block capital-allocation decisions even when other evidence appears strong',
+);
+
+
 const quality = buildDataQuality(financials, valuation, {}, tech);
 assert.ok(quality.completeness >= 0 && quality.completeness <= 100);
 assert.ok(Array.isArray(quality.validationFlags));
