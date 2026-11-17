@@ -58,6 +58,7 @@ const readyAnalysis = {
   dataLimited: false,
   stock: { ...analysis.stock, dataLimited: false },
   valuation: { ...analysis.valuation, verdict: 'FAIRLY VALUED' },
+  decision: { action: 'BUY / ACCUMULATE', blockers: [] }, // synthetic fixture only
   sectorFramework: { classificationStatus: 'INDEPENDENTLY_VERIFIED' }, // synthetic fixture only
   dataQuality: { confidence: 82, warnings: [], sectorFramework: { available: 7, total: 8, classificationStatus: 'INDEPENDENTLY_VERIFIED' } },
   score: { financialStrengthCoverage: 'FULL', sectorFramework: { available: 7, total: 8, classificationStatus: 'INDEPENDENTLY_VERIFIED' }, overall: 84 },
@@ -74,6 +75,33 @@ const readyTrading = {
 const ready = buildActionability(readyAnalysis, readyTrading);
 assert.equal(ready.horizons.longTerm.action, 'STAGED ACCUMULATION CANDIDATE');
 assert.equal(ready.horizons.swing.action, 'CONDITIONAL BUY SETUP');
+
+// Long-term actionability must not upgrade the primary engine's explicit WAIT.
+// A very expensive valuation is a concrete case where the primary decision
+// returns WAIT / WATCH even when the synthetic evidence-quality fields are high.
+const primaryWaitAnalysis = {
+  ...readyAnalysis,
+  valuation: { ...readyAnalysis.valuation, verdict: 'VERY EXPENSIVE' },
+  decision: { action: 'WAIT / WATCH', blockers: ['Valuation is very expensive.'] },
+};
+const primaryWait = buildActionability(primaryWaitAnalysis, readyTrading);
+assert.equal(primaryWait.horizons.longTerm.action, 'WATCH / WAIT FOR EVIDENCE');
+assert.match(primaryWait.horizons.longTerm.reason, /Primary investment decision is WAIT \/ WATCH/);
+
+// Missing primary decision authority is not permission to create a long-term candidate.
+const missingPrimaryDecision = buildActionability({
+  ...readyAnalysis,
+  decision: { blockers: [] },
+}, readyTrading);
+assert.equal(missingPrimaryDecision.horizons.longTerm.action, 'WATCH / WAIT FOR EVIDENCE');
+
+// The existing positive primary decision remains eligible for the existing
+// long-term actionability path; no score or threshold math is changed.
+const weaknessHold = buildActionability({
+  ...readyAnalysis,
+  decision: { action: 'BUY ON WEAKNESS / HOLD', blockers: [] },
+}, readyTrading);
+assert.equal(weaknessHold.horizons.longTerm.action, 'STAGED ACCUMULATION CANDIDATE');
 
 // A high heuristic confidence and strong sector KPI coverage cannot override
 // provider-only sector classification at the separate actionability boundary.
