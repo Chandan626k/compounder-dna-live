@@ -15,4 +15,16 @@ if (result.status !== 0) {
   process.stderr.write(result.stderr || result.stdout || 'Frontend syntax check failed.');
   process.exit(result.status || 1);
 }
+const providerBlockedMarkers = [
+  'async function requestJson(url,fallback)',
+  'error.code=data.code||null',
+  'AUTHORIZED_MARKET_DATA_SOURCE_NOT_CONFIGURED',
+  'No stock analysis was generated.',
+  "$('app').classList.add('hidden')",
+  'Any previous result has been cleared'
+];
+for (const marker of providerBlockedMarkers) {
+  if (!html.includes(marker)) throw new Error('Missing provider-blocked UI safety state: ' + marker);
+}
+console.log('frontend provider-blocked-state checks: PASS');
 console.log('frontend syntax: PASS (public/terminal.html)');
