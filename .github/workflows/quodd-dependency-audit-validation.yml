@@ -6,11 +6,13 @@ on:
       - 'fix/quodd-*'
       - 'fix/actionability-*'
       - 'fix/holdout-ledger-*'
+      - 'fix/holdout-frozen-artifact-*'
   pull_request:
     branches:
       - 'fix/quodd-*'
       - 'fix/actionability-*'
       - 'fix/holdout-ledger-*'
+      - 'fix/holdout-frozen-artifact-*'
     paths:
       - package.json
       - package-lock.json
