@@ -7,13 +7,17 @@ on:
       - 'fix/actionability-*'
       - 'fix/holdout-ledger-*'
       - 'fix/holdout-frozen-artifact-*'
+      - 'fix/terminal-*'
   pull_request:
     branches:
       - 'fix/quodd-*'
       - 'fix/actionability-*'
       - 'fix/holdout-ledger-*'
       - 'fix/holdout-frozen-artifact-*'
+      - 'fix/holdout-revalidate-*'
+      - 'fix/terminal-*'
     paths:
+      - public/terminal.html
       - package.json
       - package-lock.json
       - lib/statement-evidence.js
