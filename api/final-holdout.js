@@ -1,8 +1,8 @@
 import { sendMarketDataUnavailable } from '../lib/market-data-access-policy.js';
 import { verifiedHistory } from '../lib/market-data-provider.js';
 import { runValidationBacktest } from '../lib/strategy-validation.js';
-import { buyAndHoldBenchmark } from '../lib/predictive-research.js';
-import { buildResearchArtifact, FROZEN_PROTOCOL_ID, FROZEN_COSTS, stableHash } from '../lib/final-holdout-artifact-v2.js';
+import { buyAndHoldBenchmark, RESEARCH_CANDIDATES } from '../lib/predictive-research.js';
+import { buildResearchArtifact, FROZEN_PROTOCOL_ID, FROZEN_COSTS, FROZEN_HORIZON, FROZEN_HOLDOUT_FRACTION, stableHash } from '../lib/final-holdout-artifact-v2.js';
 import { getLedger, setLedger, claimHoldoutOnce, completeHoldoutOnce, classifyHoldoutLedgerFailure } from '../lib/holdout-ledger.js';
 import { PROMOTION_CRITERIA } from '../lib/validation-gate.js';
 
@@ -210,6 +210,54 @@ function parseHoldoutRunState(raw) {
   return state;
 }
 
+function isCanonicalFrozenArtifact(artifact) {
+  const selection = artifact?.modelSelection;
+  const candidate = RESEARCH_CANDIDATES.find(item => item.id === selection?.chosenCandidateId);
+  const trace = artifact?.selectionTrace;
+  const finalWindow = Array.isArray(trace) ? trace.at(-1) : null;
+  const costs = artifact?.costs;
+  const totalBars = artifact?.totalBars;
+  const expectedHoldoutStart = isNonNegativeInteger(totalBars)
+    ? Math.floor(totalBars * (1 - FROZEN_HOLDOUT_FRACTION))
+    : null;
+
+  return artifact.protocolVersion === 1
+    && artifact.candidateFamilyHash === stableHash(RESEARCH_CANDIDATES)
+    && artifact.candidateFamilySize === RESEARCH_CANDIDATES.length
+    && artifact.horizon === FROZEN_HORIZON
+    && isRecord(costs)
+    && Object.keys(costs).length === Object.keys(FROZEN_COSTS).length
+    && Object.entries(FROZEN_COSTS).every(([key, value]) => costs[key] === value)
+    && artifact.holdoutFraction === FROZEN_HOLDOUT_FRACTION
+    && isNonNegativeInteger(totalBars)
+    && totalBars > 0
+    && expectedHoldoutStart > 0
+    && expectedHoldoutStart < totalBars
+    && artifact.holdoutStart === expectedHoldoutStart
+    && artifact.researchBars === expectedHoldoutStart
+    && artifact.holdoutBars === totalBars - expectedHoldoutStart
+    && isSha256(artifact.historyFingerprint)
+    && isRecord(selection)
+    && selection.method === 'FINAL_RESEARCH_WALK_FORWARD_WINDOW'
+    && Number.isInteger(selection.window)
+    && Number.isInteger(selection.trainStart)
+    && Number.isInteger(selection.trainEnd)
+    && Number.isInteger(selection.testStart)
+    && Number.isInteger(selection.testEnd)
+    && candidate !== undefined
+    && isRecord(selection.candidateParameters)
+    && stableHash(selection.candidateParameters) === stableHash(candidate)
+    && Array.isArray(trace)
+    && trace.length > 0
+    && isRecord(finalWindow)
+    && finalWindow.window === selection.window
+    && finalWindow.trainStart === selection.trainStart
+    && finalWindow.trainEnd === selection.trainEnd
+    && finalWindow.testStart === selection.testStart
+    && finalWindow.testEnd === selection.testEnd
+    && finalWindow.chosen === selection.chosenCandidateId;
+}
+
 function isStoredFrozenArtifact(artifact, stock, symbol) {
   if (!isRecord(artifact)
     || artifact.protocolId !== FROZEN_PROTOCOL_ID
@@ -221,7 +269,8 @@ function isStoredFrozenArtifact(artifact, stock, symbol) {
     || !isRecord(artifact.finalHoldout)
     || artifact.finalHoldout.status !== 'UNTOUCHED'
     || artifact.finalHoldout.evaluated !== false
-    || artifact.finalHoldout.selectionUsed !== false) return false;
+    || artifact.finalHoldout.selectionUsed !== false
+    || !isCanonicalFrozenArtifact(artifact)) return false;
 
   const { artifactHash, ...identity } = artifact;
   return stableHash(identity) === artifactHash;
