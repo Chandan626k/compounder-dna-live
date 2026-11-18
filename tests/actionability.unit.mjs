@@ -236,6 +236,8 @@ process.env.UPSTASH_REDIS_REST_URL = 'https://ledger.invalid';
 process.env.UPSTASH_REDIS_REST_TOKEN = 'test-token';
 const { FROZEN_PROTOCOL_ID: invalidStateProtocolId, stableHash: stableHoldoutHash, freezeResearchArtifact } = await import('../lib/final-holdout-artifact-v2.js');
 const { RESEARCH_CANDIDATES } = await import('../lib/predictive-research.js');
+const { runValidationBacktest } = await import('../lib/strategy-validation.js');
+const { selectionRuleVersion, metricCalculationVersion, modelSelectionAggregationMethod } = await import('../lib/canonical-provenance.js');
 const holdoutSymbolsForState = ['TCS', 'ICICIBANK', 'HDFCBANK', 'INFY'];
 const incompleteRunningState = {
   protocolId: invalidStateProtocolId,
@@ -361,22 +363,34 @@ const holdoutMetricsForState = {
   timeExitRate: null,
 };
 const frozenArtifactCandidate = RESEARCH_CANDIDATES[0];
-const frozenArtifactRows = Array.from({ length: 800 }, (_, index) => ({ bar: index, close: 100 + index }));
+const frozenArtifactRows = Array.from({ length: 1200 }, (_, index) => ({ bar: index, close: 100 + index }));
+const frozenSelectionRule = 'training-only: >=8 trades, positive expectancy, PF>1, maxDD<=25%; otherwise highest training expectancy';
+const frozenSummaryKeys = [
+  'windows',
+  'usableWindows',
+  'positiveWindowRatePct',
+  'aggregateReturnPct',
+  'meanTestExpectancyPct',
+  'testExpectancyBonferroniCI',
+  'worstTestDrawdownPct',
+];
 const frozenArtifactSearch = {
   status: 'COMPLETED',
-  method: 'WALK_FORWARD_CANDIDATE_SEARCH',
-  windows: [{
-    window: 1,
-    trainStart: 0,
-    trainEnd: 499,
-    testStart: 500,
-    testEnd: 624,
-    chosen: frozenArtifactCandidate.id,
-  }],
-  selectionRuleVersion: 'fixture-selection-rule-v1',
-  metricCalculationVersion: 'fixture-metric-calculation-v1',
-  aggregationMethod: 'fixture-aggregation-v1',
+  method: 'WALK_FORWARD_MODEL_SELECTION',
+  windows: [
+    { window: 1, trainStart: 0, trainEnd: 499, testStart: 500, testEnd: 624, chosen: frozenArtifactCandidate.id },
+    { window: 2, trainStart: 125, trainEnd: 624, testStart: 625, testEnd: 749, chosen: frozenArtifactCandidate.id },
+    { window: 3, trainStart: 250, trainEnd: 749, testStart: 750, testEnd: 874, chosen: frozenArtifactCandidate.id },
+  ],
+  selectionRuleVersion: selectionRuleVersion(frozenSelectionRule),
+  metricCalculationVersion: metricCalculationVersion(runValidationBacktest.toString()),
+  aggregationMethod: modelSelectionAggregationMethod({
+    method: 'WALK_FORWARD_MODEL_SELECTION',
+    summaryKeys: frozenSummaryKeys,
+    windows: 3,
+  }),
 };
+
 const validFrozenArtifacts = holdoutSymbolsForState.map(symbol => freezeResearchArtifact({
   symbol,
   rows: frozenArtifactRows,
@@ -517,6 +531,41 @@ for (const [label, mutate] of frozenArtifactMutations) {
   };
   await holdoutHandler({ method: 'GET', query: { mode: 'status' }, headers: {} }, alteredArtifactResponse);
   assert.equal(alteredArtifactResponse.statusCode, 409, label + ' must not be accepted even when its hash and result reference are recomputed');
+  assert.equal(alteredArtifactResponse.body?.code, 'HOLDOUT_SAFE_BLOCK');
+}
+
+ // A recomputed hash must not legitimize noncanonical earlier research windows
+ // or provenance metadata that no longer describes the frozen walk-forward run.
+const canonicalArtifactMutations = [
+  ['prior window sequence', artifact => { artifact.selectionTrace[0].window = 99; }],
+  ['prior training window bounds', artifact => { artifact.selectionTrace[0].trainStart += 1; }],
+  ['prior candidate identity', artifact => { artifact.selectionTrace[0].chosen = 'UNKNOWN_CANDIDATE'; }],
+  ['negative final window index', artifact => {
+    artifact.modelSelection.window = -1;
+    artifact.selectionTrace.at(-1).window = -1;
+  }],
+  ['selection-rule provenance', artifact => { artifact.provenance.selectionRuleVersion = '0'.repeat(64); }],
+  ['metric-calculation provenance', artifact => { artifact.provenance.metricCalculationVersion = '0'.repeat(64); }],
+  ['model-selection window identity', artifact => { artifact.provenance.windowIdentity.modelSelection = '0'.repeat(64); }],
+  ['training-window definition', artifact => { artifact.provenance.trainingWindowDefinition.trainBars = 499; }],
+  ['model-selection aggregation provenance', artifact => { artifact.provenance.aggregationMethod.modelSelection = '0'.repeat(64); }],
+];
+for (const [label, mutate] of canonicalArtifactMutations) {
+  const alteredArtifacts = validFrozenArtifacts.map(artifact => JSON.parse(JSON.stringify(artifact)));
+  mutate(alteredArtifacts[0]);
+  const { artifactHash: ignoredHash, ...alteredIdentity } = alteredArtifacts[0];
+  alteredArtifacts[0].artifactHash = stableHoldoutHash(alteredIdentity);
+  const alteredState = JSON.parse(JSON.stringify(validCompletedState));
+  alteredState.result.stocks[0].artifactHash = alteredArtifacts[0].artifactHash;
+  mockHoldoutLedger(alteredState, alteredArtifacts);
+  const alteredArtifactResponse = {
+    statusCode: null, body: null,
+    setHeader() { return this; },
+    status(code) { this.statusCode = code; return this; },
+    json(body) { this.body = body; return this; },
+  };
+  await holdoutHandler({ method: 'GET', query: { mode: 'status' }, headers: {} }, alteredArtifactResponse);
+  assert.equal(alteredArtifactResponse.statusCode, 409, label + ' must not be accepted when the artifact hash and result reference are recomputed');
   assert.equal(alteredArtifactResponse.body?.code, 'HOLDOUT_SAFE_BLOCK');
 }
 
