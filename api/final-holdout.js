@@ -3,6 +3,19 @@ import { verifiedHistory } from '../lib/market-data-provider.js';
 import { runValidationBacktest } from '../lib/strategy-validation.js';
 import { buyAndHoldBenchmark, RESEARCH_CANDIDATES } from '../lib/predictive-research.js';
 import { buildResearchArtifact, FROZEN_PROTOCOL_ID, FROZEN_COSTS, FROZEN_HORIZON, FROZEN_HOLDOUT_FRACTION, stableHash } from '../lib/final-holdout-artifact-v2.js';
+import {
+  FROZEN_TRAIN_BARS,
+  FROZEN_OOS_BARS,
+  trainingWindowDefinition,
+  OOSWindowDefinition,
+  modelSelectionWindowIdentity,
+  finalCandidateWindowIdentity,
+  finalCandidateRollingWindowIdentity,
+  selectionRuleVersion,
+  metricCalculationVersion,
+  modelSelectionAggregationMethod,
+  finalCandidateAggregationMethod,
+} from '../lib/canonical-provenance.js';
 import { getLedger, setLedger, claimHoldoutOnce, completeHoldoutOnce, classifyHoldoutLedgerFailure } from '../lib/holdout-ledger.js';
 import { PROMOTION_CRITERIA } from '../lib/validation-gate.js';
 
@@ -210,6 +223,19 @@ function parseHoldoutRunState(raw) {
   return state;
 }
 
+const FROZEN_MODEL_SELECTION_METHOD = 'WALK_FORWARD_MODEL_SELECTION';
+const FROZEN_FINAL_SELECTION_METHOD = 'FINAL_RESEARCH_WALK_FORWARD_WINDOW';
+const FROZEN_SELECTION_RULE = 'training-only: >=8 trades, positive expectancy, PF>1, maxDD<=25%; otherwise highest training expectancy';
+const FROZEN_MODEL_SELECTION_SUMMARY_KEYS = Object.freeze([
+  'aggregateReturnPct',
+  'meanTestExpectancyPct',
+  'positiveWindowRatePct',
+  'testExpectancyBonferroniCI',
+  'usableWindows',
+  'windows',
+  'worstTestDrawdownPct',
+]);
+
 function isCanonicalFrozenArtifact(artifact) {
   const selection = artifact?.modelSelection;
   const candidate = RESEARCH_CANDIDATES.find(item => item.id === selection?.chosenCandidateId);
@@ -220,6 +246,54 @@ function isCanonicalFrozenArtifact(artifact) {
   const expectedHoldoutStart = isNonNegativeInteger(totalBars)
     ? Math.floor(totalBars * (1 - FROZEN_HOLDOUT_FRACTION))
     : null;
+  const expectedWindowCount = isNonNegativeInteger(expectedHoldoutStart)
+    ? Math.floor((expectedHoldoutStart - FROZEN_TRAIN_BARS) / FROZEN_OOS_BARS)
+    : 0;
+  const candidateIds = new Set(RESEARCH_CANDIDATES.map(item => item.id));
+  const canonicalTrace = Array.isArray(trace)
+    && expectedWindowCount >= 3
+    && trace.length === expectedWindowCount
+    && trace.every((window, index) => {
+      const testStart = FROZEN_TRAIN_BARS + index * FROZEN_OOS_BARS;
+      const testEnd = testStart + FROZEN_OOS_BARS - 1;
+      const trainStart = Math.max(0, testStart - FROZEN_TRAIN_BARS);
+      const trainEnd = testStart - 1;
+      return isRecord(window)
+        && window.window === index + 1
+        && window.trainStart === trainStart
+        && window.trainEnd === trainEnd
+        && window.testStart === testStart
+        && window.testEnd === testEnd
+        && candidateIds.has(window.chosen);
+    });
+  const expectedProvenance = isRecord(selection) && canonicalTrace
+    ? {
+      trainingWindowDefinition: trainingWindowDefinition(selection),
+      OOSWindowDefinition: OOSWindowDefinition(selection),
+      windowIdentity: {
+        modelSelection: modelSelectionWindowIdentity(trace),
+        finalCandidate: finalCandidateWindowIdentity(selection),
+        finalCandidateRolling: finalCandidateRollingWindowIdentity(expectedHoldoutStart, FROZEN_HORIZON),
+      },
+      selectionMethod: {
+        modelSelection: FROZEN_MODEL_SELECTION_METHOD,
+        finalCandidate: FROZEN_FINAL_SELECTION_METHOD,
+      },
+      selectionRuleVersion: selectionRuleVersion(FROZEN_SELECTION_RULE),
+      metricCalculationVersion: metricCalculationVersion(runValidationBacktest.toString()),
+      aggregationMethod: {
+        modelSelection: modelSelectionAggregationMethod({
+          method: FROZEN_MODEL_SELECTION_METHOD,
+          summaryKeys: FROZEN_MODEL_SELECTION_SUMMARY_KEYS,
+          windows: expectedWindowCount,
+        }),
+        finalCandidate: finalCandidateAggregationMethod(),
+      },
+    }
+    : null;
+  const provenanceMatches = isRecord(artifact?.provenance)
+    && expectedProvenance !== null
+    && stableHash(artifact.provenance) === stableHash(expectedProvenance);
 
   return artifact.protocolVersion === 1
     && artifact.candidateFamilyHash === stableHash(RESEARCH_CANDIDATES)
@@ -238,8 +312,8 @@ function isCanonicalFrozenArtifact(artifact) {
     && artifact.holdoutBars === totalBars - expectedHoldoutStart
     && isSha256(artifact.historyFingerprint)
     && isRecord(selection)
-    && selection.method === 'FINAL_RESEARCH_WALK_FORWARD_WINDOW'
-    && Number.isInteger(selection.window)
+    && selection.method === FROZEN_FINAL_SELECTION_METHOD
+    && selection.window === expectedWindowCount
     && Number.isInteger(selection.trainStart)
     && Number.isInteger(selection.trainEnd)
     && Number.isInteger(selection.testStart)
@@ -247,15 +321,15 @@ function isCanonicalFrozenArtifact(artifact) {
     && candidate !== undefined
     && isRecord(selection.candidateParameters)
     && stableHash(selection.candidateParameters) === stableHash(candidate)
-    && Array.isArray(trace)
-    && trace.length > 0
+    && canonicalTrace
     && isRecord(finalWindow)
     && finalWindow.window === selection.window
     && finalWindow.trainStart === selection.trainStart
     && finalWindow.trainEnd === selection.trainEnd
     && finalWindow.testStart === selection.testStart
     && finalWindow.testEnd === selection.testEnd
-    && finalWindow.chosen === selection.chosenCandidateId;
+    && finalWindow.chosen === selection.chosenCandidateId
+    && provenanceMatches;
 }
 
 function isStoredFrozenArtifact(artifact, stock, symbol) {
