@@ -350,6 +350,17 @@ function isStoredFrozenArtifact(artifact, stock, symbol) {
   return stableHash(identity) === artifactHash;
 }
 
+export function isFrozenArtifactForRows(symbol, rows, artifact) {
+  if (!isRecord(artifact) || !Array.isArray(rows) || !isSha256(artifact.artifactHash)) return false;
+  const { artifactHash, ...identity } = artifact;
+  if (stableHash(identity) !== artifactHash) return false;
+  try {
+    return buildResearchArtifact(symbol, rows).artifactHash === artifactHash;
+  } catch {
+    return false;
+  }
+}
+
 async function verifyCompletedArtifacts(result) {
   const artifacts = await Promise.all(SYMBOLS.map(async symbol => (
     parseState(await getLedger(ARTIFACT_PREFIX + symbol))
@@ -412,6 +423,7 @@ async function executeOnce() {
     if (!artifact || artifact.protocolId !== FROZEN_PROTOCOL_ID || artifact.finalHoldout?.evaluated) throw new Error(`FROZEN_ARTIFACT_MISSING_OR_OPENED:${symbol}`);
     const rows = await fetchFrozenRows(symbol);
     if (stableHash(rows) !== artifact.historyFingerprint) throw new Error(`HOLDOUT_DATA_CHANGED_AFTER_FREEZE:${symbol}`);
+    if (!isFrozenArtifactForRows(symbol, rows, artifact)) throw new Error('FROZEN_ARTIFACT_CONFLICT:' + symbol);
     artifacts.push({ artifact, rows });
   }
 
