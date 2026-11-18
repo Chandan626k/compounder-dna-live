@@ -27,7 +27,10 @@ const providerBlockedMarkers = [
 for (const marker of providerBlockedMarkers) {
   if (!html.includes(marker)) throw new Error('Missing provider-blocked UI safety state: ' + marker);
 }
-const raceHarness = scripts.at(-1) + '\nglobalThis.__testRendered=[]; globalThis.render=(analysis)=>globalThis.__testRendered.push(analysis.stock.symbol); globalThis.__testAnalyse=analyse;';
+for (const marker of ['● APP ONLINE', '● ANALYSIS READY', 'MARKET DATA TIME NOT PROVIDED', 'MARKET DATA AS OF ', 'd?.provenance?.marketData?.asOf', 'marketDataSource:marketProvenance.source']) {
+  if (!html.includes(marker)) throw new Error('Missing truthful health/data provenance UI marker: ' + marker);
+}
+const raceHarness = scripts.at(-1) + '\nglobalThis.__testRendered=[]; const originalRender=render; globalThis.render=(analysis,trading)=>{globalThis.__testRendered.push(analysis.stock.symbol); return originalRender(analysis,trading)}; globalThis.__testRender=originalRender; globalThis.__testAnalyse=analyse;';
 const elements = new Map();
 function testElement() {
   const classes = new Set();
@@ -59,7 +62,11 @@ const statusElement = testDocument.getElementById('status');
 const errorElement = testDocument.getElementById('err');
 const emptyElement = testDocument.getElementById('empty');
 const appElement = testDocument.getElementById('app');
-const responseFor = (url, symbol) => ({ ok: true, json: () => Promise.resolve(url.startsWith('/api/analyze') ? { stock: { symbol } } : { technical: {}, trade: {}, longTerm: {} }) });
+resolveHealth({ ok: true });
+await Promise.resolve();
+if (statusElement.textContent !== '● APP ONLINE') throw new Error('A successful liveness check must report app availability only.');
+const marketAsOfFixture = '2026-11-18T09:15:00.000Z';
+const responseFor = (url, symbol) => ({ ok: true, json: () => Promise.resolve(url.startsWith('/api/analyze') ? { stock: { symbol }, dataQuality: { confidence: 0 }, provenance: { marketData: { source: 'Fixture market source', interval: '1d', asOf: marketAsOfFixture, currency: 'INR' } } } : { technical: {}, trade: {}, longTerm: {} }) });
 function resolvePair(symbol) {
   for (const url of ['/api/analyze?symbol=' + symbol, '/api/trading?symbol=' + symbol]) {
     const request = pendingRequests.get(url);
@@ -76,10 +83,10 @@ await latestSuccess;
 resolvePair('TCS');
 await olderSuccess;
 if (testContext.__testRendered.length !== 1 || testContext.__testRendered[0] !== 'RELIANCE') throw new Error('An older successful response overwrote the latest stock analysis.');
-if (statusElement.textContent !== '● LIVE DATA OK') throw new Error('Latest successful analysis status was not retained.');
-resolveHealth({ ok: true });
-await Promise.resolve();
-if (statusElement.textContent !== '● LIVE DATA OK') throw new Error('Late health response overwrote the analysis status.');
+if (statusElement.textContent !== '● ANALYSIS READY') throw new Error('Latest successful analysis status was not retained.');
+const expectedMarketAsOf = 'MARKET DATA AS OF ' + new Date(marketAsOfFixture).toLocaleString('en-IN');
+if (testDocument.getElementById('asof').textContent !== expectedMarketAsOf) throw new Error('Market data as-of must come from provenance, not a fabricated LIVE fallback.');
+if (!testDocument.getElementById('prov').innerHTML.includes('Fixture market source')) throw new Error('Market data provenance source is not displayed.');
 symbolInput.value = 'INFY';
 const olderFailure = testContext.__testAnalyse();
 symbolInput.value = 'ITC';
@@ -91,7 +98,7 @@ const oldTrading = pendingRequests.get('/api/trading?symbol=INFY');
 oldAnalyze.reject(new Error('late old failure'));
 oldTrading.resolve(responseFor('/api/trading?symbol=INFY', 'INFY'));
 await olderFailure;
-if (statusElement.textContent !== '● LIVE DATA OK' || !errorElement.classList.contains('hidden')) throw new Error('An older failed response overwrote the latest analysis state.');
+if (statusElement.textContent !== '● ANALYSIS READY' || !errorElement.classList.contains('hidden')) throw new Error('An older failed response overwrote the latest analysis state.');
 symbolInput.value = 'HDFCBANK';
 const pendingWhenCleared = testContext.__testAnalyse();
 symbolInput.value = '';
@@ -99,7 +106,13 @@ symbolInput.dispatch('input');
 resolvePair('HDFCBANK');
 await pendingWhenCleared;
 if (testContext.__testRendered.length !== 2 || statusElement.textContent !== '● READY' || emptyElement.textContent !== 'Enter a symbol to load verified market, fundamental and trading data.' || !appElement.classList.contains('hidden')) throw new Error('Clearing the symbol did not invalidate the pending analysis.');
+testContext.__testRender({ stock: { symbol: 'NO_TIMESTAMP' }, dataQuality: {}, provenance: { marketData: { source: 'Fixture market source' } } }, { technical: {}, trade: {}, longTerm: {} });
+if (testDocument.getElementById('asof').textContent !== 'MARKET DATA TIME NOT PROVIDED') throw new Error('Missing market-data timestamps must remain explicitly unavailable.');
+for (const marker of ['● ENGINE OK', '● LIVE DATA OK', ":'LIVE'"]) {
+  if (html.includes(marker)) throw new Error('Misleading app/data status remains: ' + marker);
+}
 console.log('frontend stale-request race checks: PASS');
+console.log('frontend health/data-freshness status checks: PASS');
 
 console.log('frontend provider-blocked-state checks: PASS');
 console.log('frontend syntax: PASS (public/terminal.html)');
