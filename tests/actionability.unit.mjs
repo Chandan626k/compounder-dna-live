@@ -193,7 +193,7 @@ const finalHoldoutSource = await (await import('node:fs/promises')).readFile(new
 assert.match(finalHoldoutSource, /if \(mode === 'status'\)/, 'read-only final-holdout status mode must remain available');
 
 // A read-only status lookup must report ledger network failure as unavailable, not conflict.
-const holdoutHandler = (await import('../api/final-holdout.js')).default;
+const { default: holdoutHandler, isFrozenArtifactForRows } = await import('../api/final-holdout.js');
 const previousFetch = globalThis.fetch;
 const previousUpstashUrl = process.env.UPSTASH_REDIS_REST_URL;
 const previousUpstashToken = process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -234,8 +234,9 @@ const previousUrlForInvalidState = process.env.UPSTASH_REDIS_REST_URL;
 const previousTokenForInvalidState = process.env.UPSTASH_REDIS_REST_TOKEN;
 process.env.UPSTASH_REDIS_REST_URL = 'https://ledger.invalid';
 process.env.UPSTASH_REDIS_REST_TOKEN = 'test-token';
-const { FROZEN_PROTOCOL_ID: invalidStateProtocolId, stableHash: stableHoldoutHash, freezeResearchArtifact } = await import('../lib/final-holdout-artifact-v2.js');
+const { FROZEN_PROTOCOL_ID: invalidStateProtocolId, stableHash: stableHoldoutHash, freezeResearchArtifact, buildResearchArtifact } = await import('../lib/final-holdout-artifact-v2.js');
 const { RESEARCH_CANDIDATES } = await import('../lib/predictive-research.js');
+const { modelSelectionWindowIdentity } = await import('../lib/canonical-provenance.js');
 const { runValidationBacktest } = await import('../lib/strategy-validation.js');
 const { selectionRuleVersion, metricCalculationVersion, modelSelectionAggregationMethod } = await import('../lib/canonical-provenance.js');
 const holdoutSymbolsForState = ['TCS', 'ICICIBANK', 'HDFCBANK', 'INFY'];
@@ -364,6 +365,17 @@ const holdoutMetricsForState = {
 };
 const frozenArtifactCandidate = RESEARCH_CANDIDATES[0];
 const frozenArtifactRows = Array.from({ length: 1200 }, (_, index) => ({ bar: index, close: 100 + index }));
+const canonicalRowsArtifact = buildResearchArtifact('TCS', frozenArtifactRows);
+assert.equal(isFrozenArtifactForRows('TCS', frozenArtifactRows, canonicalRowsArtifact), true,
+  'an artifact rebuilt from the same frozen history remains valid');
+const substitutedEarlierCandidate = JSON.parse(JSON.stringify(canonicalRowsArtifact));
+substitutedEarlierCandidate.selectionTrace[0].chosen = RESEARCH_CANDIDATES[1].id;
+substitutedEarlierCandidate.provenance.windowIdentity.modelSelection =
+  modelSelectionWindowIdentity(substitutedEarlierCandidate.selectionTrace);
+const { artifactHash: ignoredSubstitutionHash, ...substitutedIdentity } = substitutedEarlierCandidate;
+substitutedEarlierCandidate.artifactHash = stableHoldoutHash(substitutedIdentity);
+assert.equal(isFrozenArtifactForRows('TCS', frozenArtifactRows, substitutedEarlierCandidate), false,
+  'recomputed unkeyed hashes cannot substitute a prior window candidate before holdout execution');
 const frozenSelectionRule = 'training-only: >=8 trades, positive expectancy, PF>1, maxDD<=25%; otherwise highest training expectancy';
 const frozenSummaryKeys = [
   'windows',
