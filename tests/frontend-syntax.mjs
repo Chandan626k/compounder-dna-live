@@ -38,8 +38,9 @@ function testElement() {
       contains(name) { return classes.has(name); },
       toggle(name) { if (classes.has(name)) classes.delete(name); else classes.add(name); }
     },
-    style: {}, dataset: {}, value: '', textContent: '', innerHTML: '', className: '', onclick: null,
-    addEventListener() {}
+    style: {}, dataset: {}, value: '', textContent: '', innerHTML: '', className: '', onclick: null, listeners: {},
+    addEventListener(type, handler) { this.listeners[type] = handler; },
+    dispatch(type, event = {}) { this.listeners[type]?.(event); }
   };
 }
 const testDocument = {
@@ -94,7 +95,7 @@ if (statusElement.textContent !== '● LIVE DATA OK' || !errorElement.classList.
 symbolInput.value = 'HDFCBANK';
 const pendingWhenCleared = testContext.__testAnalyse();
 symbolInput.value = '';
-await testContext.__testAnalyse();
+symbolInput.dispatch('input');
 resolvePair('HDFCBANK');
 await pendingWhenCleared;
 if (testContext.__testRendered.length !== 2 || statusElement.textContent !== '● READY' || emptyElement.textContent !== 'Enter a symbol to load verified market, fundamental and trading data.' || !appElement.classList.contains('hidden')) throw new Error('Clearing the symbol did not invalidate the pending analysis.');
