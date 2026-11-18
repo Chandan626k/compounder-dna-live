@@ -234,7 +234,8 @@ const previousUrlForInvalidState = process.env.UPSTASH_REDIS_REST_URL;
 const previousTokenForInvalidState = process.env.UPSTASH_REDIS_REST_TOKEN;
 process.env.UPSTASH_REDIS_REST_URL = 'https://ledger.invalid';
 process.env.UPSTASH_REDIS_REST_TOKEN = 'test-token';
-const { FROZEN_PROTOCOL_ID: invalidStateProtocolId, stableHash: stableHoldoutHash } = await import('../lib/final-holdout-artifact-v2.js');
+const { FROZEN_PROTOCOL_ID: invalidStateProtocolId, stableHash: stableHoldoutHash, freezeResearchArtifact } = await import('../lib/final-holdout-artifact-v2.js');
+const { RESEARCH_CANDIDATES } = await import('../lib/predictive-research.js');
 const holdoutSymbolsForState = ['TCS', 'ICICIBANK', 'HDFCBANK', 'INFY'];
 const incompleteRunningState = {
   protocolId: invalidStateProtocolId,
@@ -359,17 +360,28 @@ const holdoutMetricsForState = {
   stopRate: null,
   timeExitRate: null,
 };
-const validFrozenArtifacts = holdoutSymbolsForState.map((symbol, index) => {
-  const artifact = {
-    protocolId: invalidStateProtocolId,
-    protocolVersion: 1,
-    symbol,
-    historyFingerprint: (index + 14).toString(16).padStart(2, '0').repeat(32),
-    finalHoldout: { status: 'UNTOUCHED', evaluated: false, selectionUsed: false },
-  };
-  artifact.artifactHash = stableHoldoutHash(artifact);
-  return artifact;
-});
+const frozenArtifactCandidate = RESEARCH_CANDIDATES[0];
+const frozenArtifactRows = Array.from({ length: 800 }, (_, index) => ({ bar: index, close: 100 + index }));
+const frozenArtifactSearch = {
+  status: 'COMPLETED',
+  method: 'WALK_FORWARD_CANDIDATE_SEARCH',
+  windows: [{
+    window: 1,
+    trainStart: 0,
+    trainEnd: 499,
+    testStart: 500,
+    testEnd: 624,
+    chosen: frozenArtifactCandidate.id,
+  }],
+  selectionRuleVersion: 'fixture-selection-rule-v1',
+  metricCalculationVersion: 'fixture-metric-calculation-v1',
+  aggregationMethod: 'fixture-aggregation-v1',
+};
+const validFrozenArtifacts = holdoutSymbolsForState.map(symbol => freezeResearchArtifact({
+  symbol,
+  rows: frozenArtifactRows,
+  candidateSearch: frozenArtifactSearch,
+}));
 const validCompletedResult = {
   protocolId: invalidStateProtocolId,
   status: 'COMPLETED',
@@ -477,6 +489,36 @@ const tamperedArtifactResponse = {
 await holdoutHandler({ method: 'GET', query: { mode: 'status' }, headers: {} }, tamperedArtifactResponse);
 assert.equal(tamperedArtifactResponse.statusCode, 409, 'tampered frozen artifact identity must be rejected');
 assert.equal(tamperedArtifactResponse.body?.code, 'HOLDOUT_SAFE_BLOCK');
+
+// A self-consistent hash is not enough: the stored artifact must still match
+// the immutable protocol version, candidate family, costs, horizon and selection.
+const frozenArtifactMutations = [
+  ['protocol version', artifact => { artifact.protocolVersion = 2; }],
+  ['candidate family', artifact => { artifact.candidateFamilyHash = '0'.repeat(64); }],
+  ['frozen costs', artifact => { artifact.costs.buyTransactionPct += 0.01; }],
+  ['frozen horizon', artifact => { artifact.horizon += 1; }],
+  ['candidate parameters', artifact => { artifact.modelSelection.candidateParameters.extraParameter = true; }],
+  ['final selection trace', artifact => { artifact.selectionTrace.at(-1).chosen = 'UNKNOWN_CANDIDATE'; }],
+  ['holdout split', artifact => { artifact.holdoutStart += 1; }],
+];
+for (const [label, mutate] of frozenArtifactMutations) {
+  const alteredArtifacts = validFrozenArtifacts.map(artifact => JSON.parse(JSON.stringify(artifact)));
+  mutate(alteredArtifacts[0]);
+  const { artifactHash: ignoredHash, ...alteredIdentity } = alteredArtifacts[0];
+  alteredArtifacts[0].artifactHash = stableHoldoutHash(alteredIdentity);
+  const alteredState = JSON.parse(JSON.stringify(validCompletedState));
+  alteredState.result.stocks[0].artifactHash = alteredArtifacts[0].artifactHash;
+  mockHoldoutLedger(alteredState, alteredArtifacts);
+  const alteredArtifactResponse = {
+    statusCode: null, body: null,
+    setHeader() { return this; },
+    status(code) { this.statusCode = code; return this; },
+    json(body) { this.body = body; return this; },
+  };
+  await holdoutHandler({ method: 'GET', query: { mode: 'status' }, headers: {} }, alteredArtifactResponse);
+  assert.equal(alteredArtifactResponse.statusCode, 409, label + ' must not be accepted even when its hash and result reference are recomputed');
+  assert.equal(alteredArtifactResponse.body?.code, 'HOLDOUT_SAFE_BLOCK');
+}
 
 // A completed state cannot claim a passing gate when the frozen gate builder's
 // own checks (including unresolved rolling, survivorship, and impact evidence) fail.
