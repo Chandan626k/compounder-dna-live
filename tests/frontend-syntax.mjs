@@ -267,7 +267,7 @@ for (const scenario of trendMatrixCases) {
     { stock: { symbol: scenario.symbol }, dataQuality: {}, provenance: { marketData: { source: 'Fixture market source' } } },
     { ...validTradingPayload(scenario.symbol), technical }
   );
-  const trendRow = testDocument.getElementById('matrix').innerHTML.match(/<tr><td>Trend<\/td>[\\s\\S]*?<\/tr>/)?.[0] || '';
+  const trendRow = testDocument.getElementById('matrix').innerHTML.split('<tr><td>Trend</td>')[1]?.split('</tr>')[0] || '';
   if (!trendRow.includes('<td>' + scenario.reading + '</td>') || !trendRow.includes('<td class="' + scenario.tone + '">' + scenario.status + '</td>')) {
     throw new Error('Trend matrix must distinguish missing, unknown, bearish, mixed and bullish readings: ' + scenario.symbol);
   }
