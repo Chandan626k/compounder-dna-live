@@ -125,6 +125,16 @@ if (statusElement.textContent !== '● ANALYSIS READY' || testContext.__testRend
 if (errorElement.classList.contains('hidden') || !errorElement.textContent.includes('Trading endpoint unavailable fixture') || !errorElement.textContent.includes('All trade actions remain NO TRADE')) throw new Error('Trading failure was not shown explicitly beside the successful analysis.');
 testContext.__testRender({ stock: { symbol: 'NO_TIMESTAMP' }, dataQuality: {}, provenance: { marketData: { source: 'Fixture market source' } } }, { technical: {}, trade: {}, longTerm: {} });
 if (testDocument.getElementById('asof').textContent !== 'MARKET DATA TIME NOT PROVIDED') throw new Error('Missing market-data timestamps must remain explicitly unavailable.');
+for (const [label, trading] of [
+  ['contradictory gate payload', { productionDecisionBlocked: false, decisionPolicy: { productionActionsEnabled: true }, technical: {}, trade: { action: 'BUY', reason: 'fixture' }, longTerm: { action: 'SELL', reason: 'fixture' } }],
+  ['missing gate payload', { technical: {}, trade: { action: 'BUY', reason: 'fixture' }, longTerm: { action: 'SELL', reason: 'fixture' } }]
+]) {
+  testContext.__testRender({ stock: { symbol: 'GATE_PAYLOAD' }, dataQuality: {}, provenance: { marketData: { source: 'Fixture market source' } } }, trading);
+  const actionsHtml = testDocument.getElementById('actions').innerHTML;
+  if ((actionsHtml.match(/NO TRADE/g) || []).length !== 3 || /\b(BUY|SELL)\b/.test(actionsHtml)) throw new Error('Terminal must fail closed for ' + label + '.');
+  if (testDocument.getElementById('tradeAction').textContent !== 'NO TRADE' || testDocument.getElementById('longAction').textContent !== 'NO TRADE') throw new Error('Terminal action badges must remain NO TRADE for ' + label + '.');
+  if (!testDocument.getElementById('tradePlan').innerHTML.includes('No production trade plan is enabled while the decision gate is blocked.')) throw new Error('Terminal must not expose a production trade plan for ' + label + '.');
+}
 const healthElements = new Map();
 const healthDocument = {
   getElementById(id) { if (!healthElements.has(id)) healthElements.set(id, testElement()); return healthElements.get(id); },

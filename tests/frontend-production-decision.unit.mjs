@@ -7,8 +7,9 @@ const html = fs.readFileSync(new URL('../public/terminal.html', import.meta.url)
 assert.equal(html.includes("const shortAction=t.score>=72"), false, 'frontend must not calculate BUY from technical score');
 assert.equal(html.includes("t.score<=30?'SELL'"), false, 'frontend must not calculate SELL from technical score');
 
-// Production action authority must be backend-only and fail closed when blocked.
-assert.match(html, /const productionBlocked=tr\?\.productionDecisionBlocked===true\|\|tr\?\.decisionPolicy\?\.productionActionsEnabled===false\|\|t\?\.productionDecisionBlocked===true/);
+// The terminal client keeps production actions disabled even if a response omits or contradicts backend gate metadata.
+assert.match(html, /const productionBlocked=true;/);
+assert.doesNotMatch(html, /const productionBlocked=tr\?/);
 assert.match(html, /const backendAction=a=>productionBlocked\?'NO TRADE':String\(a\|\|'NO TRADE'\)/);
 assert.match(html, /const shortAction=backendAction\(tr\.trade\?\.action\)/);
 
