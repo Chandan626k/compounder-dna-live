@@ -194,3 +194,21 @@ console.log('frontend health/data-freshness status checks: PASS');
 
 console.log('frontend provider-blocked-state checks: PASS');
 console.log('frontend syntax: PASS (public/terminal.html)');
+
+// The trading payload contract intentionally permits a missing/null open.
+// A missing open must not be coerced to an up/down direction in the candle UI.
+const optionalOpenChart = [
+  { date: marketAsOfFixture, close: 100, high: 101, low: 98, volume: 1000 },
+  { date: '2026-11-18T09:17:00.000Z', open: null, close: 101, high: 102, low: 99, volume: 1100 },
+  { date: '2026-11-18T09:18:00.000Z', open: 100, close: 101, high: 102, low: 99, volume: 1200 },
+  { date: '2026-11-18T09:19:00.000Z', open: 102, close: 101, high: 103, low: 100, volume: 1300 }
+];
+testContext.__testRender(
+  { stock: { symbol: 'OPTIONAL_OPEN' }, dataQuality: {}, provenance: { marketData: { source: 'Fixture market source' } } },
+  { technical: {}, trade: { action: 'NO TRADE', reason: 'fixture' }, longTerm: { action: 'NO TRADE', reason: 'fixture' }, chart: optionalOpenChart }
+);
+const optionalOpenCandleClasses = [...testDocument.getElementById('svg').innerHTML.matchAll(/<rect[^>]*class="([^"]+)"/g)].map((match) => match[1]);
+if (optionalOpenCandleClasses.join(',') !== 'neutral,neutral,up,down') {
+  throw new Error('Missing/null open candles must render neutral, while known opens retain their up/down direction.');
+}
+console.log('frontend optional-open candle direction checks: PASS');
