@@ -207,7 +207,7 @@ testContext.__testRender(
   { stock: { symbol: 'OPTIONAL_OPEN' }, dataQuality: {}, provenance: { marketData: { source: 'Fixture market source' } } },
   { technical: {}, trade: { action: 'NO TRADE', reason: 'fixture' }, longTerm: { action: 'NO TRADE', reason: 'fixture' }, chart: optionalOpenChart }
 );
-const optionalOpenCandleClasses = [...testDocument.getElementById('svg').innerHTML.matchAll(/<rect\\b[^>]*class="([^"]+)"/g)].map((match) => match[1]);
+const optionalOpenCandleClasses = [...testDocument.getElementById('svg').innerHTML.matchAll(/<rect[^>]*class="([^"]+)"/g)].map((match) => match[1]);
 if (optionalOpenCandleClasses.join(',') !== 'neutral,neutral,up,down') {
   throw new Error('Missing/null open candles must render neutral, while known opens retain their up/down direction.');
 }
