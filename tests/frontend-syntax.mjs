@@ -141,7 +141,7 @@ for (const [symbol, payload] of [
   if (statusElement.textContent !== '● ANALYSIS READY' || appElement.classList.contains('hidden')) throw new Error('Malformed trading JSON must not hide successful analysis: ' + symbol);
   if (errorElement.classList.contains('hidden') || !errorElement.textContent.includes('invalid JSON object') || !errorElement.textContent.includes('All trade actions remain NO TRADE')) throw new Error('Malformed trading JSON must be surfaced as unavailable: ' + symbol);
   const malformedActions = testDocument.getElementById('actions').innerHTML;
-  if ((malformedActions.match(/NO TRADE/g) || []).length !== 3 || /\\b(BUY|SELL)\\b/.test(malformedActions)) throw new Error('Malformed trading JSON must keep every action blocked: ' + symbol);
+  if ((malformedActions.match(/NO TRADE/g) || []).length !== 3 || /\b(BUY|SELL)\b/.test(malformedActions)) throw new Error('Malformed trading JSON must keep every action blocked: ' + symbol);
   if (!testDocument.getElementById('tradePlan').innerHTML.includes('No production trade plan is enabled while the decision gate is blocked.')) throw new Error('Malformed trading JSON must not expose a production trade plan: ' + symbol);
 }
 
