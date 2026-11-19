@@ -46,9 +46,11 @@ function testElement() {
     dispatch(type, event = {}) { this.listeners[type]?.(event); }
   };
 }
+const levelToggle = testElement();
+levelToggle.dataset.ind = 'levels';
 const testDocument = {
   getElementById(id) { if (!elements.has(id)) elements.set(id, testElement()); return elements.get(id); },
-  querySelectorAll() { return []; }
+  querySelectorAll(selector) { return selector === '.toggle' ? [levelToggle] : []; }
 };
 let resolveHealth;
 const healthPromise = new Promise((resolve) => { resolveHealth = resolve; });
@@ -212,3 +214,40 @@ if (optionalOpenCandleClasses.join(',') !== 'neutral,neutral,up,down') {
   throw new Error('Missing/null open candles must render neutral, while known opens retain their up/down direction.');
 }
 console.log('frontend optional-open candle direction checks: PASS');
+
+// Optional support/resistance values must remain unavailable rather than
+// being marked confirmed or producing invalid SVG coordinates.
+const missingLevelsTrading = {
+  ...validTradingPayload('MISSING_LEVELS'),
+  technical: { trend: 'MIXED', score: 50, why: [] }
+};
+testContext.__testRender(
+  { stock: { symbol: 'MISSING_LEVELS' }, dataQuality: {}, provenance: { marketData: { source: 'Fixture market source' } } },
+  missingLevelsTrading
+);
+const missingLevelsMatrix = testDocument.getElementById('matrix').innerHTML;
+if (!missingLevelsMatrix.includes('<td>Support</td>') || !missingLevelsMatrix.includes('<td>Resistance</td>') || (missingLevelsMatrix.match(/NOT AVAILABLE/g) || []).length < 2) {
+  throw new Error('Missing support/resistance values must each be marked NOT AVAILABLE.');
+}
+levelToggle.onclick();
+const missingLevelsSvg = testDocument.getElementById('svg').innerHTML;
+if (/class="level"/.test(missingLevelsSvg) || /NaN|undefined/.test(missingLevelsSvg)) {
+  throw new Error('Unavailable support/resistance values must not produce chart lines or invalid SVG coordinates.');
+}
+const partialLevelsTrading = {
+  ...validTradingPayload('PARTIAL_LEVELS'),
+  technical: { trend: 'MIXED', score: 50, why: [], support: 99 }
+};
+testContext.__testRender(
+  { stock: { symbol: 'PARTIAL_LEVELS' }, dataQuality: {}, provenance: { marketData: { source: 'Fixture market source' } } },
+  partialLevelsTrading
+);
+const partialLevelsSvg = testDocument.getElementById('svg').innerHTML;
+if ((partialLevelsSvg.match(/class="level"/g) || []).length !== 1 || /NaN|undefined/.test(partialLevelsSvg)) {
+  throw new Error('A supplied support level must render without inventing a missing resistance level.');
+}
+if (!testDocument.getElementById('matrix').innerHTML.includes('NOT AVAILABLE')) {
+  throw new Error('A missing resistance value must remain visibly unavailable when support alone is supplied.');
+}
+console.log('frontend optional support/resistance checks: PASS');
+
