@@ -251,3 +251,27 @@ if (!testDocument.getElementById('matrix').innerHTML.includes('NOT AVAILABLE')) 
 }
 console.log('frontend optional support/resistance checks: PASS');
 
+const trendMatrixCases = [
+  { symbol: 'MISSING_TREND', trend: undefined, reading: 'Not Available', status: 'NOT AVAILABLE', tone: 'wait' },
+  { symbol: 'NULL_TREND', trend: null, reading: 'Not Available', status: 'NOT AVAILABLE', tone: 'wait' },
+  { symbol: 'EMPTY_TREND', trend: '   ', reading: 'Not Available', status: 'NOT AVAILABLE', tone: 'wait' },
+  { symbol: 'UNKNOWN_TREND', trend: 'SIDEWAYS', reading: 'Not Available', status: 'NOT AVAILABLE', tone: 'wait' },
+  { symbol: 'DOWNTREND', trend: 'DOWNTREND', reading: 'DOWNTREND', status: 'BEARISH', tone: 'sell' },
+  { symbol: 'MIXED_TREND', trend: 'RECOVERING / MIXED', reading: 'RECOVERING / MIXED', status: 'MIXED', tone: 'wait' },
+  { symbol: 'UPTREND', trend: 'UPTREND', reading: 'UPTREND', status: 'CONFIRMED', tone: 'buy' }
+];
+for (const scenario of trendMatrixCases) {
+  const technical = { score: 50, why: [] };
+  if (scenario.trend !== undefined) technical.trend = scenario.trend;
+  testContext.__testRender(
+    { stock: { symbol: scenario.symbol }, dataQuality: {}, provenance: { marketData: { source: 'Fixture market source' } } },
+    { ...validTradingPayload(scenario.symbol), technical }
+  );
+  const trendRow = testDocument.getElementById('matrix').innerHTML.split('<tr><td>Trend</td>')[1]?.split('</tr>')[0] || '';
+  if (!trendRow.includes('<td>' + scenario.reading + '</td>') || !trendRow.includes('<td class="' + scenario.tone + '">' + scenario.status + '</td>')) {
+    throw new Error('Trend matrix must distinguish missing, unknown, bearish, mixed and bullish readings: ' + scenario.symbol);
+  }
+}
+console.log('frontend trend availability and direction checks: PASS');
+
+
