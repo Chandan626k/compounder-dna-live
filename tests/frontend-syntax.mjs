@@ -140,6 +140,11 @@ for (const [symbol, payload] of [
   ['SINGLE_ROW_CHART_TRADING', { ...validTradingPayload('SINGLE_ROW_CHART_TRADING'), chart: [validChartFixture[0]] }],
   ['NULL_CHART_ROW_TRADING', { ...validTradingPayload('NULL_CHART_ROW_TRADING'), chart: [null, validChartFixture[1]] }],
   ['MISSING_CHART_VOLUME_TRADING', { ...validTradingPayload('MISSING_CHART_VOLUME_TRADING'), chart: [{ ...validChartFixture[0], volume: null }, validChartFixture[1]] }],
+  ['NEGATIVE_CHART_VOLUME_TRADING', { ...validTradingPayload('NEGATIVE_CHART_VOLUME_TRADING'), chart: [{ ...validChartFixture[0], volume: -1 }, validChartFixture[1]] }],
+  ['INVERTED_CHART_RANGE_TRADING', { ...validTradingPayload('INVERTED_CHART_RANGE_TRADING'), chart: [{ ...validChartFixture[0], high: 97 }, validChartFixture[1]] }],
+  ['CLOSE_OUTSIDE_CHART_RANGE_TRADING', { ...validTradingPayload('CLOSE_OUTSIDE_CHART_RANGE_TRADING'), chart: [{ ...validChartFixture[0], close: 103 }, validChartFixture[1]] }],
+  ['OPEN_OUTSIDE_CHART_RANGE_TRADING', { ...validTradingPayload('OPEN_OUTSIDE_CHART_RANGE_TRADING'), chart: [{ ...validChartFixture[0], open: 97 }, validChartFixture[1]] }],
+  ['NONPOSITIVE_CHART_PRICE_TRADING', { ...validTradingPayload('NONPOSITIVE_CHART_PRICE_TRADING'), chart: [{ ...validChartFixture[0], low: 0 }, validChartFixture[1]] }],
   ['MISSING_ACTION_TRADING', { ...validTradingPayload('MISSING_ACTION_TRADING'), trade: { reason: 'missing action' } }]
 ]) {
   symbolInput.value = symbol;
