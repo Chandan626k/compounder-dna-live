@@ -63,7 +63,11 @@ const errorElement = testDocument.getElementById('err');
 const emptyElement = testDocument.getElementById('empty');
 const appElement = testDocument.getElementById('app');
 const marketAsOfFixture = '2026-11-18T09:15:00.000Z';
-const responseFor = (url, symbol) => ({ ok: true, json: () => Promise.resolve(url.startsWith('/api/analyze') ? { stock: { symbol }, dataQuality: { confidence: 0 }, provenance: { marketData: { source: 'Fixture market source', interval: '1d', asOf: marketAsOfFixture, currency: 'INR' } } } : { technical: {}, trade: {}, longTerm: {} }) });
+const validChartFixture = [
+  { date: marketAsOfFixture, open: 99, close: 100, high: 101, low: 98, volume: 1000 },
+  { date: '2026-11-18T09:16:00.000Z', open: 100, close: 101, high: 102, low: 99, volume: 1100 }
+];
+const responseFor = (url, symbol) => ({ ok: true, json: () => Promise.resolve(url.startsWith('/api/analyze') ? { stock: { symbol }, dataQuality: { confidence: 0 }, provenance: { marketData: { source: 'Fixture market source', interval: '1d', asOf: marketAsOfFixture, currency: 'INR' } } } : { symbol, price: 100, currency: 'INR', asOf: marketAsOfFixture, chart: validChartFixture, technical: { trend: 'MIXED', score: 50, why: [] }, trade: { action: 'NO TRADE', reason: 'fixture' }, longTerm: { action: 'NO TRADE', reason: 'fixture' } }) });
 function resolvePair(symbol) {
   for (const url of ['/api/analyze?symbol=' + symbol, '/api/trading?symbol=' + symbol]) {
     const request = pendingRequests.get(url);
@@ -123,10 +127,20 @@ partialTradingRequest.reject(new Error('Trading endpoint unavailable fixture'));
 await partialTradingFailure;
 if (statusElement.textContent !== '● ANALYSIS READY' || testContext.__testRendered.at(-1) !== 'SBIN') throw new Error('Trading failure must not hide successful analysis.');
 if (errorElement.classList.contains('hidden') || !errorElement.textContent.includes('Trading endpoint unavailable fixture') || !errorElement.textContent.includes('All trade actions remain NO TRADE')) throw new Error('Trading failure was not shown explicitly beside the successful analysis.');
+const validTradingPayload = (symbol) => ({ symbol, price: 100, currency: 'INR', asOf: marketAsOfFixture, chart: validChartFixture, technical: { trend: 'MIXED', score: 50, why: [] }, trade: { action: 'BUY', reason: 'fixture' }, longTerm: { action: 'SELL', reason: 'fixture' } });
 for (const [symbol, payload] of [
   ['NULL_TRADING', null],
   ['ARRAY_TRADING', []],
-  ['STRING_TRADING', 'untrusted trading response']
+  ['STRING_TRADING', 'untrusted trading response'],
+  ['EMPTY_OBJECT_TRADING', {}],
+  ['WRONG_SYMBOL_TRADING', validTradingPayload('OTHER')],
+  ['ARRAY_TECHNICAL_TRADING', { ...validTradingPayload('ARRAY_TECHNICAL_TRADING'), technical: [] }],
+  ['MISSING_CHART_TRADING', { ...validTradingPayload('MISSING_CHART_TRADING'), chart: null }],
+  ['EMPTY_CHART_TRADING', { ...validTradingPayload('EMPTY_CHART_TRADING'), chart: [] }],
+  ['SINGLE_ROW_CHART_TRADING', { ...validTradingPayload('SINGLE_ROW_CHART_TRADING'), chart: [validChartFixture[0]] }],
+  ['NULL_CHART_ROW_TRADING', { ...validTradingPayload('NULL_CHART_ROW_TRADING'), chart: [null, validChartFixture[1]] }],
+  ['MISSING_CHART_VOLUME_TRADING', { ...validTradingPayload('MISSING_CHART_VOLUME_TRADING'), chart: [{ ...validChartFixture[0], volume: null }, validChartFixture[1]] }],
+  ['MISSING_ACTION_TRADING', { ...validTradingPayload('MISSING_ACTION_TRADING'), trade: { reason: 'missing action' } }]
 ]) {
   symbolInput.value = symbol;
   const malformedTrading = testContext.__testAnalyse();
@@ -139,7 +153,7 @@ for (const [symbol, payload] of [
   tradingRequest.resolve({ ok: true, json: () => Promise.resolve(payload) });
   await malformedTrading;
   if (statusElement.textContent !== '● ANALYSIS READY' || appElement.classList.contains('hidden')) throw new Error('Malformed trading JSON must not hide successful analysis: ' + symbol);
-  if (errorElement.classList.contains('hidden') || !errorElement.textContent.includes('invalid JSON object') || !errorElement.textContent.includes('All trade actions remain NO TRADE')) throw new Error('Malformed trading JSON must be surfaced as unavailable: ' + symbol);
+  if (errorElement.classList.contains('hidden') || !errorElement.textContent.includes('invalid response shape or symbol') || !errorElement.textContent.includes('All trade actions remain NO TRADE')) throw new Error('Malformed trading JSON must be surfaced as unavailable: ' + symbol);
   const malformedActions = testDocument.getElementById('actions').innerHTML;
   if ((malformedActions.match(/NO TRADE/g) || []).length !== 3 || /\b(BUY|SELL)\b/.test(malformedActions)) throw new Error('Malformed trading JSON must keep every action blocked: ' + symbol);
   if (!testDocument.getElementById('tradePlan').innerHTML.includes('No production trade plan is enabled while the decision gate is blocked.')) throw new Error('Malformed trading JSON must not expose a production trade plan: ' + symbol);
