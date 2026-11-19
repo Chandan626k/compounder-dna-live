@@ -123,6 +123,28 @@ partialTradingRequest.reject(new Error('Trading endpoint unavailable fixture'));
 await partialTradingFailure;
 if (statusElement.textContent !== '● ANALYSIS READY' || testContext.__testRendered.at(-1) !== 'SBIN') throw new Error('Trading failure must not hide successful analysis.');
 if (errorElement.classList.contains('hidden') || !errorElement.textContent.includes('Trading endpoint unavailable fixture') || !errorElement.textContent.includes('All trade actions remain NO TRADE')) throw new Error('Trading failure was not shown explicitly beside the successful analysis.');
+for (const [symbol, payload] of [
+  ['NULL_TRADING', null],
+  ['ARRAY_TRADING', []],
+  ['STRING_TRADING', 'untrusted trading response']
+]) {
+  symbolInput.value = symbol;
+  const malformedTrading = testContext.__testAnalyse();
+  const analyzeRequest = pendingRequests.get('/api/analyze?symbol=' + symbol);
+  const tradingRequest = pendingRequests.get('/api/trading?symbol=' + symbol);
+  if (!analyzeRequest || !tradingRequest) throw new Error('Missing deferred requests for malformed trading payload: ' + symbol);
+  analyzeRequest.resolve(responseFor('/api/analyze?symbol=' + symbol, symbol));
+  await new Promise((resolve) => setImmediate(resolve));
+  if (testContext.__testRendered.at(-1) !== symbol || appElement.classList.contains('hidden')) throw new Error('Successful analysis must render before malformed trading data settles: ' + symbol);
+  tradingRequest.resolve({ ok: true, json: () => Promise.resolve(payload) });
+  await malformedTrading;
+  if (statusElement.textContent !== '● ANALYSIS READY' || appElement.classList.contains('hidden')) throw new Error('Malformed trading JSON must not hide successful analysis: ' + symbol);
+  if (errorElement.classList.contains('hidden') || !errorElement.textContent.includes('invalid JSON object') || !errorElement.textContent.includes('All trade actions remain NO TRADE')) throw new Error('Malformed trading JSON must be surfaced as unavailable: ' + symbol);
+  const malformedActions = testDocument.getElementById('actions').innerHTML;
+  if ((malformedActions.match(/NO TRADE/g) || []).length !== 3 || /\\b(BUY|SELL)\\b/.test(malformedActions)) throw new Error('Malformed trading JSON must keep every action blocked: ' + symbol);
+  if (!testDocument.getElementById('tradePlan').innerHTML.includes('No production trade plan is enabled while the decision gate is blocked.')) throw new Error('Malformed trading JSON must not expose a production trade plan: ' + symbol);
+}
+
 testContext.__testRender({ stock: { symbol: 'NO_TIMESTAMP' }, dataQuality: {}, provenance: { marketData: { source: 'Fixture market source' } } }, { technical: {}, trade: {}, longTerm: {} });
 if (testDocument.getElementById('asof').textContent !== 'MARKET DATA TIME NOT PROVIDED') throw new Error('Missing market-data timestamps must remain explicitly unavailable.');
 for (const [label, trading] of [
