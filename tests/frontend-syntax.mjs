@@ -131,7 +131,7 @@ for (const [label, trading] of [
 ]) {
   testContext.__testRender({ stock: { symbol: 'GATE_PAYLOAD' }, dataQuality: {}, provenance: { marketData: { source: 'Fixture market source' } } }, trading);
   const actionsHtml = testDocument.getElementById('actions').innerHTML;
-  if ((actionsHtml.match(/NO TRADE/g) || []).length !== 3 || /\\b(BUY|SELL)\\b/.test(actionsHtml)) throw new Error('Terminal must fail closed for ' + label + '.');
+  if ((actionsHtml.match(/NO TRADE/g) || []).length !== 3 || /\b(BUY|SELL)\b/.test(actionsHtml)) throw new Error('Terminal must fail closed for ' + label + '.');
   if (testDocument.getElementById('tradeAction').textContent !== 'NO TRADE' || testDocument.getElementById('longAction').textContent !== 'NO TRADE') throw new Error('Terminal action badges must remain NO TRADE for ' + label + '.');
   if (!testDocument.getElementById('tradePlan').innerHTML.includes('No production trade plan is enabled while the decision gate is blocked.')) throw new Error('Terminal must not expose a production trade plan for ' + label + '.');
 }
