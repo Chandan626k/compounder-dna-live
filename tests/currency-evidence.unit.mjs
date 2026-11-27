@@ -59,7 +59,29 @@ assert.equal(mismatched.rawAvailability.annualStatements, false);
 assert.equal(mismatched.rawAvailability.annualBalanceSheet, false);
 assert.equal(mismatched.rawAvailability.annualCashFlow, false);
 assert.equal(mismatched.statementEvidence.currency.status, 'MISMATCH');
-assert.match(mismatched.sourceNote, /currency.*differs from trading currency/i);
+assert.match(mismatched.sourceNote, /currency identity is not explicitly matched/i);
+
+
+const unknownCurrency = mergeStatementEvidence(baseFinancials, {
+  provider: 'Yahoo Finance fundamentalsTimeSeries',
+  currency: { tradingCurrency: 'INR', financialCurrency: null, status: 'UNKNOWN' },
+  coverage: { income: true, balanceSheet: true, cashFlow: true },
+  evidence: {
+    balance: {
+      totalDebt: { value: 999, key: 'totalDebt', date: '2026-03-31T00:00:00.000Z' },
+      cash: { value: 888, key: 'cashAndCashEquivalents', date: '2026-03-31T00:00:00.000Z' },
+    },
+    cash: { freeCashFlow: { value: 777, key: 'freeCashFlow', date: '2026-03-31T00:00:00.000Z' } },
+  },
+});
+for (const key of ['revenue', 'ebitda', 'netIncome', 'freeCashFlow', 'operatingCashFlow', 'totalDebt', 'netDebt', 'cash', 'equity', 'currentAssets', 'currentLiabilities']) {
+  assert.equal(unknownCurrency.current[key], null, `${key} must remain blocked when currency identity is unknown`);
+}
+assert.equal(unknownCurrency.rawAvailability.annualStatements, false);
+assert.equal(unknownCurrency.rawAvailability.annualBalanceSheet, false);
+assert.equal(unknownCurrency.rawAvailability.annualCashFlow, false);
+assert.equal(unknownCurrency.statementEvidence.currency.status, 'UNKNOWN');
+assert.match(unknownCurrency.sourceNote, /currency identity is not explicitly matched/i);
 
 const matched = mergeStatementEvidence(
   { current: { totalDebt: null, cash: null, freeCashFlow: null }, derived: {}, rawAvailability: {} },

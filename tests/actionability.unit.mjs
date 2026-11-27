@@ -96,4 +96,52 @@ assert.equal((actionabilitySourceText.match(/fetchStatementEvidence/g) || []).le
 assert.equal((actionabilitySourceText.match(/mergeStatementEvidence/g) || []).length, 0, 'actionability must not merge statement evidence independently');
 assert.match(actionabilitySourceText, /analysis\.fundamentals\?\.statementEvidence/);
 
+// Every public provider-backed route must fail closed before making a provider request.
+const policyCode = 'AUTHORIZED_MARKET_DATA_SOURCE_NOT_CONFIGURED';
+const previousFetch = globalThis.fetch;
+let providerCalls = 0;
+globalThis.fetch = async () => {
+  providerCalls += 1;
+  throw new Error('Provider fetch must not occur while access is blocked');
+};
+try {
+  const routeCases = [
+    ['actionability', (await import('../api/actionability.js')).default, { method: 'GET', query: { symbol: 'TCS.NS' }, headers: {} }],
+    ['analyze GET', (await import('../api/analyze.js')).default, { method: 'GET', query: { symbol: 'TCS.NS' }, headers: {} }],
+    ['analyze POST', (await import('../api/analyze.js')).default, { method: 'POST', body: { symbol: 'TCS.NS' }, query: {}, headers: {} }],
+    ['analyze-gated', (await import('../api/analyze-gated.js')).default, { method: 'GET', query: { symbol: 'TCS.NS' }, headers: {} }],
+    ['backtest', (await import('../api/backtest.js')).default, { method: 'GET', query: { symbol: 'TCS.NS' }, headers: {} }],
+    ['data-foundation', (await import('../api/data-foundation.js')).default, { method: 'GET', query: { symbol: 'TCS.NS' }, headers: {} }],
+    ['data', (await import('../api/data.js')).default, { method: 'POST', body: { type: 'quote', symbol: 'TCS.NS' }, query: {}, headers: {} }],
+    ['investment-readiness', (await import('../api/investment-readiness.js')).default, { method: 'GET', query: { symbol: 'TCS.NS' }, headers: {} }],
+    ['scan GET', (await import('../api/scan.js')).default, { method: 'GET', query: { symbols: 'TCS.NS' }, headers: {} }],
+    ['scan POST', (await import('../api/scan.js')).default, { method: 'POST', body: { symbols: ['TCS.NS'] }, query: {}, headers: {} }],
+    ['trading', (await import('../api/trading.js')).default, { method: 'GET', query: { symbol: 'TCS.NS' }, headers: {} }],
+    ['validate-strategy', (await import('../api/validate-strategy.js')).default, { method: 'GET', query: { symbol: 'TCS.NS' }, headers: {} }],
+    ['holdout prepare', (await import('../api/final-holdout.js')).default, { method: 'GET', query: { mode: 'prepare' }, headers: {} }],
+    ['holdout execute', (await import('../api/final-holdout.js')).default, { method: 'GET', query: { mode: 'execute' }, headers: {} }],
+  ];
+  for (const [name, handler, req] of routeCases) {
+    const res = {
+      statusCode: null, headers: {}, body: null,
+      setHeader(key, value) { this.headers[key] = value; return this; },
+      status(code) { this.statusCode = code; return this; },
+      json(body) { this.body = body; return this; },
+      end() { this.ended = true; return this; },
+    };
+    await handler(req, res);
+    assert.equal(res.statusCode, 503, name + ' must return HTTP 503');
+    assert.equal(res.body?.code, policyCode, name + ' must return the shared access-policy code');
+    assert.equal(res.body?.policy?.providerRequestMade, false, name + ' must not call a provider');
+  }
+  assert.equal(providerCalls, 0, 'blocked routes must not call fetch');
+} finally {
+  globalThis.fetch = previousFetch;
+}
+const finalHoldoutSource = await actionabilitySource.readFile(new URL('../api/final-holdout.js', import.meta.url), 'utf8');
+assert.ok(finalHoldoutSource.includes("if (mode === 'status')"), 'read-only final-holdout status mode must remain available');
+const serverSource = await actionabilitySource.readFile(new URL('../server.js', import.meta.url), 'utf8');
+assert.ok(serverSource.includes("app.get('/api/analyze', (req, res) => sendMarketDataUnavailable(res))"), 'local Express analyze route must use the same guard');
+
 console.log('actionability unit tests passed');
+console.log('market-data access guard regressions passed');

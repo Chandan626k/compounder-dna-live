@@ -1,0 +1,56 @@
+name: Mainline Market Data Access Guard Validation
+
+on:
+  push:
+    branches:
+      - 'fix/mainline-market-data-access-fail-closed-*'
+    paths:
+      - 'api/**'
+      - 'lib/market-data-access-policy.js'
+      - 'server.js'
+      - 'tests/actionability.unit.mjs'
+      - 'tests/market-engine.unit.mjs'
+      - 'tests/currency-evidence.unit.mjs'
+      - 'tests/frontend-syntax.mjs'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/market-data-access-guard-validation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact pushed commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Focused market-data and currency regressions
+        run: node tests/actionability.unit.mjs && node tests/market-engine.unit.mjs && node tests/currency-evidence.unit.mjs
+      - name: Full test and syntax suite
+        run: npm test
+  dependency-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact pushed commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Audit dependencies
+        run: npm audit --audit-level=low

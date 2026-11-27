@@ -1,3 +1,4 @@
+import { sendMarketDataUnavailable } from '../lib/market-data-access-policy.js';
 import { verifiedHistory } from '../lib/market-data-provider.js';
 import { runValidationBacktest } from '../lib/strategy-validation.js';
 import { buyAndHoldBenchmark } from '../lib/predictive-research.js';
@@ -94,6 +95,7 @@ export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ success:false, error:'Method not allowed' });
   try {
     const mode = String(req.query?.mode || 'status').toLowerCase();
+    if (mode === 'prepare' || mode === 'execute') return sendMarketDataUnavailable(res);
     if (mode === 'status') {
       const state = parseState(await import('../lib/holdout-ledger.js').then(({ durableHoldoutState }) => durableHoldoutState(FROZEN_PROTOCOL_ID)));
       return res.status(200).json({ success:true, protocolId:FROZEN_PROTOCOL_ID, status:state?.status || 'NOT_STARTED', finalHoldoutOpened:Boolean(state && state.status === 'COMPLETED') });
