@@ -11,6 +11,7 @@ on:
       - 'tests/actionability.unit.mjs'
       - 'tests/market-engine.unit.mjs'
       - 'tests/currency-evidence.unit.mjs'
+      - 'tests/frontend-syntax.mjs'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/market-data-access-guard-validation.yml'
