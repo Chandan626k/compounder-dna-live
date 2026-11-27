@@ -10,6 +10,7 @@ on:
       - 'server.js'
       - 'tests/actionability.unit.mjs'
       - 'tests/market-engine.unit.mjs'
+      - 'tests/currency-evidence.unit.mjs'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/market-data-access-guard-validation.yml'
@@ -32,8 +33,8 @@ jobs:
           cache: npm
       - name: Install locked dependencies
         run: npm ci
-      - name: Focused market-data access guard regressions
-        run: node tests/actionability.unit.mjs
+      - name: Focused market-data and currency regressions
+        run: node tests/actionability.unit.mjs && node tests/market-engine.unit.mjs && node tests/currency-evidence.unit.mjs
       - name: Full test and syntax suite
         run: npm test
   dependency-audit:
