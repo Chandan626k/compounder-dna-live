@@ -333,3 +333,90 @@ A broker login, personal trading account, API key, free API tier, read-only toke
 - No strategy, scanner rule, candidate definition, frozen research/holdout architecture, strategy parameter or backtest mathematics is changed.
 
 This is an engineering source-readiness record, not legal advice. Obtain qualified legal/compliance review of the actual agreement and applicable exchange/regulatory requirements before onboarding any source.
+
+
+## Current re-verification — 27 November 2026
+
+This addendum records public-source changes verified on 27 November 2026. It supersedes earlier time-sensitive facts only where explicitly stated; earlier restrictions remain in force. This was desk research only: no provider was contacted, no API data request was made, and no account, trial, key, subscription, purchase, agreement, adapter, cache, or ingestion was created.
+
+### Regulatory update — SEBI's 30-day educational-data lag
+
+SEBI Circular HO/47/17/12(11)2025-MRD-POD3/I/11107/2026, dated 8 May 2026 and applicable from 1 July 2026, changes the educational-data provisions. Market price data may be shared for investor education and awareness activities only with a 30-day lag, without monetary incentives to participants, and under an appropriate legal agreement. The one-day-lag exception is specifically for NISM's simulation lab. The circular also clarifies that a person engaged solely in education must not use the preceding 30 days' market-price data to identify a security by name or code while discussing future price, advice, or recommendations.
+
+This is not a blanket permission for a paid stock-research platform, real-time display, or a general virtual-trading product. StockSamjho must not rely on the education exception without qualified legal review of its actual features and business model, plus written exchange/intermediary permission. In particular, do not treat a 30-day delay as an automatic workaround for data display or paper-portfolio valuation.
+
+Primary source: https://www.sebi.gov.in/sebi_data/attachdocs/may-2026/1778242522289.pdf
+SEBI circular page: https://www.sebi.gov.in/legal/circulars/may-2026/norms-for-sharing-and-usage-of-price-data-for-educational-purposes_101293.html
+
+### BharatStock — current technical and rights re-check
+
+**Technical coverage and freshness**
+
+- The current Stocks page reports 5,698 active listed Indian equities across NSE and BSE. The API reference describes NSE SME/EMERGE price coverage and gives a BSE-exclusive SME listing as an example. Treat 5,698 as the provider's published count, not an independent reconciliation to StockSamjho's exact equity-share-only universe.
+- The service is explicitly end-of-day and historical, not a live/tick feed. Prices are ingested after market close; financials and shareholding refresh on filing cadence.
+- The provider advertises more than 11 years of daily price history and normalized quarterly/annual financials. Its API exposes exchange and ISIN fields, supports explicit exchange/ISIN disambiguation for shared tickers, and offers a paginated stock master (maximum 200 rows/page) and batch quotes (maximum 50 symbols/call).
+- The current published Developer plan is ₹1,500/month before tax with 8,000 requests/day; Business is ₹3,000/month with 15,000/day; Pro is ₹5,000/month with 30,000/day. These are published list prices, not a quote or approval. A complete historical backfill and repeated full-universe refresh need quota modelling; a full all-stock refresh must not be assumed to fit the Developer quota without measuring endpoint calls and pagination.
+- The provider's own documentation says BSE-exclusive sector/industry values are inferred and may be null, its data_coverage object is a structural statement rather than a live per-stock completeness check, and some BSE-only microcaps/SME listings have prices but little or no structured financial history. Do not promise complete fundamentals for every one of the 5,698 securities.
+
+Sources:
+- https://bharatstockapi.com/stocks
+- https://bharatstockapi.com/reference
+- https://bharatstockapi.com/
+
+**Current Terms and commercial fit**
+
+The current Terms identify the operator as BharatStock Technologies Private Limited (updated from the sole-proprietorship description in the earlier review). Paid-tier Permitted Display includes company financials, shareholding, corporate actions, insider/PIT disclosures, mutual-fund data, and genuine Customer Derivatives, subject to attribution, active subscription, and underlying-source restrictions. Raw exchange data — including EOD prices, OHLCV, index values, and exchange-sourced deals/flows — still requires StockSamjho's own direct exchange display/redistribution licence for public display. BharatStock does not pass that exchange licence through.
+
+The current Terms also retain material conditions:
+
+- API keys are bound to the registered user/entity and cannot be shared; keep any key server-side.
+- A Competing Product restriction remains. StockSamjho is an equity-research/stock-analysis product, so its use may fall within or near the restriction. Obtain a signed, StockSamjho-specific determination or carve-out before using the service.
+- Request-time API retrieval by an AI agent/application to answer a user query is described as permitted. However, use of the Data to train, fine-tune, ground, embed, or evaluate an AI/ML model or product distributed, sold, licensed, or embedded for third parties requires a separate written Model Training License. StockSamjho's planned flow sends structured provider data into an AI prompt at inference time; obtain explicit written confirmation that this exact runtime inference/grounding use is permitted. Do not infer permission from the generic request-time-query sentence.
+- Data is EOD/historical/cached and the provider gives no real-time/tick feed or default uptime SLA.
+- The financials as_of filter limits records to periods filed by a requested date, but the returned values are the values held today, including later corrections. It is not an immutable historical-value snapshot. Keep PIT_UNKNOWN / UNAVAILABLE for point-in-time backtests and frozen holdout evaluation.
+- The public terms do not establish a StockSamjho-specific right to value the ₹5,00,000 virtual paper portfolio with the provider's exchange prices. Keep automatic provider-based paper marks disabled unless the provider and relevant exchange rights are confirmed in writing.
+
+The provider's current Terms, API Reference, and pricing must be read together; the marketing description of commercial use does not override the specific Exchange Data, Competing Product, AI/model, retention, or source-rights clauses.
+
+Sources:
+- https://bharatstockapi.com/terms
+- https://bharatstockapi.com/reference
+- https://bharatstockapi.com/data-sources
+
+### Exchange-direct and enterprise alternatives
+
+**NSE Data & Analytics.** The domestic tariff effective 1 April 2026 lists Capital Market EOD data at ₹1,00,000 per annum per medium and EOD Corporate Data at ₹5,00,000 per annum per site, before applicable taxes. NSE's policy requires a Relevant Agreement specifying intended use and how data may be received, handled, displayed, transmitted, or disseminated; redistribution is not allowed except as the agreement permits. These list prices are not a complete StockSamjho quote or a blanket public-display permission.
+
+Sources:
+- https://www.nseindia.com/static/market-data/eod-historical-data-subscription
+- https://nsearchives.nseindia.com/web/mediaattachment/2026-04/Download_Pricing_file_-_Domestic_clients_20260424122229.pdf
+- https://betanseapi.nseindia.com/static/market-data/nse-data-policy
+
+**BSE Self Data Feed.** BSE's current self-service portal describes Equity Data API, Corporate Data API, and Delayed Data API products. Its onboarding sequence requires registration/KYC, plan selection, agreement on pricing and agreements, and payment; selected feeds may have limited trial access. The public portal did not expose a current readable 2026 tariff during this review. The publicly accessible BSE domestic tariff PDF is dated February 2025 and must not be treated as a current 2026 quote. Obtain current written pricing and StockSamjho-specific rights directly from BSE.
+
+Sources:
+- https://marketdata.bseindia.com/
+- https://www.bseindia.com/downloads1/Information_Products_Pricing_Sheet.pdf
+
+**TrueData.** The current API product describes REST/WebSocket access, real-time and historical data, NSE/BSE/MCX coverage, and corporate/fundamental APIs. The same API page says standard subscriber data is for the subscriber's own use, must not be shared/displayed/redistributed to third parties, and is not supplied for gaming, virtual trading, or simulation. It describes a single-subscriber licence and says commercial display, enterprise-wide access, and third-party use require prior exchange approval/licensing. The ₹1,699/month Velocity price is for a desktop data plugin, not evidence of a StockSamjho SaaS/API redistribution licence. Treat TrueData only as an enterprise/custom-licence candidate pending a signed contract and exchange approvals.
+
+Source: https://www.truedata.in/products/marketdataapi
+
+**NSE Cogencis Enterprise Solutions.** Its enterprise API remains a plausible technical due-diligence candidate, but public material reviewed does not establish StockSamjho's downstream display, derived-analysis, AI grounding, storage, paper-simulation, or redistribution rights, nor a public price. Keep UNKNOWN until a written proposal and contract resolve those points.
+
+### Updated decision and implementation gates
+
+1. **Best low-cost EOD technical candidate:** BharatStock has the strongest public evidence so far for a broad NSE/BSE EOD universe and statutory financial data. It is not approved for StockSamjho yet. Before any account or integration, obtain written confirmation of: StockSamjho's non-competing status or a signed carve-out; request-time AI inference/grounding permission; permitted end-user display of derived analytics; data storage/cache/retention; paper-portfolio valuation; upstream source rights; BSE SME coverage and completeness; rate limits and an SLA if required. Raw exchange-price display remains blocked without direct exchange rights. No PIT-sensitive backtests may consume its current as_of values.
+2. **Best live-data due-diligence route:** request a custom enterprise proposal from TrueData and/or NSE Data & Analytics plus BSE Self Data Feed. Do not use a retail broker token or desktop-only subscription as a shared SaaS feed. A split-source design may be necessary for exchange prices versus statutory financial disclosures.
+3. **No provider is currently authorized/configured for the full StockSamjho product scope.** Do not remove the fail-closed market-data policy, enable provider calls, or claim live data until the written rights and credentials are approved and the adapter is independently validated.
+4. After approval, use the canonical NSE/BSE equity universe and durable exchange/security identity, backfill in controlled batches, verify source/time/currency/period/units/revision and coverage per security, and only then scale the analysis pipeline across the full universe.
+
+### Repository integration snapshot — 27 November 2026
+
+- Main remains at e645b204c6b4fdaaf31a315a013792af194987f1.
+- PR #107 (market-data access guard) remains OPEN/DRAFT/UNMERGED. Its guarded branch returns an explicit 503 NOT_CONFIGURED response before making provider requests; the old Yahoo request helper still exists behind that early return and must not be re-enabled.
+- The latest app preview is PR #144 at 9c4b2ba1c73b3ecadfcd53ff04b2b02b6309bcf1 and is READY. The preview stack descends from the PR #107 guard branch. Vercel SSO protection remains enabled for previews, so no interactive browser/console/network validation is claimed.
+- Production remains READY on dpl_EksEaW3PcAVcj9vT8oFttjjTn1Hh at d5bb143b2c9dfb95b43f6132b4daf85fbe2053a9. Source inspection of that production SHA shows legacy Yahoo Finance fetch code in api/data.js and no market-data access gate in server.js. This is a source-code finding, not a live HTTP/browser test. Do not deploy, promote, or change production; any production safety change still requires the separately authorized PR/merge/release process.
+- No provider API request, account, key, trial, subscription, agreement, purchase, data ingestion, main-branch write, PR merge, or production action was performed in this re-verification.
+
+This remains an engineering source-readiness record, not legal advice. Obtain qualified legal/compliance review of the actual agreements and applicable SEBI/exchange requirements before onboarding any source.
