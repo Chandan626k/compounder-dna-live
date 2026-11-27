@@ -9,6 +9,7 @@ on:
       - 'lib/market-data-access-policy.js'
       - 'server.js'
       - 'tests/actionability.unit.mjs'
+      - 'tests/market-engine.unit.mjs'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/market-data-access-guard-validation.yml'
@@ -17,7 +18,7 @@ permissions:
   contents: read
 
 jobs:
-  validate:
+  tests:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout exact pushed commit
@@ -31,7 +32,23 @@ jobs:
           cache: npm
       - name: Install locked dependencies
         run: npm ci
-      - name: Run full test and syntax suite
+      - name: Focused market-data access guard regressions
+        run: node tests/actionability.unit.mjs
+      - name: Full test and syntax suite
         run: npm test
+  dependency-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact pushed commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
       - name: Audit dependencies
         run: npm audit --audit-level=low
